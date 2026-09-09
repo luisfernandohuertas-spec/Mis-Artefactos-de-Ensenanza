@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Simulador de movimiento circular uniforme</title>
+<style>
+  :root{
+    --bg: #0c1a2b;
+    --panel: #12233a;
+    --panel-border: rgba(231,237,243,0.10);
+    --ink: #e7edf3;
+    --ink-dim: rgba(231,237,243,0.58);
+    --ink-faint: rgba(231,237,243,0.30);
+    --amber: #e3a857;
+    --amber-dim: rgba(227,168,87,0.16);
+    --teal: #5fa8a0;
+    --teal-dim: rgba(95,168,160,0.16);
+    --grid-strong: rgba(231,237,243,0.10);
+    --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
+    --font-label: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  *{ box-sizing: border-box; }
+  body{
+    margin:0; min-height:100vh;
+    background:
+      radial-gradient(ellipse at 20% -10%, rgba(95,168,160,0.10), transparent 55%),
+      radial-gradient(ellipse at 100% 110%, rgba(227,168,87,0.08), transparent 50%),
+      var(--bg);
+    color: var(--ink);
+    font-family: var(--font-label);
+    padding: 40px 20px 60px;
+  }
+  .page{ max-width: 1000px; margin: 0 auto; }
+  .masthead{ margin-bottom: 26px; }
+  .eyebrow{
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em;
+    color: var(--teal); text-transform: uppercase; margin: 0 0 10px;
+  }
+  h1{ font-size: clamp(22px,3.6vw,30px); font-weight:650; letter-spacing:-0.01em; margin:0 0 8px; }
+  .sub{ margin:0; font-size:14px; color: var(--ink-dim); max-width: 560px; }
+
+  .layout{ display:grid; grid-template-columns: minmax(0,440px) 1fr; gap:22px; align-items:start; }
+  @media (max-width: 780px){ .layout{ grid-template-columns: 1fr; } }
+
+  .instrument{ background: var(--panel); border:1px solid var(--panel-border); border-radius:14px; padding:18px 18px 14px; }
+  #canvas{ width:100%; height:auto; display:block; border-radius:8px; }
+  .fig-caption{ margin:12px 2px 0; font-family: var(--font-mono); font-size:10px; letter-spacing:0.14em; color: var(--ink-faint); text-transform:uppercase; }
+
+  .transport{ display:flex; gap:8px; margin-top:14px; flex-wrap: wrap; }
+  .btn{
+    font-family: var(--font-mono); font-size:12px; letter-spacing:0.06em;
+    padding:8px 14px; border-radius:8px; cursor:pointer;
+    background: transparent; display:flex; align-items:center; gap:6px;
+  }
+  .btn-primary{ border:1px solid rgba(227,168,87,0.5); color: var(--amber); }
+  .btn-primary:hover{ background: var(--amber-dim); }
+  .btn-secondary{ border:1px solid var(--panel-border); color: var(--ink-dim); }
+  .btn-secondary:hover{ background: rgba(255,255,255,0.05); }
+  .lap-badge{
+    margin-left:auto; font-family: var(--font-mono); font-size:11px;
+    color: var(--ink-dim); align-self:center; text-align:right;
+  }
+
+  .controls{ background: var(--panel); border:1px solid var(--panel-border); border-radius:14px; padding:20px 20px 22px; display:flex; flex-direction:column; gap:18px; }
+  .field-head{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; }
+  .field-head label{ font-family: var(--font-mono); font-size:11px; letter-spacing:0.1em; color: var(--ink-dim); }
+  .num-input{
+    width:84px; background: rgba(255,255,255,0.04); border:1px solid var(--panel-border);
+    border-radius:6px; color: var(--ink); font-family: var(--font-mono); font-size:14px;
+    text-align:right; padding:4px 8px;
+  }
+  .num-input:focus{ outline:2px solid var(--amber); outline-offset:1px; }
+
+  input[type="range"]{ -webkit-appearance:none; width:100%; height:26px; background:transparent; }
+  input[type="range"]::-webkit-slider-runnable-track{ height:3px; background: var(--grid-strong); border-radius:2px; }
+  input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance:none; margin-top:-8px; width:19px; height:19px; border-radius:50%;
+    background: var(--amber); border:3px solid #1a2f4a; box-shadow:0 0 0 1px rgba(227,168,87,0.4); cursor:pointer;
+  }
+  input[type="range"]::-moz-range-track{ height:3px; background: var(--grid-strong); border-radius:2px; }
+  input[type="range"]::-moz-range-thumb{ width:13px; height:13px; border-radius:50%; background: var(--amber); border:3px solid #1a2f4a; cursor:pointer; }
+  input[type="range"]:focus-visible::-webkit-slider-thumb{ outline:2px solid var(--ink); outline-offset:2px; }
+
+  .readout{ border-top:1px solid var(--panel-border); padding-top:16px; display:flex; flex-direction:column; gap:8px; }
+  .readout-row{ display:flex; justify-content:space-between; align-items:baseline; }
+  .readout-label{ font-family: var(--font-mono); font-size:10.5px; letter-spacing:0.1em; color: var(--ink-faint); }
+  .readout-value{ font-family: var(--font-mono); font-size:15px; color: var(--ink); }
+  .sub-row{ margin-top:-4px; }
+  .readout-label-sm{ font-family: var(--font-mono); font-size:9.5px; letter-spacing:0.1em; color: var(--ink-faint); }
+  .readout-value-sm{ font-family: var(--font-mono); font-size:12px; color: var(--teal); }
+
+  .divider{ height:1px; background: var(--panel-border); margin:4px 0; }
+
+  .formula-block{ display:flex; flex-direction:column; gap:4px; }
+  .formula-line{ margin:0; font-family: var(--font-mono); font-size:13px; color: var(--ink-dim); }
+  .formula-line.dim{ color: var(--ink-faint); font-size:12px; }
+
+  .answers{ display:flex; gap:10px; margin-top:6px; flex-wrap:wrap; }
+  .answer{ flex:1 1 150px; border-radius:10px; padding:12px 14px; display:flex; flex-direction:column; gap:4px; }
+  .answer.amber{ background: var(--amber-dim); border:1px solid rgba(227,168,87,0.35); }
+  .answer.teal{ background: var(--teal-dim); border:1px solid rgba(95,168,160,0.35); }
+  .answer-label{ font-family: var(--font-mono); font-size:10px; letter-spacing:0.1em; }
+  .answer.amber .answer-label{ color: rgba(227,168,87,0.85); }
+  .answer.teal .answer-label{ color: rgba(95,168,160,0.9); }
+  .answer-value{ font-family: var(--font-mono); font-size:19px; font-weight:600; }
+  .answer.amber .answer-value{ color: var(--amber); }
+  .answer.teal .answer-value{ color: var(--teal); }
+</style>
+</head>
+<body>
+  <div class="page">
+    <header class="masthead">
+      <p class="eyebrow">Cinemática · Movimiento circular uniforme</p>
+      <h1>Simulador de movimiento circular uniforme (MCU)</h1>
+      <p class="sub">Ingresa el radio y la velocidad lineal: el simulador calcula la velocidad angular y el arco recorrido en el intervalo de tiempo indicado.</p>
+    </header>
+
+    <main class="layout">
+      <section class="instrument">
+        <canvas id="canvas" width="420" height="420" role="img" aria-label="Trayectoria circular con la partícula, el vector de velocidad y el arco recorrido"></canvas>
+        <p class="fig-caption">Fig. 2 — Trayectoria circular</p>
+        <div class="transport">
+          <button id="playBtn" class="btn btn-primary">▶ Reproducir</button>
+          <button id="resetBtn" class="btn btn-secondary">↺ Reiniciar</button>
+          <span class="lap-badge" id="lapBadge"></span>
+        </div>
+      </section>
+
+      <section class="controls">
+        <div class="field">
+          <div class="field-head">
+            <label for="radiusRange">Radio (r)</label>
+            <input id="radiusNumber" type="number" min="0.1" max="50" step="0.1" value="5" class="num-input" aria-label="Valor del radio" />
+          </div>
+          <input id="radiusRange" type="range" min="0.5" max="20" step="0.1" value="5" aria-label="Deslizador del radio" />
+        </div>
+
+        <div class="field">
+          <div class="field-head">
+            <label for="speedRange">Velocidad lineal (v)</label>
+            <input id="speedNumber" type="number" min="0" max="50" step="0.1" value="4" class="num-input" aria-label="Valor de la velocidad lineal" />
+          </div>
+          <input id="speedRange" type="range" min="0" max="20" step="0.1" value="4" aria-label="Deslizador de la velocidad lineal" />
+        </div>
+
+        <div class="field">
+          <div class="field-head">
+            <label for="timeRange">Intervalo de tiempo (Δt)</label>
+            <input id="timeNumber" type="number" min="0" max="60" step="0.1" value="3" class="num-input" aria-label="Valor del intervalo de tiempo" />
+          </div>
+          <input id="timeRange" type="range" min="0" max="20" step="0.1" value="3" aria-label="Deslizador del intervalo de tiempo" />
+        </div>
+
+        <div class="readout" aria-live="polite">
+          <div class="readout-row">
+            <span class="readout-label">Velocidad angular (ω)</span>
+            <span class="readout-value" id="outOmega">0.8000 rad/s</span>
+          </div>
+          <div class="readout-row sub-row">
+            <span class="readout-label-sm">Equivalentes</span>
+            <span class="readout-value-sm" id="outOmegaEq">45.84°/s · 7.639 rpm</span>
+          </div>
+          <div class="readout-row">
+            <span class="readout-label">Período (T = 2π/ω)</span>
+            <span class="readout-value" id="outPeriod">7.85 s</span>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="readout-row">
+            <span class="readout-label">Ángulo recorrido (θ = ω·t)</span>
+            <span class="readout-value" id="outTheta">137.51°</span>
+          </div>
+          <div class="readout-row sub-row">
+            <span class="readout-label-sm">En radianes</span>
+            <span class="readout-value-sm" id="outThetaRad">2.4000 rad</span>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="formula-block">
+            <p class="formula-line">ω = v / r</p>
+            <p class="formula-line dim" id="outOmegaSub">ω = 4.00 / 5.00</p>
+            <p class="formula-line">s = v · t</p>
+            <p class="formula-line dim" id="outArcSub">s = 4.00 × 3.00</p>
+          </div>
+
+          <div class="answers">
+            <div class="answer teal">
+              <span class="answer-label">VELOCIDAD ANGULAR</span>
+              <span class="answer-value" id="ansOmega">0.8000 rad/s</span>
+            </div>
+            <div class="answer amber">
+              <span class="answer-label">ARCO RECORRIDO</span>
+              <span class="answer-value" id="ansArc">s ≈ 12.0000</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+<script>
+(function(){
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const SIZE = 420;
+  const cx = SIZE/2, cy = SIZE/2, R = 150;
+
+  const radiusRange = document.getElementById('radiusRange');
+  const radiusNumber = document.getElementById('radiusNumber');
+  const speedRange = document.getElementById('speedRange');
+  const speedNumber = document.getElementById('speedNumber');
+  const timeRange = document.getElementById('timeRange');
+  const timeNumber = document.getElementById('timeNumber');
+
+  const outOmega = document.getElementById('outOmega');
+  const outOmegaEq = document.getElementById('outOmegaEq');
+  const outPeriod = document.getElementById('outPeriod');
+  const outTheta = document.getElementById('outTheta');
+  const outThetaRad = document.getElementById('outThetaRad');
+  const outOmegaSub = document.getElementById('outOmegaSub');
+  const outArcSub = document.getElementById('outArcSub');
+  const ansOmega = document.getElementById('ansOmega');
+  const ansArc = document.getElementById('ansArc');
+  const lapBadge = document.getElementById('lapBadge');
+  const playBtn = document.getElementById('playBtn');
+  const resetBtn = document.getElementById('resetBtn');
+
+  let state = { r: 5, v: 4, t: 3 };
+  let anim = { playing:false, progress:0, startTs:0, duration:2, raf:null };
+
+  function setupCanvas(){
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = SIZE * dpr; canvas.height = SIZE * dpr;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+
+  function toXY(angleRad, radius){
+    return { x: cx + radius*Math.cos(angleRad), y: cy - radius*Math.sin(angleRad) };
+  }
+
+  function compute(){
+    const r = Math.max(state.r, 0.0001);
+    const v = state.v;
+    const t = state.t;
+    const omega = v / r;
+    const period = omega > 0 ? (2*Math.PI/omega) : Infinity;
+    const thetaTotal = omega * t;
+    const fullLaps = Math.floor(thetaTotal / (2*Math.PI));
+    const remainder = thetaTotal - fullLaps*2*Math.PI;
+    const arcLength = v * t;
+    return { r, v, t, omega, period, thetaTotal, fullLaps, remainder, arcLength };
+  }
+
+  function fmt(n, d){ return isFinite(n) ? n.toFixed(d) : '∞'; }
+
+  function updateReadout(c){
+    outOmega.textContent = fmt(c.omega,4) + ' rad/s';
+    outOmegaEq.textContent = fmt(c.omega*180/Math.PI,2) + '°/s · ' + fmt(c.omega*60/(2*Math.PI),3) + ' rpm';
+    outPeriod.textContent = fmt(c.period,2) + ' s';
+
+    const remDeg = c.remainder * 180/Math.PI;
+    outTheta.textContent = fmt(remDeg,2) + '°';
+    outThetaRad.textContent = fmt(c.thetaTotal,4) + ' rad';
+
+    outOmegaSub.textContent = 'ω = ' + fmt(c.v,2) + ' / ' + fmt(c.r,2);
+    outArcSub.textContent = 's = ' + fmt(c.v,2) + ' × ' + fmt(c.t,2);
+
+    ansOmega.textContent = fmt(c.omega,4) + ' rad/s';
+    ansArc.textContent = 's ≈ ' + fmt(c.arcLength,4);
+
+    if(c.fullLaps >= 1){
+      lapBadge.textContent = c.fullLaps + (c.fullLaps===1 ? ' vuelta completa + ' : ' vueltas completas + ') + fmt(remDeg,2) + '°';
+    } else {
+      lapBadge.textContent = '';
+    }
+  }
+
+  function drawStatic(sweepAngle, showLapRing){
+    ctx.clearRect(0,0,SIZE,SIZE);
+
+    // blueprint grid
+    ctx.strokeStyle = 'rgba(231,237,243,0.05)';
+    ctx.lineWidth = 1;
+    for(let x=10; x<SIZE; x+=20){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,SIZE); ctx.stroke(); }
+    for(let y=10; y<SIZE; y+=20){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(SIZE,y); ctx.stroke(); }
+
+    // main circle (orbit path)
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, 0, Math.PI*2);
+    ctx.strokeStyle = 'rgba(231,237,243,0.30)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // 0 rad reference
+    const p0 = toXY(0, R);
+    ctx.save();
+    ctx.setLineDash([4,4]);
+    ctx.strokeStyle = 'rgba(231,237,243,0.22)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(p0.x,p0.y); ctx.stroke();
+    ctx.restore();
+    ctx.beginPath(); ctx.arc(p0.x,p0.y,4,0,Math.PI*2); ctx.fillStyle='rgba(231,237,243,0.45)'; ctx.fill();
+
+    // full-lap ghost ring
+    if(showLapRing){
+      ctx.beginPath();
+      ctx.arc(cx, cy, R, 0, Math.PI*2);
+      ctx.strokeStyle = 'rgba(227,168,87,0.32)';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
+
+    // current sweep radius (teal dashed)
+    const pT = toXY(sweepAngle, R);
+    ctx.save();
+    ctx.setLineDash([5,4]);
+    ctx.strokeStyle = '#5fa8a0';
+    ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(pT.x,pT.y); ctx.stroke();
+    ctx.restore();
+
+    // bright partial arc (0 -> sweepAngle)
+    if(Math.abs(sweepAngle) > 0.0005){
+      ctx.beginPath();
+      ctx.arc(cx, cy, R, 0, -sweepAngle, true);
+      ctx.strokeStyle = '#e3a857';
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+    }
+
+    // center dot
+    ctx.beginPath(); ctx.arc(cx,cy,3,0,Math.PI*2); ctx.fillStyle = '#e7edf3'; ctx.fill();
+
+    // r label
+    const rLbl = toXY(sweepAngle, R*0.5);
+    const deg = sweepAngle*180/Math.PI;
+    ctx.font = '12px ui-monospace, monospace';
+    ctx.fillStyle = '#5fa8a0';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('r', rLbl.x + (deg>90 && deg<270 ? -10:10), rLbl.y - 8);
+
+    // tangent velocity vector at particle
+    const tangent = { x: -Math.sin(sweepAngle), y: -Math.cos(sweepAngle) };
+    const vLen = 38;
+    const vEnd = { x: pT.x + tangent.x*vLen, y: pT.y + tangent.y*vLen };
+    ctx.save();
+    ctx.strokeStyle = '#e3a857';
+    ctx.fillStyle = '#e3a857';
+    ctx.lineWidth = 2.2;
+    ctx.beginPath(); ctx.moveTo(pT.x,pT.y); ctx.lineTo(vEnd.x,vEnd.y); ctx.stroke();
+    const ang = Math.atan2(vEnd.y-pT.y, vEnd.x-pT.x);
+    ctx.beginPath();
+    ctx.moveTo(vEnd.x, vEnd.y);
+    ctx.lineTo(vEnd.x - 8*Math.cos(ang-0.4), vEnd.y - 8*Math.sin(ang-0.4));
+    ctx.lineTo(vEnd.x - 8*Math.cos(ang+0.4), vEnd.y - 8*Math.sin(ang+0.4));
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+    ctx.font = '11px ui-monospace, monospace';
+    ctx.fillStyle = 'rgba(227,168,87,0.85)';
+    ctx.fillText('v', vEnd.x + tangent.x*12, vEnd.y + tangent.y*12);
+
+    // particle marker
+    ctx.beginPath();
+    ctx.arc(pT.x, pT.y, 7, 0, Math.PI*2);
+    ctx.fillStyle = '#e3a857';
+    ctx.fill();
+    ctx.lineWidth = 2.5; ctx.strokeStyle = '#0c1a2b'; ctx.stroke();
+  }
+
+  function renderStaticFinal(){
+    const c = compute();
+    drawStatic(c.remainder, c.fullLaps >= 1);
+    updateReadout(c);
+  }
+
+  function clamp(v,min,max){ return Math.min(max, Math.max(min,v)); }
+
+  function setRadius(v){
+    v = clamp(parseFloat(v)||0.1, 0.1, 50);
+    state.r = v; radiusNumber.value = v; radiusRange.value = clamp(v,0.5,20);
+    if(!anim.playing) renderStaticFinal();
+  }
+  function setSpeed(v){
+    v = clamp(parseFloat(v)||0, 0, 50);
+    state.v = v; speedNumber.value = v; speedRange.value = clamp(v,0,20);
+    if(!anim.playing) renderStaticFinal();
+  }
+  function setTime(v){
+    v = clamp(parseFloat(v)||0, 0, 60);
+    state.t = v; timeNumber.value = v; timeRange.value = clamp(v,0,20);
+    if(!anim.playing) renderStaticFinal();
+  }
+
+  radiusRange.addEventListener('input', e => setRadius(e.target.value));
+  radiusNumber.addEventListener('input', e => setRadius(e.target.value));
+  speedRange.addEventListener('input', e => setSpeed(e.target.value));
+  speedNumber.addEventListener('input', e => setSpeed(e.target.value));
+  timeRange.addEventListener('input', e => setTime(e.target.value));
+  timeNumber.addEventListener('input', e => setTime(e.target.value));
+
+  function stopAnim(){
+    anim.playing = false;
+    if(anim.raf) cancelAnimationFrame(anim.raf);
+    playBtn.textContent = '▶ Reproducir';
+  }
+
+  function animFrame(ts){
+    if(!anim.playing) return;
+    if(!anim.startTs) anim.startTs = ts - anim.progress*anim.duration*1000;
+    const elapsed = (ts - anim.startTs)/1000;
+    let p = elapsed / anim.duration;
+    if(p >= 1){
+      p = 1;
+      anim.progress = 1;
+      const c = compute();
+      drawStatic(c.remainder, c.fullLaps >= 1);
+      updateReadout(c);
+      stopAnim();
+      return;
+    }
+    anim.progress = p;
+    const c = compute();
+    const currentTotal = p * c.thetaTotal;
+    const currentLap = Math.floor(currentTotal / (2*Math.PI));
+    const currentPartial = currentTotal - currentLap*2*Math.PI;
+    drawStatic(currentPartial, currentLap >= 1);
+    outTheta.textContent = (currentPartial*180/Math.PI).toFixed(2) + '°';
+    outThetaRad.textContent = currentTotal.toFixed(4) + ' rad';
+    ansArc.textContent = 's ≈ ' + (c.v*(p*c.t)).toFixed(4);
+    if(currentLap >= 1){
+      lapBadge.textContent = currentLap + (currentLap===1 ? ' vuelta completa (en curso)' : ' vueltas completas (en curso)');
+    } else {
+      lapBadge.textContent = '';
+    }
+    anim.raf = requestAnimationFrame(animFrame);
+  }
+
+  playBtn.addEventListener('click', () => {
+    if(anim.playing){
+      stopAnim();
+      anim.startTs = 0;
+      return;
+    }
+    const c = compute();
+    const laps = c.fullLaps;
+    anim.duration = clamp(1.6 + Math.min(laps,6)*0.6, 1.6, 6);
+    if(anim.progress >= 1 || anim.progress === undefined) anim.progress = 0;
+    anim.startTs = 0;
+    anim.playing = true;
+    playBtn.textContent = '⏸ Pausar';
+    anim.raf = requestAnimationFrame(animFrame);
+  });
+
+  resetBtn.addEventListener('click', () => {
+    stopAnim();
+    anim.progress = 0;
+    anim.startTs = 0;
+    renderStaticFinal();
+  });
+
+  setupCanvas();
+  renderStaticFinal();
+  window.addEventListener('resize', () => { setupCanvas(); if(!anim.playing) renderStaticFinal(); });
+})();
+</script>
+</body>
+</html>

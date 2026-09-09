@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Curva paramétrica 3D — posición, velocidad y aceleración</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #161a24;
+    --panel: #1b2130;
+    --panel-2: #212838;
+    --border: #2b3243;
+    --text: #e7e9ee;
+    --text-dim: #8b93a7;
+    --accent: #d4a24e;
+    --accent-dim: #8a6c38;
+    --curve: #5ec8d8;
+    --pos: #7c9cf2;
+    --vel: #6bcf7f;
+    --acc: #f2785c;
+    --danger: #e0685f;
+  }
+  *{ box-sizing: border-box; }
+  html,body{ height:100%; }
+  body{
+    margin:0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Grotesk', sans-serif;
+    overflow: hidden;
+  }
+  #app{
+    display:flex;
+    flex-direction: column;
+    height:100vh;
+    width:100vw;
+  }
+  header{
+    padding: 14px 20px 12px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink:0;
+  }
+  header h1{
+    font-size: 17px;
+    font-weight: 600;
+    margin: 0 0 2px;
+    letter-spacing: 0.2px;
+  }
+  header p{
+    margin:0;
+    font-size: 12.5px;
+    color: var(--text-dim);
+  }
+  #main{
+    flex: 1;
+    display:flex;
+    min-height:0;
+  }
+  #controls{
+    width: 320px;
+    flex-shrink:0;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 16px;
+    display:flex;
+    flex-direction:column;
+    gap: 16px;
+  }
+  #viewport{
+    flex:1;
+    position: relative;
+    min-width:0;
+  }
+  #canvas-holder{
+    position:absolute;
+    inset:0;
+  }
+  canvas{ display:block; width:100%; height:100%; touch-action:none; cursor: grab; }
+  canvas:active{ cursor: grabbing; }
+
+  .section{
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--panel-2);
+    padding: 12px 12px 14px;
+  }
+  .section-title{
+    font-size: 12px;
+    color: var(--text-dim);
+    margin: 0 0 10px;
+    font-weight: 500;
+  }
+  label.field{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    margin-bottom: 9px;
+    font-size: 12.5px;
+    color: var(--text-dim);
+  }
+  label.field:last-child{ margin-bottom:0; }
+  .row2{ display:flex; gap:8px; }
+  .row2 > label.field{ flex:1; }
+  input[type=text], input[type=number], select{
+    background: #12151e;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 7px 8px;
+    border-radius: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    width:100%;
+  }
+  input[type=text]:focus, input[type=number]:focus, select:focus{
+    outline: 2px solid var(--accent-dim);
+    outline-offset: 1px;
+    border-color: var(--accent-dim);
+  }
+  select{ font-family:'Space Grotesk', sans-serif; }
+  .hint{
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height:1.5;
+    margin-top: 2px;
+  }
+  .hint code{ color: #a9b3c9; }
+
+  button{
+    font-family:'Space Grotesk', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    padding: 8px 10px;
+    cursor:pointer;
+    transition: border-color .15s ease;
+  }
+  button:hover{ border-color: var(--accent-dim); }
+  button:focus-visible{ outline: 2px solid var(--accent); outline-offset:1px; }
+  button.primary{
+    background: var(--accent);
+    color: #1a1305;
+    border-color: var(--accent);
+    width:100%;
+  }
+  button.primary:hover{ background:#e2ae59; }
+  #error-box{
+    display:none;
+    font-size: 12px;
+    color: var(--danger);
+    background: rgba(224,104,95,0.1);
+    border: 1px solid rgba(224,104,95,0.35);
+    border-radius:4px;
+    padding: 7px 9px;
+    line-height:1.4;
+  }
+
+  .playbar{ display:flex; align-items:center; gap:10px; }
+  #playBtn{
+    width:36px; height:36px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    border-radius: 50%;
+    padding:0;
+  }
+  #tSlider{ flex:1; accent-color: var(--accent); }
+  .t-readout{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    color: var(--text-dim);
+    display:flex;
+    justify-content:space-between;
+    margin-top:4px;
+  }
+
+  .slider-row{ display:flex; align-items:center; gap:8px; margin-bottom:9px; }
+  .slider-row:last-child{ margin-bottom:0; }
+  .slider-row label{ font-size:12.5px; color:var(--text-dim); width:88px; flex-shrink:0; }
+  .slider-row input[type=range]{ flex:1; }
+  .slider-row .val{ width:40px; text-align:right; font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:var(--text-dim); }
+
+  .toggle-row{ display:flex; align-items:center; gap:8px; margin-bottom:8px; font-size:12.5px; cursor:pointer; }
+  .toggle-row:last-child{ margin-bottom:0; }
+  .toggle-row input{ accent-color: var(--accent); width:15px; height:15px; }
+  .swatch{ width:11px; height:11px; border-radius:2px; display:inline-block; flex-shrink:0; }
+
+  select#presetSelect{ margin-bottom: 10px; }
+
+  #overlay{
+    position:absolute;
+    left:14px;
+    bottom:14px;
+    background: rgba(19,23,32,0.88);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 11px 14px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 12px;
+    line-height: 1.65;
+    color: var(--text);
+    pointer-events:none;
+    min-width: 220px;
+  }
+  #overlay .oline{ display:flex; justify-content:space-between; gap:14px; white-space:nowrap; }
+  #overlay .olabel{ color: var(--text-dim); }
+  #overlay .ovel{ color: var(--vel); }
+  #overlay .oacc{ color: var(--acc); }
+  #overlay hr{ border:none; border-top:1px solid var(--border); margin:6px 0; }
+
+  #legend{
+    position:absolute;
+    right:14px;
+    top:14px;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    font-size:11.5px;
+    color: var(--text-dim);
+    background: rgba(19,23,32,0.7);
+    border: 1px solid var(--border);
+    border-radius:6px;
+    padding: 9px 12px;
+    pointer-events:none;
+  }
+  #legend .lrow{ display:flex; align-items:center; gap:7px; }
+
+  #resetViewBtn{
+    position:absolute;
+    right:14px;
+    bottom:14px;
+    font-size: 11.5px;
+    padding: 6px 10px;
+  }
+
+  @media (max-width: 820px){
+    #main{ flex-direction:column; }
+    #controls{
+      width:100%;
+      max-height: 46vh;
+      border-right:none;
+      border-bottom: 1px solid var(--border);
+    }
+    #legend{ display:none; }
+    #overlay{ font-size: 11px; padding: 8px 10px; min-width:190px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Curva paramétrica 3D</h1>
+    <p>Posición r(t), velocidad r'(t) y aceleración r''(t) de una trayectoria en el espacio.</p>
+  </header>
+
+  <div id="main">
+    <div id="controls">
+
+      <div class="section">
+        <p class="section-title">Ejemplo</p>
+        <select id="presetSelect"></select>
+      </div>
+
+      <div class="section">
+        <p class="section-title">Función paramétrica</p>
+        <label class="field">x(t)
+          <input type="text" id="xInput" value="cos(t)">
+        </label>
+        <label class="field">y(t)
+          <input type="text" id="yInput" value="sin(t)">
+        </label>
+        <label class="field">z(t)
+          <input type="text" id="zInput" value="t/3">
+        </label>
+        <div class="row2">
+          <label class="field">t mínimo
+            <input type="text" id="tMinInput" value="0">
+          </label>
+          <label class="field">t máximo
+            <input type="text" id="tMaxInput" value="4*pi">
+          </label>
+        </div>
+        <p class="hint">Variable: <code>t</code>. Operadores <code>+ - * / ^</code>. Funciones: <code>sin cos tan asin acos atan atan2 sinh cosh tanh exp log ln sqrt abs pow min max</code>. Constantes: <code>pi</code>, <code>e</code>.</p>
+        <div id="error-box"></div>
+        <div style="margin-top:10px;">
+          <button class="primary" id="plotBtn">Graficar</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <p class="section-title">Animación</p>
+        <div class="playbar">
+          <button id="playBtn" aria-label="Reproducir">▶</button>
+          <input type="range" id="tSlider" min="0" max="1" step="0.0005" value="0">
+        </div>
+        <div class="t-readout"><span id="tMinLbl">0</span><span id="tNowLbl">t = 0</span><span id="tMaxLbl">1</span></div>
+        <div class="row2" style="margin-top:12px;">
+          <label class="field" style="flex:2;">Ir a un valor de t
+            <input type="text" id="tGoto" placeholder="ej. 1.57 o pi/2">
+          </label>
+          <div style="display:flex; align-items:flex-end;">
+            <button id="tGotoBtn">Ir</button>
+          </div>
+        </div>
+        <div style="margin-top:12px;">
+          <div class="slider-row">
+            <label for="speedSlider">Velocidad</label>
+            <input type="range" id="speedSlider" min="0.1" max="4" step="0.05" value="1">
+            <span class="val" id="speedVal">1.0×</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <p class="section-title">Vectores</p>
+        <label class="toggle-row">
+          <input type="checkbox" id="showPos" checked>
+          <span class="swatch" style="background:var(--pos)"></span> Vector posición (desde el origen)
+        </label>
+        <hr style="border:none;border-top:1px solid var(--border);margin:10px 0;">
+        <label class="toggle-row">
+          <input type="checkbox" id="showVel" checked>
+          <span class="swatch" style="background:var(--vel)"></span> Vector velocidad
+        </label>
+        <div class="slider-row" style="margin-top:6px;">
+          <label for="velScaleSlider">Escala v</label>
+          <input type="range" id="velScaleSlider" min="0.2" max="3" step="0.05" value="1">
+          <span class="val" id="velScaleVal">1.0×</span>
+        </div>
+        <hr style="border:none;border-top:1px solid var(--border);margin:10px 0;">
+        <label class="toggle-row">
+          <input type="checkbox" id="showAcc" checked>
+          <span class="swatch" style="background:var(--acc)"></span> Vector aceleración
+        </label>
+        <div class="slider-row" style="margin-top:6px;">
+          <label for="accScaleSlider">Escala a</label>
+          <input type="range" id="accScaleSlider" min="0.2" max="3" step="0.05" value="1">
+          <span class="val" id="accScaleVal">1.0×</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <p class="section-title">Escena</p>
+        <label class="toggle-row">
+          <input type="checkbox" id="showGrid" checked> Cuadrícula de referencia
+        </label>
+        <label class="toggle-row">
+          <input type="checkbox" id="showAxes" checked> Ejes X, Y, Z
+        </label>
+      </div>
+
+    </div>
+
+    <div id="viewport">
+      <div id="canvas-holder"><canvas id="canvas"></canvas></div>
+      <div id="legend">
+        <div class="lrow"><span class="swatch" style="background:linear-gradient(90deg, var(--curve), var(--accent))"></span> Trayectoria r(t)</div>
+        <div class="lrow"><span class="swatch" style="background:var(--pos)"></span> Posición r(t)</div>
+        <div class="lrow"><span class="swatch" style="background:var(--vel)"></span> Velocidad r'(t)</div>
+        <div class="lrow"><span class="swatch" style="background:var(--acc)"></span> Aceleración r''(t)</div>
+      </div>
+      <div id="overlay">
+        <div class="oline"><span class="olabel">t</span><span id="ov-t">0.000</span></div>
+        <div class="oline"><span class="olabel" style="color:var(--pos)">posición</span><span id="ov-pos" style="color:var(--pos)">(0, 0, 0)</span></div>
+        <div class="oline"><span class="olabel" style="color:var(--pos)">|r|</span><span id="ov-posmag" style="color:var(--pos)">0.000</span></div>
+        <hr>
+        <div class="oline"><span class="olabel ovel">velocidad</span><span id="ov-vel" class="ovel">(0, 0, 0)</span></div>
+        <div class="oline"><span class="olabel ovel">rapidez |v|</span><span id="ov-speed" class="ovel">0.000</span></div>
+        <hr>
+        <div class="oline"><span class="olabel oacc">aceleración</span><span id="ov-acc" class="oacc">(0, 0, 0)</span></div>
+        <div class="oline"><span class="olabel oacc">|a|</span><span id="ov-accmag" class="oacc">0.000</span></div>
+      </div>
+      <button id="resetViewBtn">Reiniciar vista</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ---------------------------------------------------------------------- */
+/* 1. Parser de expresiones: compila "sin(t)+2*cos(t)" a una función (t)=>número */
+/* ---------------------------------------------------------------------- */
+
+class ExprParser {
+  constructor(str) { this.str = str.replace(/\s+/g, ''); this.pos = 0; }
+  peek() { return this.str[this.pos]; }
+  next() { return this.str[this.pos++]; }
+  error(msg) { throw new Error(msg); }
+
+  parseExpression() {
+    let node = this.parseTerm();
+    while (this.peek() === '+' || this.peek() === '-') {
+      const op = this.next();
+      const right = this.parseTerm();
+      const left = node;
+      node = op === '+' ? (t) => left(t) + right(t) : (t) => left(t) - right(t);
+    }
+    return node;
+  }
+  parseTerm() {
+    let node = this.parseUnary();
+    while (this.peek() === '*' || this.peek() === '/') {
+      const op = this.next();
+      const right = this.parseUnary();
+      const left = node;
+      node = op === '*' ? (t) => left(t) * right(t) : (t) => left(t) / right(t);
+    }
+    return node;
+  }
+  parseUnary() {
+    if (this.peek() === '-') { this.next(); const n = this.parseUnary(); return (t) => -n(t); }
+    if (this.peek() === '+') { this.next(); return this.parseUnary(); }
+    return this.parsePower();
+  }
+  parsePower() {
+    const base = this.parseAtom();
+    if (this.peek() === '^') {
+      this.next();
+      const exp = this.parseUnary();
+      return (t) => Math.pow(base(t), exp(t));
+    }
+    return base;
+  }
+  parseAtom() {
+    const c = this.peek();
+    if (c === undefined) this.error('expresión incompleta');
+    if (c === '(') {
+      this.next();
+      const node = this.parseExpression();
+      if (this.peek() !== ')') this.error('falta un paréntesis de cierre');
+      this.next();
+      return node;
+    }
+    if (/[0-9.]/.test(c)) {
+      const rest = this.str.slice(this.pos);
+      const m = rest.match(/^\d*\.?\d+(?:[eE][+-]?\d+)?/);
+      if (!m) this.error('número inválido');
+      this.pos += m[0].length;
+      const val = parseFloat(m[0]);
+      return () => val;
+    }
+    if (/[a-zA-Z_]/.test(c)) {
+      const start = this.pos;
+      while (/[a-zA-Z_0-9]/.test(this.peek() || '')) this.pos++;
+      const name = this.str.slice(start, this.pos);
+      if (this.peek() === '(') {
+        this.next();
+        const args = [this.parseExpression()];
+        while (this.peek() === ',') { this.next(); args.push(this.parseExpression()); }
+        if (this.peek() !== ')') this.error('falta un paréntesis de cierre en ' + name + '(...)');
+        this.next();
+        return this.buildFunctionCall(name, args);
+      }
+      return this.buildIdentifier(name);
+    }
+    this.error('símbolo inesperado: "' + c + '"');
+  }
+  buildIdentifier(name) {
+    if (name === 't') return (t) => t;
+    if (name === 'pi') return () => Math.PI;
+    if (name === 'e') return () => Math.E;
+    this.error('no reconozco "' + name + '"');
+  }
+  buildFunctionCall(name, args) {
+    const fns1 = {
+      sin: Math.sin, cos: Math.cos, tan: Math.tan, asin: Math.asin, acos: Math.acos, atan: Math.atan,
+      sinh: Math.sinh, cosh: Math.cosh, tanh: Math.tanh, exp: Math.exp, log: Math.log10, ln: Math.log,
+      sqrt: Math.sqrt, abs: Math.abs, sign: Math.sign, floor: Math.floor, ceil: Math.ceil, round: Math.round
+    };
+    const fns2 = { atan2: Math.atan2, pow: Math.pow, min: Math.min, max: Math.max, mod: (a, b) => a % b };
+    if (fns1[name]) {
+      if (args.length !== 1) this.error(name + '(...) espera 1 argumento');
+      const f = fns1[name], a0 = args[0];
+      return (t) => f(a0(t));
+    }
+    if (fns2[name]) {
+      if (args.length !== 2) this.error(name + '(...) espera 2 argumentos');
+      const f = fns2[name], a0 = args[0], a1 = args[1];
+      return (t) => f(a0(t), a1(t));
+    }
+    this.error('función desconocida: "' + name + '"');
+  }
+}
+function compileExpr(expr) {
+  if (!expr || !expr.trim()) throw new Error('escribe una expresión');
+  const p = new ExprParser(expr);
+  const f = p.parseExpression();
+  if (p.pos < p.str.length) p.error('sobran caracteres: "' + p.str.slice(p.pos) + '"');
+  return f;
+}
+function evalConst(expr) { return compileExpr(expr)(0); }
+
+function deriv(f, t, h) { h = h || 1e-4; return (f(t + h) - f(t - h)) / (2 * h); }
+function deriv2(f, t, h) { h = h || 1e-3; return (f(t + h) - 2 * f(t) + f(t - h)) / (h * h); }
+
+/* ---------------------------------------------------------------------- */
+/* 2. Presets */
+/* ---------------------------------------------------------------------- */
+const PRESETS = [
+  { key:'helice',    name:'Hélice',                x:'cos(t)',              y:'sin(t)',            z:'t/3',            tMin:'0', tMax:'4*pi' },
+  { key:'circular',  name:'Movimiento circular',   x:'3*cos(t)',            y:'3*sin(t)',          z:'0',              tMin:'0', tMax:'2*pi' },
+  { key:'trebol',    name:'Nudo de trébol',        x:'sin(t)+2*sin(2*t)',   y:'cos(t)-2*cos(2*t)', z:'-sin(3*t)',      tMin:'0', tMax:'2*pi' },
+  { key:'lissajous', name:'Curva de Lissajous 3D', x:'2*sin(3*t)',          y:'2*sin(2*t)',        z:'2*cos(5*t)',     tMin:'0', tMax:'2*pi' },
+  { key:'espiral',   name:'Espiral cónica',        x:'(t/5)*cos(t)',        y:'(t/5)*sin(t)',      z:'t/6',            tMin:'0', tMax:'6*pi' },
+  { key:'proyectil', name:'Tiro parabólico',       x:'5*t',                 y:'2*t',               z:'10*t-4.9*t^2',   tMin:'0', tMax:'2.04' },
+];
+
+/* ---------------------------------------------------------------------- */
+/* 3. DOM refs */
+/* ---------------------------------------------------------------------- */
+const $ = (id) => document.getElementById(id);
+const xInput = $('xInput'), yInput = $('yInput'), zInput = $('zInput');
+const tMinInput = $('tMinInput'), tMaxInput = $('tMaxInput');
+const presetSelect = $('presetSelect');
+const plotBtn = $('plotBtn');
+const errorBox = $('error-box');
+const playBtn = $('playBtn');
+const tSlider = $('tSlider');
+const tMinLbl = $('tMinLbl'), tMaxLbl = $('tMaxLbl'), tNowLbl = $('tNowLbl');
+const speedSlider = $('speedSlider'), speedVal = $('speedVal');
+const showPosChk = $('showPos');
+const showVelChk = $('showVel'), showAccChk = $('showAcc');
+const velScaleSlider = $('velScaleSlider'), velScaleVal = $('velScaleVal');
+const accScaleSlider = $('accScaleSlider'), accScaleVal = $('accScaleVal');
+const showGridChk = $('showGrid'), showAxesChk = $('showAxes');
+const resetViewBtn = $('resetViewBtn');
+const tGoto = $('tGoto'), tGotoBtn = $('tGotoBtn');
+const canvas = $('canvas');
+const canvasHolder = $('canvas-holder');
+
+const ovT = $('ov-t'), ovPos = $('ov-pos'), ovPosMag = $('ov-posmag'), ovVel = $('ov-vel'), ovSpeed = $('ov-speed'), ovAcc = $('ov-acc'), ovAccMag = $('ov-accmag');
+
+PRESETS.forEach(p => {
+  const opt = document.createElement('option');
+  opt.value = p.key; opt.textContent = p.name;
+  presetSelect.appendChild(opt);
+});
+
+/* ---------------------------------------------------------------------- */
+/* 4. Three.js scene setup */
+/* ---------------------------------------------------------------------- */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x161a24);
+
+const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 5000);
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.65));
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
+dirLight.position.set(3, 5, 4);
+scene.add(dirLight);
+const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.25);
+dirLight2.position.set(-4, -2, -3);
+scene.add(dirLight2);
+
+// groups
+const curveGroup = new THREE.Group(); scene.add(curveGroup);
+const gridGroup = new THREE.Group(); scene.add(gridGroup);
+const axesGroup = new THREE.Group(); scene.add(axesGroup);
+
+let curveLine = null;
+let marker = null;
+let posArrow = null;
+let velArrow = null;
+let accArrow = null;
+
+function mapToThree(mx, my, mz) {
+  // convención: en la escena, el eje "vertical" es la z matemática
+  return new THREE.Vector3(mx, mz, my);
+}
+
+function hexToRgb01(hex) { return [((hex>>16)&255)/255, ((hex>>8)&255)/255, (hex&255)/255]; }
+function lerp3(a, b, t) { return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t, a[2]+(b[2]-a[2])*t]; }
+const CURVE_START = hexToRgb01(0x5ec8d8);
+const CURVE_END = hexToRgb01(0xd4a24e);
+
+function makeTextSprite(text, colorCss) {
+  const c = document.createElement('canvas');
+  c.width = 128; c.height = 128;
+  const ctx = c.getContext('2d');
+  ctx.font = '700 92px "Space Grotesk", sans-serif';
+  ctx.fillStyle = colorCss;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(text, 64, 68);
+  const tex = new THREE.CanvasTexture(c);
+  tex.minFilter = THREE.LinearFilter;
+  const mat = new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent:true });
+  const sprite = new THREE.Sprite(mat);
+  return sprite;
+}
+
+/* ---------------------------------------------------------------------- */
+/* 5. Estado global de la curva actual */
+/* ---------------------------------------------------------------------- */
+let xf = null, yf = null, zf = null;
+let tMin = 0, tMax = 1;
+let diag = 1;          // diagonal de la caja delimitadora, para escalar todo
+let autoVelScale = 1, autoAccScale = 1;
+let curT = 0;
+let playing = false;
+let phaseStart = 0;    // performance.now() de referencia para la animación
+const BASE_PERIOD = 7; // segundos para recorrer [tMin,tMax] a velocidad 1x
+
+/* Orbit controls (implementación propia, sin dependencias externas) */
+const orbit = { target: new THREE.Vector3(0,0,0), radius: 5, theta: Math.PI/4, phi: 1.0 };
+function updateCameraFromOrbit() {
+  const p = Math.max(0.06, Math.min(Math.PI-0.06, orbit.phi));
+  camera.position.set(
+    orbit.target.x + orbit.radius * Math.sin(p) * Math.cos(orbit.theta),
+    orbit.target.y + orbit.radius * Math.cos(p),
+    orbit.target.z + orbit.radius * Math.sin(p) * Math.sin(orbit.theta)
+  );
+  camera.lookAt(orbit.target);
+}
+
+/* ---------------------------------------------------------------------- */
+/* 6. Construcción de la curva */
+/* ---------------------------------------------------------------------- */
+function showError(msg) {
+  errorBox.textContent = msg;
+  errorBox.style.display = msg ? 'block' : 'none';
+}
+
+function buildCurve() {
+  showError('');
+  let _xf, _yf, _zf, _tMin, _tMax;
+  try {
+    _xf = compileExpr(xInput.value);
+    _yf = compileExpr(yInput.value);
+    _zf = compileExpr(zInput.value);
+    _tMin = evalConst(tMinInput.value);
+    _tMax = evalConst(tMaxInput.value);
+  } catch (e) {
+    showError(e.message);
+    return false;
+  }
+  if (!isFinite(_tMin) || !isFinite(_tMax) || _tMax <= _tMin) {
+    showError('el rango de t no es válido (t máximo debe ser mayor que t mínimo)');
+    return false;
+  }
+
+  const N = 400;
+  const positions = new Float32Array((N+1)*3);
+  const colors = new Float32Array((N+1)*3);
+  let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity,minZ=Infinity,maxZ=-Infinity;
+  let maxVelMag = 0, maxAccMag = 0;
+  let bad = false;
+
+  for (let i=0; i<=N; i++) {
+    const u = i/N;
+    const t = _tMin + u*(_tMax-_tMin);
+    const mx=_xf(t), my=_yf(t), mz=_zf(t);
+    if (!isFinite(mx) || !isFinite(my) || !isFinite(mz)) { bad = true; continue; }
+    const v = mapToThree(mx,my,mz);
+    positions[i*3]=v.x; positions[i*3+1]=v.y; positions[i*3+2]=v.z;
+    const col = lerp3(CURVE_START, CURVE_END, u);
+    colors[i*3]=col[0]; colors[i*3+1]=col[1]; colors[i*3+2]=col[2];
+
+    minX=Math.min(minX,v.x); maxX=Math.max(maxX,v.x);
+    minY=Math.min(minY,v.y); maxY=Math.max(maxY,v.y);
+    minZ=Math.min(minZ,v.z); maxZ=Math.max(maxZ,v.z);
+
+    const vx=deriv(_xf,t), vy=deriv(_yf,t), vz=deriv(_zf,t);
+    const ax=deriv2(_xf,t), ay=deriv2(_yf,t), az=deriv2(_zf,t);
+    const vmag = Math.sqrt(vx*vx+vy*vy+vz*vz);
+    const amag = Math.sqrt(ax*ax+ay*ay+az*az);
+    if (isFinite(vmag)) maxVelMag = Math.max(maxVelMag, vmag);
+    if (isFinite(amag)) maxAccMag = Math.max(maxAccMag, amag);
+  }
+  if (bad) { showError('la función no está definida en todo el intervalo de t (valores no finitos)'); return false; }
+
+  xf=_xf; yf=_yf; zf=_zf; tMin=_tMin; tMax=_tMax;
+
+  // el origen siempre debe quedar dentro del encuadre, ya que el vector de posición parte de ahí
+  minX=Math.min(minX,0); maxX=Math.max(maxX,0);
+  minY=Math.min(minY,0); maxY=Math.max(maxY,0);
+  minZ=Math.min(minZ,0); maxZ=Math.max(maxZ,0);
+
+  diag = Math.sqrt((maxX-minX)**2 + (maxY-minY)**2 + (maxZ-minZ)**2) || 1;
+  const center = new THREE.Vector3((minX+maxX)/2, (minY+maxY)/2, (minZ+maxZ)/2);
+  const originPt = new THREE.Vector3(0,0,0);
+
+  autoVelScale = maxVelMag > 1e-9 ? (diag*0.28)/maxVelMag : 1;
+  autoAccScale = maxAccMag > 1e-9 ? (diag*0.28)/maxAccMag : 1;
+
+  // limpiar objetos previos
+  curveGroup.clear(); gridGroup.clear(); axesGroup.clear();
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  const mat = new THREE.LineBasicMaterial({ vertexColors:true, linewidth:2 });
+  curveLine = new THREE.Line(geo, mat);
+  curveGroup.add(curveLine);
+
+  // marcador del punto actual
+  const markerR = Math.max(diag*0.018, 0.01);
+  marker = new THREE.Mesh(
+    new THREE.SphereGeometry(markerR, 20, 20),
+    new THREE.MeshStandardMaterial({ color:0xd4a24e, emissive:0x4a3210, roughness:0.35 })
+  );
+  curveGroup.add(marker);
+
+  posArrow = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(0,0,0), 1, 0x7c9cf2, markerR*3.2, markerR*1.8);
+  velArrow = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(), 1, 0x6bcf7f, markerR*3.2, markerR*1.8);
+  accArrow = new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(), 1, 0xf2785c, markerR*3.2, markerR*1.8);
+  posArrow.line.material.linewidth = 2;
+  velArrow.line.material.linewidth = 2;
+  accArrow.line.material.linewidth = 2;
+  curveGroup.add(posArrow, velArrow, accArrow);
+
+  // cuadrícula de referencia sobre el plano "horizontal" (z matemática constante = mínimo)
+  const gridSize = Math.max(diag*1.6, 1);
+  const grid = new THREE.GridHelper(gridSize, 16, 0x3a4256, 0x262c3a);
+  grid.position.set(0, minY - Math.max(diag*0.02, 0.02), 0);
+  gridGroup.add(grid);
+
+  // ejes
+  const axisLen = Math.max(diag*0.75, 0.3);
+  const axisColor = 0x5c6478;
+  function axisArrow(dir, label, labelColor) {
+    // el eje parte del origen real (0,0,0), igual que el vector de posición
+    const ah = new THREE.ArrowHelper(dir, originPt, axisLen, axisColor, axisLen*0.08, axisLen*0.045);
+    axesGroup.add(ah);
+    // continuación tenue en la dirección negativa, para dar contexto sin duplicar la punta de flecha
+    const negGeo = new THREE.BufferGeometry().setFromPoints([originPt, originPt.clone().addScaledVector(dir, -axisLen)]);
+    const negLine = new THREE.Line(negGeo, new THREE.LineBasicMaterial({ color: axisColor, transparent:true, opacity:0.35 }));
+    axesGroup.add(negLine);
+    const sprite = makeTextSprite(label, labelColor);
+    const s = Math.max(diag*0.09, 0.05);
+    sprite.scale.set(s,s,s);
+    sprite.position.copy(originPt).add(dir.clone().multiplyScalar(axisLen*1.12));
+    axesGroup.add(sprite);
+  }
+  axisArrow(new THREE.Vector3(1,0,0), 'X', '#c7cede');
+  axisArrow(new THREE.Vector3(0,1,0), 'Z', '#c7cede');
+  axisArrow(new THREE.Vector3(0,0,1), 'Y', '#c7cede');
+
+  gridGroup.visible = showGridChk.checked;
+  axesGroup.visible = showAxesChk.checked;
+
+  // encuadre de cámara
+  orbit.target.copy(center);
+  orbit.radius = Math.max(diag*2.0, 1.5);
+  updateCameraFromOrbit();
+
+  // reset de la animación
+  curT = tMin;
+  tSlider.value = 0;
+  tMinLbl.textContent = fmt(tMin,2);
+  tMaxLbl.textContent = fmt(tMax,2);
+  phaseStart = performance.now();
+  updateDynamic();
+  return true;
+}
+
+/* ---------------------------------------------------------------------- */
+/* 7. Estado dinámico (posición / velocidad / aceleración en curT) */
+/* ---------------------------------------------------------------------- */
+function fmt(n, d) {
+  d = d===undefined?3:d;
+  if (!isFinite(n)) return '—';
+  const v = Math.abs(n) < 1e-9 ? 0 : n;
+  return v.toFixed(d);
+}
+function fmtVec(x,y,z,d){ return '(' + fmt(x,d) + ', ' + fmt(y,d) + ', ' + fmt(z,d) + ')'; }
+
+function updateDynamic() {
+  if (!xf) return;
+  const t = curT;
+  const mx=xf(t), my=yf(t), mz=zf(t);
+  const vx=deriv(xf,t), vy=deriv(yf,t), vz=deriv(zf,t);
+  const ax=deriv2(xf,t), ay=deriv2(yf,t), az=deriv2(zf,t);
+  const speed = Math.sqrt(vx*vx+vy*vy+vz*vz);
+  const accmag = Math.sqrt(ax*ax+ay*ay+az*az);
+
+  const pos3 = mapToThree(mx,my,mz);
+  marker.position.copy(pos3);
+
+  const rMag = pos3.length();
+  posArrow.visible = showPosChk.checked && rMag > 1e-9;
+  if (posArrow.visible) {
+    posArrow.setDirection(pos3.clone().normalize());
+    posArrow.setLength(Math.max(rMag, 1e-4), Math.min(rMag*0.3, diag*0.06), Math.min(rMag*0.18, diag*0.035));
+  }
+  ovPosMag.textContent = fmt(rMag, 3);
+
+  const velScaleMul = parseFloat(velScaleSlider.value);
+  const accScaleMul = parseFloat(accScaleSlider.value);
+
+  velArrow.visible = showVelChk.checked && speed > 1e-9;
+  if (velArrow.visible) {
+    const vDir3 = mapToThree(vx,vy,vz).normalize();
+    const vLen = speed * autoVelScale * velScaleMul;
+    velArrow.position.copy(pos3);
+    velArrow.setDirection(vDir3);
+    velArrow.setLength(Math.max(vLen, 1e-4), Math.min(vLen*0.3, diag*0.06), Math.min(vLen*0.18, diag*0.035));
+  }
+
+  accArrow.visible = showAccChk.checked && accmag > 1e-9;
+  if (accArrow.visible) {
+    const aDir3 = mapToThree(ax,ay,az).normalize();
+    const aLen = accmag * autoAccScale * accScaleMul;
+    accArrow.position.copy(pos3);
+    accArrow.setDirection(aDir3);
+    accArrow.setLength(Math.max(aLen, 1e-4), Math.min(aLen*0.3, diag*0.06), Math.min(aLen*0.18, diag*0.035));
+  }
+
+  ovT.textContent = fmt(t,3);
+  ovPos.textContent = fmtVec(mx,my,mz,3);
+  ovVel.textContent = fmtVec(vx,vy,vz,3);
+  ovSpeed.textContent = fmt(speed,3);
+  ovAcc.textContent = fmtVec(ax,ay,az,3);
+  ovAccMag.textContent = fmt(accmag,3);
+  tNowLbl.textContent = 't = ' + fmt(t,3);
+
+  if (!draggingSlider) {
+    tSlider.value = (t - tMin) / (tMax - tMin);
+  }
+  if (document.activeElement !== tGoto) {
+    tGoto.value = fmt(t, 4);
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+/* 8. Reproducción */
+/* ---------------------------------------------------------------------- */
+function setPlaying(p) {
+  playing = p;
+  playBtn.textContent = playing ? '❚❚' : '▶';
+  playBtn.setAttribute('aria-label', playing ? 'Pausar' : 'Reproducir');
+  if (playing) {
+    const frac = (curT - tMin) / (tMax - tMin);
+    const speedMul = parseFloat(speedSlider.value);
+    const period = BASE_PERIOD / speedMul;
+    phaseStart = performance.now() - frac*period*1000;
+  }
+}
+playBtn.addEventListener('click', () => setPlaying(!playing));
+
+let draggingSlider = false;
+tSlider.addEventListener('pointerdown', () => { draggingSlider = true; setPlaying(false); });
+window.addEventListener('pointerup', () => { draggingSlider = false; });
+tSlider.addEventListener('input', () => {
+  const frac = parseFloat(tSlider.value);
+  curT = tMin + frac*(tMax-tMin);
+  updateDynamic();
+});
+
+speedSlider.addEventListener('input', () => {
+  speedVal.textContent = parseFloat(speedSlider.value).toFixed(1) + '×';
+  if (playing) setPlaying(true); // recalcula phaseStart para que no salte
+});
+velScaleSlider.addEventListener('input', () => { velScaleVal.textContent = parseFloat(velScaleSlider.value).toFixed(1)+'×'; updateDynamic(); });
+accScaleSlider.addEventListener('input', () => { accScaleVal.textContent = parseFloat(accScaleSlider.value).toFixed(1)+'×'; updateDynamic(); });
+showPosChk.addEventListener('change', updateDynamic);
+showVelChk.addEventListener('change', updateDynamic);
+showAccChk.addEventListener('change', updateDynamic);
+
+function gotoT() {
+  if (!xf) return;
+  let val;
+  try { val = evalConst(tGoto.value); } catch (e) { showError('valor de t no válido: ' + e.message); return; }
+  if (!isFinite(val)) { showError('valor de t no válido'); return; }
+  showError('');
+  setPlaying(false);
+  curT = Math.max(tMin, Math.min(tMax, val));
+  updateDynamic();
+}
+tGotoBtn.addEventListener('click', gotoT);
+tGoto.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); gotoT(); } });
+showGridChk.addEventListener('change', () => { gridGroup.visible = showGridChk.checked; });
+showAxesChk.addEventListener('change', () => { axesGroup.visible = showAxesChk.checked; });
+
+/* ---------------------------------------------------------------------- */
+/* 9. Presets y botón graficar */
+/* ---------------------------------------------------------------------- */
+function loadPreset(key) {
+  const p = PRESETS.find(pp => pp.key === key);
+  if (!p) return;
+  xInput.value = p.x; yInput.value = p.y; zInput.value = p.z;
+  tMinInput.value = p.tMin; tMaxInput.value = p.tMax;
+  buildCurve();
+}
+presetSelect.addEventListener('change', () => loadPreset(presetSelect.value));
+plotBtn.addEventListener('click', () => { setPlaying(false); buildCurve(); });
+
+/* ---------------------------------------------------------------------- */
+/* 10. Controles de órbita (arrastrar para rotar, rueda / pellizco para zoom) */
+/* ---------------------------------------------------------------------- */
+let dragging = false, lastX=0, lastY=0;
+canvas.addEventListener('pointerdown', (e) => { dragging = true; lastX=e.clientX; lastY=e.clientY; canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener('pointerup', (e) => { dragging = false; });
+canvas.addEventListener('pointercancel', () => { dragging = false; });
+canvas.addEventListener('pointermove', (e) => {
+  if (!dragging) return;
+  const dx = e.clientX - lastX, dy = e.clientY - lastY;
+  lastX = e.clientX; lastY = e.clientY;
+  orbit.theta -= dx * 0.006;
+  orbit.phi -= dy * 0.006;
+  updateCameraFromOrbit();
+});
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  orbit.radius *= (1 + e.deltaY*0.0012);
+  orbit.radius = Math.max(diag*0.4, Math.min(diag*8, orbit.radius));
+  updateCameraFromOrbit();
+}, { passive:false });
+
+resetViewBtn.addEventListener('click', () => {
+  orbit.theta = Math.PI/4; orbit.phi = 1.0;
+  orbit.radius = Math.max(diag*2.0, 1.5);
+  updateCameraFromOrbit();
+});
+
+/* ---------------------------------------------------------------------- */
+/* 11. Redimensionado y loop de animación */
+/* ---------------------------------------------------------------------- */
+function resize() {
+  const w = canvasHolder.clientWidth, h = canvasHolder.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / Math.max(h,1);
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+
+function tick(now) {
+  if (playing && xf) {
+    const speedMul = parseFloat(speedSlider.value);
+    const period = BASE_PERIOD / speedMul;
+    const elapsed = (now - phaseStart) / 1000;
+    let frac = (elapsed % period) / period;
+    if (frac < 0) frac += 1;
+    curT = tMin + frac*(tMax-tMin);
+    updateDynamic();
+  }
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+
+/* ---------------------------------------------------------------------- */
+/* 12. Arranque */
+/* ---------------------------------------------------------------------- */
+resize();
+presetSelect.value = 'helice';
+buildCurve();
+updateCameraFromOrbit();
+requestAnimationFrame(tick);
+
+})();
+</script>
+</body>
+</html>

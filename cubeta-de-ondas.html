@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Simulador de cubeta de ondas</title>
+<style>
+  :root{
+    --bg: #0c1a2b;
+    --panel: #12233a;
+    --panel-border: rgba(231,237,243,0.10);
+    --ink: #e7edf3;
+    --ink-dim: rgba(231,237,243,0.58);
+    --ink-faint: rgba(231,237,243,0.30);
+    --amber: #e3a857;
+    --amber-dim: rgba(227,168,87,0.16);
+    --teal: #5fa8a0;
+    --teal-dim: rgba(95,168,160,0.16);
+    --grid-strong: rgba(231,237,243,0.10);
+    --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
+    --font-label: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; min-height:100vh;
+    background:
+      radial-gradient(ellipse at 20% -10%, rgba(95,168,160,0.10), transparent 55%),
+      radial-gradient(ellipse at 100% 110%, rgba(227,168,87,0.08), transparent 50%),
+      var(--bg);
+    color: var(--ink); font-family: var(--font-label); padding:40px 20px 60px;
+  }
+  .page{ max-width:1000px; margin:0 auto; }
+  .masthead{ margin-bottom:26px; }
+  .eyebrow{ font-family: var(--font-mono); font-size:11px; letter-spacing:0.16em; color: var(--teal); text-transform:uppercase; margin:0 0 10px; }
+  h1{ font-size:clamp(22px,3.6vw,30px); font-weight:650; letter-spacing:-0.01em; margin:0 0 8px; }
+  .sub{ margin:0; font-size:14px; color: var(--ink-dim); max-width:600px; }
+
+  .layout{ display:grid; grid-template-columns: minmax(0,440px) 1fr; gap:22px; align-items:start; }
+  @media (max-width:780px){ .layout{ grid-template-columns:1fr; } }
+
+  .instrument{ background: var(--panel); border:1px solid var(--panel-border); border-radius:14px; padding:18px 18px 14px; }
+  #canvas{ width:100%; height:auto; display:block; border-radius:8px; background:#0a1626; }
+  .fig-caption{ margin:12px 2px 0; font-family: var(--font-mono); font-size:10px; letter-spacing:0.14em; color: var(--ink-faint); text-transform:uppercase; }
+
+  .transport{ display:flex; gap:8px; margin-top:14px; }
+  .btn{ font-family: var(--font-mono); font-size:12px; letter-spacing:0.06em; padding:8px 14px; border-radius:8px; cursor:pointer; background:transparent; display:flex; align-items:center; gap:6px; }
+  .btn-primary{ border:1px solid rgba(227,168,87,0.5); color: var(--amber); }
+  .btn-primary:hover{ background: var(--amber-dim); }
+  .btn-secondary{ border:1px solid var(--panel-border); color: var(--ink-dim); }
+  .btn-secondary:hover{ background: rgba(255,255,255,0.05); }
+
+  .controls{ background: var(--panel); border:1px solid var(--panel-border); border-radius:14px; padding:20px 20px 22px; display:flex; flex-direction:column; gap:18px; }
+
+  .field-head{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; }
+  .field-head label{ font-family: var(--font-mono); font-size:11px; letter-spacing:0.1em; color: var(--ink-dim); }
+
+  .segmented{ display:flex; gap:6px; }
+  .seg-btn{
+    flex:1; font-family: var(--font-mono); font-size:12.5px; padding:8px 0; border-radius:8px;
+    border:1px solid var(--panel-border); background:rgba(255,255,255,0.03); color: var(--ink-dim); cursor:pointer;
+  }
+  .seg-btn.active{ border-color: rgba(227,168,87,0.55); color: var(--amber); background: var(--amber-dim); }
+
+  select{
+    width:100%; background: rgba(255,255,255,0.04); border:1px solid var(--panel-border);
+    border-radius:8px; color: var(--ink); font-family: var(--font-label); font-size:13.5px;
+    padding:9px 10px;
+  }
+  select:focus{ outline:2px solid var(--amber); outline-offset:1px; }
+
+  .caption{ margin:10px 2px 0; font-size:12.5px; line-height:1.45; color: var(--ink-dim); }
+
+  .num-input{
+    width:70px; background: rgba(255,255,255,0.04); border:1px solid var(--panel-border);
+    border-radius:6px; color: var(--ink); font-family: var(--font-mono); font-size:14px; text-align:right; padding:4px 8px;
+  }
+  .num-input:focus{ outline:2px solid var(--amber); outline-offset:1px; }
+
+  input[type="range"]{ -webkit-appearance:none; width:100%; height:26px; background:transparent; }
+  input[type="range"]::-webkit-slider-runnable-track{ height:3px; background: var(--grid-strong); border-radius:2px; }
+  input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance:none; margin-top:-8px; width:19px; height:19px; border-radius:50%;
+    background: var(--amber); border:3px solid #1a2f4a; box-shadow:0 0 0 1px rgba(227,168,87,0.4); cursor:pointer;
+  }
+  input[type="range"]::-moz-range-track{ height:3px; background: var(--grid-strong); border-radius:2px; }
+  input[type="range"]::-moz-range-thumb{ width:13px; height:13px; border-radius:50%; background: var(--amber); border:3px solid #1a2f4a; cursor:pointer; }
+  input[type="range"]:focus-visible::-webkit-slider-thumb{ outline:2px solid var(--ink); outline-offset:2px; }
+
+  .readout{ border-top:1px solid var(--panel-border); padding-top:16px; display:flex; flex-direction:column; gap:8px; }
+  .readout-row{ display:flex; justify-content:space-between; align-items:baseline; }
+  .readout-label{ font-family: var(--font-mono); font-size:10.5px; letter-spacing:0.08em; color: var(--ink-faint); }
+  .readout-value{ font-family: var(--font-mono); font-size:14px; color: var(--ink); }
+  .readout-value.accent{ color: var(--amber); }
+</style>
+</head>
+<body>
+  <div class="page">
+    <header class="masthead">
+      <p class="eyebrow">Ondulatoria · Cubeta de ondas</p>
+      <h1>Simulador de cubeta de ondas</h1>
+      <p class="sub">Genera ondas puntuales o planas y observa su propagación libre, su reflexión en obstáculos, su refracción al cambiar de medio y su difracción al pasar por una rendija.</p>
+    </header>
+
+    <main class="layout">
+      <section class="instrument">
+        <canvas id="canvas" width="420" height="420" role="img" aria-label="Simulación de una cubeta de ondas mostrando la propagación, reflexión o refracción del frente de onda"></canvas>
+        <p class="fig-caption">Fig. 3 — Cubeta de ondas</p>
+        <div class="transport">
+          <button id="playBtn" class="btn btn-primary">⏸ Pausar</button>
+          <button id="resetBtn" class="btn btn-secondary">↺ Reiniciar</button>
+        </div>
+      </section>
+
+      <section class="controls">
+        <div class="field">
+          <div class="field-head"><label>Fuente</label></div>
+          <div class="segmented">
+            <button id="srcPoint" class="seg-btn active">Puntual</button>
+            <button id="srcPlane" class="seg-btn">Plana</button>
+            <button id="srcDouble" class="seg-btn">Dos fuentes</button>
+          </div>
+        </div>
+
+        <div class="field" id="sepField" style="display:none;">
+          <div class="field-head">
+            <label for="sepRange">Separación entre fuentes (d)</label>
+            <input id="sepNumber" type="number" min="10" max="100" step="1" value="40" class="num-input" aria-label="Separación entre las fuentes" />
+          </div>
+          <input id="sepRange" type="range" min="10" max="100" step="1" value="40" aria-label="Deslizador de separación entre fuentes" />
+        </div>
+
+        <div class="field">
+          <div class="field-head"><label for="scenarioSelect">Escenario</label></div>
+          <select id="scenarioSelect">
+            <option value="free">Campo libre</option>
+            <option value="wall">Reflexión — pared recta</option>
+            <option value="circle">Reflexión — obstáculo circular</option>
+            <option value="refraction">Refracción — cambio de medio</option>
+            <option value="slit">Difracción — rendija simple</option>
+            <option value="doubleslit">Difracción — rendija doble</option>
+          </select>
+          <p class="caption" id="scenarioCaption">Las ondas se propagan libremente, sin obstáculos ni cambios de medio.</p>
+        </div>
+
+        <div class="field" id="slitWidthField" style="display:none;">
+          <div class="field-head">
+            <label for="slitWidthRange">Ancho de rendija (a)</label>
+            <input id="slitWidthNumber" type="number" min="2" max="40" step="1" value="12" class="num-input" aria-label="Ancho de la rendija" />
+          </div>
+          <input id="slitWidthRange" type="range" min="2" max="40" step="1" value="12" aria-label="Deslizador de ancho de rendija" />
+        </div>
+
+        <div class="field" id="slitSepField" style="display:none;">
+          <div class="field-head">
+            <label for="slitSepRange">Separación entre rendijas (d)</label>
+            <input id="slitSepNumber" type="number" min="10" max="90" step="1" value="34" class="num-input" aria-label="Separación entre rendijas" />
+          </div>
+          <input id="slitSepRange" type="range" min="10" max="90" step="1" value="34" aria-label="Deslizador de separación entre rendijas" />
+        </div>
+
+        <div class="field">
+          <div class="field-head">
+            <label for="freqRange">Frecuencia (ω)</label>
+            <input id="freqNumber" type="number" min="0.15" max="0.45" step="0.01" value="0.30" class="num-input" aria-label="Frecuencia angular" />
+          </div>
+          <input id="freqRange" type="range" min="0.15" max="0.45" step="0.01" value="0.30" aria-label="Deslizador de frecuencia" />
+        </div>
+
+        <div class="readout" aria-live="polite">
+          <div class="readout-row">
+            <span class="readout-label">Frecuencia angular (ω)</span>
+            <span class="readout-value" id="outOmega">0.300 rad/paso</span>
+          </div>
+          <div class="readout-row">
+            <span class="readout-label">Longitud de onda — medio 1 (λ₁)</span>
+            <span class="readout-value accent" id="outLambda1">8.80 u.</span>
+          </div>
+          <div class="readout-row">
+            <span class="readout-label">Longitud de onda — medio 2 (λ₂)</span>
+            <span class="readout-value" id="outLambda2">—</span>
+          </div>
+          <div class="readout-row">
+            <span class="readout-label">Rapidez relativa (c₂ / c₁)</span>
+            <span class="readout-value" id="outRatio">—</span>
+          </div>
+          <div class="readout-row">
+            <span class="readout-label">Ancho de rendija / λ₁ (a/λ)</span>
+            <span class="readout-value" id="outSlitRatio">—</span>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+<script>
+(function(){
+  const GRID = 140;
+  const W = GRID, H = GRID;
+  const SIZE = 420;
+  const C1 = 0.42, C2 = 0.22;
+  const SPONGE = 12;
+
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const offCanvas = document.createElement('canvas');
+  offCanvas.width = W; offCanvas.height = H;
+  const offCtx = offCanvas.getContext('2d');
+  const imageData = offCtx.createImageData(W,H);
+  const pix = imageData.data;
+
+  let uPrev = new Float32Array(W*H);
+  let uCurr = new Float32Array(W*H);
+  let uNext = new Float32Array(W*H);
+  const speedMap = new Float32Array(W*H).fill(C1);
+  const wallMask = new Uint8Array(W*H);
+  let wallIndices = [];
+  const absorbMap = new Float32Array(W*H);
+  let sourceCells = [];
+  let sourcePhase = 0;
+  let omega = 0.30;
+  let separation = 40;
+  let slitWidth = 12;
+  let slitSeparation = 34;
+  let fuenteType = 'point';
+  let scenarioKey = 'free';
+  let anim = { playing:false, raf:null };
+
+  for(let y=0;y<H;y++){
+    for(let x=0;x<W;x++){
+      const dx = Math.min(x, W-1-x);
+      const dy = Math.min(y, H-1-y);
+      const d = Math.min(dx,dy);
+      absorbMap[y*W+x] = d < SPONGE ? (0.90 + 0.10*(d/SPONGE)) : 1.0;
+    }
+  }
+
+  function markDisk(ccx,ccy,rad){
+    const x0=Math.max(0,Math.floor(ccx-rad)), x1=Math.min(W-1,Math.ceil(ccx+rad));
+    const y0=Math.max(0,Math.floor(ccy-rad)), y1=Math.min(H-1,Math.ceil(ccy+rad));
+    for(let y=y0;y<=y1;y++){
+      for(let x=x0;x<=x1;x++){
+        const ddx=x-ccx, ddy=y-ccy;
+        if(ddx*ddx+ddy*ddy<=rad*rad) wallMask[y*W+x]=1;
+      }
+    }
+  }
+
+  function rasterizeThickLine(x0,y0,x1,y1,rad){
+    const dist = Math.hypot(x1-x0,y1-y0);
+    const steps = Math.ceil(dist*2);
+    for(let i=0;i<=steps;i++){
+      const t=i/steps;
+      markDisk(x0+(x1-x0)*t, y0+(y1-y0)*t, rad);
+    }
+  }
+
+  function buildSlitWall(yLine, gaps, thickness){
+    const y0 = Math.max(0, Math.round(yLine - thickness/2));
+    const y1 = Math.min(H-1, Math.round(yLine + thickness/2));
+    for(let y=y0;y<=y1;y++){
+      for(let x=0;x<W;x++){
+        let inGap = false;
+        for(const g of gaps){
+          if(x >= g.gapCenter-g.gapWidth/2 && x <= g.gapCenter+g.gapWidth/2){ inGap=true; break; }
+        }
+        if(!inGap) wallMask[y*W+x] = 1;
+      }
+    }
+  }
+
+  let interfaceInfo = null;
+
+  function buildScenario(key){
+    scenarioKey = key;
+    speedMap.fill(C1);
+    wallMask.fill(0);
+    interfaceInfo = null;
+
+    if(key==='wall'){
+      rasterizeThickLine(W*0.22,H*0.60,W*0.78,H*0.40,2.0);
+    } else if(key==='circle'){
+      markDisk(W*0.5,H*0.58,W*0.085);
+    } else if(key==='refraction'){
+      const y0=H*0.50, y1=H*0.85;
+      for(let y=0;y<H;y++){
+        for(let x=0;x<W;x++){
+          const yi = y0 + (y1-y0)*(x/W);
+          if(y>yi) speedMap[y*W+x]=C2;
+        }
+      }
+      interfaceInfo = {x0:0,y0:y0,x1:W,y1:y1};
+    } else if(key==='slit'){
+      buildSlitWall(H*0.52, [ {gapCenter:W*0.5, gapWidth:slitWidth} ], 3);
+    } else if(key==='doubleslit'){
+      const half = slitSeparation/2;
+      buildSlitWall(H*0.52, [
+        {gapCenter:W*0.5-half, gapWidth:slitWidth},
+        {gapCenter:W*0.5+half, gapWidth:slitWidth}
+      ], 3);
+    }
+    wallIndices = [];
+    for(let i=0;i<W*H;i++){ if(wallMask[i]) wallIndices.push(i); }
+
+    const captions = {
+      free: 'Las ondas se propagan libremente, sin obstáculos ni cambios de medio.',
+      wall: 'La onda incide sobre una pared rígida y se refleja: el ángulo de reflexión es igual al ángulo de incidencia.',
+      circle: 'La onda rodea y se refleja en un obstáculo circular, generando un patrón de difracción detrás de él.',
+      refraction: 'Al cruzar la interfaz entre dos medios de distinta rapidez, los frentes de onda cambian de dirección: eso es la refracción.',
+      slit: 'La onda atraviesa una rendija angosta y se difracta: cuanto más estrecha es la rendija respecto a la longitud de onda, más se abre el frente al otro lado.',
+      doubleslit: 'La onda atraviesa dos rendijas angostas; cada una difracta el frente y, al superponerse, generan un patrón de interferencia — el experimento de la doble rendija.'
+    };
+    document.getElementById('scenarioCaption').textContent = captions[key];
+
+    const lambda2El = document.getElementById('outLambda2');
+    const ratioEl = document.getElementById('outRatio');
+    if(key==='refraction'){
+      lambda2El.textContent = (2*Math.PI*C2/omega).toFixed(2) + ' u.';
+      ratioEl.textContent = (C2/C1).toFixed(2);
+    } else {
+      lambda2El.textContent = '—';
+      ratioEl.textContent = '—';
+    }
+    updateSlitReadout();
+  }
+
+  let sourceAnchor = { type:'point', points:[], sy_row:0 };
+
+  function buildSource(type){
+    fuenteType = type;
+    sourceCells = [];
+
+    if(type==='plane'){
+      const sy = 6;
+      sourceAnchor = { type:'plane', sy_row:sy };
+      const margin = 14;
+      for(let x=margin;x<W-margin;x++){
+        let w=1;
+        const edge=Math.min(x-margin, (W-margin-1)-x);
+        if(edge<10) w = 0.5*(1-Math.cos(Math.PI*edge/10));
+        sourceCells.push({idx: sy*W+x, weight:w});
+      }
+      return;
+    }
+
+    const sy = Math.round(H*0.18);
+    let centers;
+    if(type==='double'){
+      const half = separation/2;
+      centers = [
+        { sx: Math.round(W*0.5 - half), sy },
+        { sx: Math.round(W*0.5 + half), sy }
+      ];
+    } else {
+      centers = [ { sx: Math.round(W*0.5), sy } ];
+    }
+    sourceAnchor = { type, points: centers };
+    const offsets=[[0,0],[1,0],[-1,0],[0,1],[0,-1]];
+    for(const c of centers){
+      for(const o of offsets){
+        const x=c.sx+o[0], y=c.sy+o[1];
+        if(x>=0&&x<W&&y>=0&&y<H) sourceCells.push({idx:y*W+x, weight:(o[0]===0&&o[1]===0)?1:0.6});
+      }
+    }
+  }
+
+  function resetField(){
+    uPrev.fill(0); uCurr.fill(0); uNext.fill(0);
+    sourcePhase = 0;
+    renderFrame();
+  }
+
+  function stepPhysics(){
+    for(let y=1;y<H-1;y++){
+      const row=y*W, rowUp=(y-1)*W, rowDown=(y+1)*W;
+      for(let x=1;x<W-1;x++){
+        const idx=row+x;
+        const c = speedMap[idx];
+        const lap = uCurr[idx-1]+uCurr[idx+1]+uCurr[rowUp+x]+uCurr[rowDown+x]-4*uCurr[idx];
+        uNext[idx] = 2*uCurr[idx]-uPrev[idx]+c*c*lap;
+      }
+    }
+    for(let i=0;i<wallIndices.length;i++){ uNext[wallIndices[i]]=0; }
+    for(let i=0;i<W*H;i++){ uNext[i]*=absorbMap[i]; }
+
+    sourcePhase += omega;
+    const sVal = Math.sin(sourcePhase);
+    for(const s of sourceCells){ uNext[s.idx] = sVal*s.weight; }
+
+    const tmp = uPrev; uPrev = uCurr; uCurr = uNext; uNext = tmp;
+  }
+
+  function renderFrame(){
+    for(let i=0;i<W*H;i++){
+      let v = uCurr[i];
+      if(v>1)v=1; else if(v<-1)v=-1;
+      let r,g,b;
+      if(v>=0){
+        r = 30 + (210-30)*v; g = 58 + (235-58)*v; b = 92 + (255-92)*v;
+      } else {
+        const t=-v;
+        r = 30 + (12-30)*t; g = 58 + (26-58)*t; b = 92 + (43-92)*t;
+      }
+      if(speedMap[i] < C1-0.001){ r*=0.90; g*=0.97; b*=1.05; }
+      if(wallMask[i]){ r=20; g=24; b=30; }
+      const o=i*4;
+      pix[o]=r; pix[o+1]=g; pix[o+2]=b; pix[o+3]=255;
+    }
+    offCtx.putImageData(imageData,0,0);
+    ctx.clearRect(0,0,SIZE,SIZE);
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(offCanvas,0,0,W,H,0,0,SIZE,SIZE);
+    drawOverlay();
+  }
+
+  function gx(x){ return x*(SIZE/W); }
+  function gy(y){ return y*(SIZE/H); }
+
+  function drawOverlay(){
+    if(interfaceInfo){
+      ctx.save();
+      ctx.setLineDash([6,5]);
+      ctx.strokeStyle = 'rgba(231,237,243,0.55)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(gx(interfaceInfo.x0), gy(interfaceInfo.y0));
+      ctx.lineTo(gx(interfaceInfo.x1), gy(interfaceInfo.y1));
+      ctx.stroke();
+      ctx.restore();
+      ctx.font = '10px ui-monospace, monospace';
+      ctx.fillStyle = 'rgba(231,237,243,0.55)';
+      ctx.textAlign = 'left';
+      ctx.fillText('medio 1 (rápido)', 10, 18);
+      ctx.fillText('medio 2 (lento)', 10, SIZE-12);
+    }
+
+    ctx.strokeStyle = 'rgba(227,168,87,0.9)';
+    ctx.fillStyle = 'rgba(227,168,87,0.9)';
+    if(sourceAnchor.type==='plane'){
+      ctx.save();
+      ctx.globalAlpha = 0.55;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(gx(14), gy(sourceAnchor.sy_row));
+      ctx.lineTo(gx(W-14), gy(sourceAnchor.sy_row));
+      ctx.stroke();
+      ctx.restore();
+    } else {
+      for(const p of sourceAnchor.points){
+        ctx.beginPath();
+        ctx.arc(gx(p.sx), gy(p.sy), 4, 0, Math.PI*2);
+        ctx.fill();
+      }
+    }
+  }
+
+  function setupCanvas(){
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = SIZE*dpr; canvas.height = SIZE*dpr;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+
+  function updateSlitReadout(){
+    const el = document.getElementById('outSlitRatio');
+    if(scenarioKey==='slit' || scenarioKey==='doubleslit'){
+      const lambda1 = 2*Math.PI*C1/omega;
+      el.textContent = (slitWidth/lambda1).toFixed(2);
+    } else {
+      el.textContent = '—';
+    }
+  }
+
+  function updateFreqReadout(){
+    document.getElementById('outOmega').textContent = omega.toFixed(3) + ' rad/paso';
+    document.getElementById('outLambda1').textContent = (2*Math.PI*C1/omega).toFixed(2) + ' u.';
+    if(scenarioKey==='refraction'){
+      document.getElementById('outLambda2').textContent = (2*Math.PI*C2/omega).toFixed(2) + ' u.';
+    }
+    updateSlitReadout();
+  }
+
+  function setOmega(v){
+    v = Math.min(0.45, Math.max(0.15, parseFloat(v)||0.15));
+    omega = v;
+    document.getElementById('freqNumber').value = v.toFixed(2);
+    document.getElementById('freqRange').value = v;
+    updateFreqReadout();
+  }
+
+  document.getElementById('freqRange').addEventListener('input', e => setOmega(e.target.value));
+  document.getElementById('freqNumber').addEventListener('input', e => setOmega(e.target.value));
+
+  const srcPointBtn = document.getElementById('srcPoint');
+  const srcPlaneBtn = document.getElementById('srcPlane');
+  const srcDoubleBtn = document.getElementById('srcDouble');
+  const sepField = document.getElementById('sepField');
+
+  function selectSource(type){
+    [srcPointBtn, srcPlaneBtn, srcDoubleBtn].forEach(b => b.classList.remove('active'));
+    if(type==='point') srcPointBtn.classList.add('active');
+    else if(type==='plane') srcPlaneBtn.classList.add('active');
+    else srcDoubleBtn.classList.add('active');
+    sepField.style.display = (type==='double') ? '' : 'none';
+    buildSource(type);
+    resetField();
+  }
+  srcPointBtn.addEventListener('click', () => selectSource('point'));
+  srcPlaneBtn.addEventListener('click', () => selectSource('plane'));
+  srcDoubleBtn.addEventListener('click', () => selectSource('double'));
+
+  function setSeparation(v){
+    v = Math.min(100, Math.max(10, parseInt(v)||10));
+    separation = v;
+    document.getElementById('sepNumber').value = v;
+    document.getElementById('sepRange').value = v;
+    if(fuenteType==='double'){ buildSource('double'); resetField(); }
+  }
+  document.getElementById('sepRange').addEventListener('input', e => setSeparation(e.target.value));
+  document.getElementById('sepNumber').addEventListener('input', e => setSeparation(e.target.value));
+
+  document.getElementById('scenarioSelect').addEventListener('change', e => {
+    const key = e.target.value;
+    document.getElementById('slitWidthField').style.display = (key==='slit'||key==='doubleslit') ? '' : 'none';
+    document.getElementById('slitSepField').style.display = (key==='doubleslit') ? '' : 'none';
+    buildScenario(key);
+    buildSource(fuenteType);
+    resetField();
+  });
+
+  function setSlitWidth(v){
+    v = Math.min(40, Math.max(2, parseInt(v)||2));
+    slitWidth = v;
+    document.getElementById('slitWidthNumber').value = v;
+    document.getElementById('slitWidthRange').value = v;
+    if(scenarioKey==='slit' || scenarioKey==='doubleslit'){ buildScenario(scenarioKey); resetField(); }
+  }
+  function setSlitSeparation(v){
+    v = Math.min(90, Math.max(10, parseInt(v)||10));
+    slitSeparation = v;
+    document.getElementById('slitSepNumber').value = v;
+    document.getElementById('slitSepRange').value = v;
+    if(scenarioKey==='doubleslit'){ buildScenario(scenarioKey); resetField(); }
+  }
+  document.getElementById('slitWidthRange').addEventListener('input', e => setSlitWidth(e.target.value));
+  document.getElementById('slitWidthNumber').addEventListener('input', e => setSlitWidth(e.target.value));
+  document.getElementById('slitSepRange').addEventListener('input', e => setSlitSeparation(e.target.value));
+  document.getElementById('slitSepNumber').addEventListener('input', e => setSlitSeparation(e.target.value));
+
+  const playBtn = document.getElementById('playBtn');
+  const resetBtn = document.getElementById('resetBtn');
+
+  function loop(){
+    if(!anim.playing) return;
+    stepPhysics();
+    renderFrame();
+    anim.raf = requestAnimationFrame(loop);
+  }
+
+  playBtn.addEventListener('click', () => {
+    anim.playing = !anim.playing;
+    playBtn.textContent = anim.playing ? '⏸ Pausar' : '▶ Reproducir';
+    if(anim.playing) anim.raf = requestAnimationFrame(loop);
+    else if(anim.raf) cancelAnimationFrame(anim.raf);
+  });
+
+  resetBtn.addEventListener('click', () => {
+    buildScenario(scenarioKey);
+    buildSource(fuenteType);
+    resetField();
+  });
+
+  setupCanvas();
+  buildScenario('free');
+  buildSource('point');
+  updateFreqReadout();
+  resetField();
+  anim.playing = true;
+  anim.raf = requestAnimationFrame(loop);
+
+  window.addEventListener('resize', () => { setupCanvas(); renderFrame(); });
+})();
+</script>
+</body>
+</html>

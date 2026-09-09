@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Fuerza de gravitación entre dos masas</title>
+<style>
+  :root{
+    --bg: #0c1a2b;
+    --panel: #12233a;
+    --panel-border: rgba(231,237,243,0.10);
+    --ink: #e7edf3;
+    --ink-dim: rgba(231,237,243,0.58);
+    --ink-faint: rgba(231,237,243,0.30);
+    --amber: #e3a857;
+    --amber-dim: rgba(227,168,87,0.16);
+    --teal: #5fa8a0;
+    --teal-dim: rgba(95,168,160,0.16);
+    --error: #e2836b;
+    --grid-strong: rgba(231,237,243,0.10);
+    --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
+    --font-label: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; min-height:100vh;
+    background:
+      radial-gradient(ellipse at 20% -10%, rgba(95,168,160,0.10), transparent 55%),
+      radial-gradient(ellipse at 100% 110%, rgba(227,168,87,0.08), transparent 50%),
+      var(--bg);
+    color: var(--ink); font-family: var(--font-label); padding:40px 20px 60px;
+  }
+  .page{ max-width:1000px; margin:0 auto; }
+  .masthead{ margin-bottom:26px; }
+  .eyebrow{ font-family: var(--font-mono); font-size:11px; letter-spacing:0.16em; color: var(--teal); text-transform:uppercase; margin:0 0 10px; }
+  h1{ font-size:clamp(21px,3.5vw,28px); font-weight:650; letter-spacing:-0.01em; margin:0 0 8px; }
+  .sub{ margin:0; font-size:14px; color: var(--ink-dim); max-width:620px; }
+
+  .layout{ display:grid; grid-template-columns: minmax(0,440px) 1fr; gap:22px; align-items:start; }
+  @media (max-width:780px){ .layout{ grid-template-columns:1fr; } }
+
+  .instrument{ background: var(--panel); border:1px solid var(--panel-border); border-radius:14px; padding:18px 18px 14px; }
+  #canvas{ width:100%; height:auto; display:block; border-radius:8px; }
+  .fig-caption{ margin:12px 2px 0; font-family: var(--font-mono); font-size:10px; letter-spacing:0.14em; color: var(--ink-faint); text-transform:uppercase; }
+
+  .controls{ background: var(--panel); border:1px solid var(--panel-border); border-radius:14px; padding:20px 20px 22px; display:flex; flex-direction:column; gap:16px; }
+
+  .field-head{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; }
+  .field-head label{ font-family: var(--font-mono); font-size:11px; letter-spacing:0.1em; color: var(--ink-dim); }
+
+  .chips{ display:flex; flex-wrap:wrap; gap:6px; }
+  .chip{ font-family: var(--font-mono); font-size:11px; padding:5px 10px; border-radius:20px; border:1px solid var(--panel-border); background:rgba(255,255,255,0.03); color: var(--ink-dim); cursor:pointer; }
+  .chip:hover{ border-color: rgba(227,168,87,0.5); color: var(--amber); }
+
+  .num-input{
+    width:100%; background: rgba(255,255,255,0.04); border:1px solid var(--panel-border);
+    border-radius:8px; color: var(--ink); font-family: var(--font-mono); font-size:14px; padding:9px 10px;
+  }
+  .num-input:focus{ outline:2px solid var(--amber); outline-offset:1px; }
+  .unit-hint{ font-family: var(--font-mono); font-size:10px; color: var(--ink-faint); margin-top:4px; }
+
+  .caption.error{ color: var(--error); font-size:12px; margin:8px 2px 0; }
+
+  .readout{ border-top:1px solid var(--panel-border); padding-top:14px; display:flex; flex-direction:column; gap:8px; }
+  .readout-row{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
+  .readout-label{ font-family: var(--font-mono); font-size:10.5px; letter-spacing:0.06em; color: var(--ink-faint); }
+  .readout-value{ font-family: var(--font-mono); font-size:13.5px; color: var(--ink); text-align:right; }
+
+  .divider{ height:1px; background: var(--panel-border); margin:2px 0; }
+  .formula-line{ margin:0 0 4px; font-family: var(--font-mono); font-size:13px; color: var(--ink-dim); }
+
+  .answer{ border-radius:10px; padding:12px 14px; display:flex; flex-direction:column; gap:4px; background: var(--amber-dim); border:1px solid rgba(227,168,87,0.35); }
+  .answer-label{ font-family: var(--font-mono); font-size:9.5px; letter-spacing:0.08em; color: rgba(227,168,87,0.85); }
+  .answer-value{ font-family: var(--font-mono); font-size:19px; font-weight:600; color: var(--amber); }
+</style>
+</head>
+<body>
+  <div class="page">
+    <header class="masthead">
+      <p class="eyebrow">Física · Gravitación universal</p>
+      <h1>Fuerza de atracción gravitacional entre dos masas</h1>
+      <p class="sub">Ingresa las masas m₁, m₂ y la distancia r entre sus centros. Se calcula la fuerza con la ley de gravitación de Newton y se dibujan las masas como esferas con sus vectores de fuerza.</p>
+    </header>
+
+    <main class="layout">
+      <section class="instrument">
+        <canvas id="canvas" width="420" height="420" role="img" aria-label="Dos esferas representando las masas, con vectores de fuerza gravitacional apuntando una hacia la otra"></canvas>
+        <p class="fig-caption">Fig. 7 — Atracción gravitacional</p>
+      </section>
+
+      <section class="controls">
+        <div class="field">
+          <div class="field-head"><label>Escenarios rápidos</label></div>
+          <div class="chips">
+            <button type="button" class="chip" data-m1="70" data-m2="70" data-r="1">Dos personas</button>
+            <button type="button" class="chip" data-m1="70" data-m2="5.972e24" data-r="6.371e6">Tú y la Tierra</button>
+            <button type="button" class="chip" data-m1="5.972e24" data-m2="7.342e22" data-r="3.844e8">Tierra–Luna</button>
+            <button type="button" class="chip" data-m1="5.972e24" data-m2="1.989e30" data-r="1.496e11">Tierra–Sol</button>
+            <button type="button" class="chip" data-m1="7" data-m2="7" data-r="0.3">Bolas de boliche</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-head"><label for="m1Input">m₁ (kg)</label></div>
+          <input id="m1Input" type="number" value="70" class="num-input" aria-label="Masa 1 en kilogramos" />
+        </div>
+
+        <div class="field">
+          <div class="field-head"><label for="m2Input">m₂ (kg)</label></div>
+          <input id="m2Input" type="number" value="5.972e24" class="num-input" aria-label="Masa 2 en kilogramos" />
+        </div>
+
+        <div class="field">
+          <div class="field-head"><label for="rInput">r (m) — distancia entre centros</label></div>
+          <input id="rInput" type="number" value="6.371e6" class="num-input" aria-label="Distancia entre los centros de las masas en metros" />
+          <p class="unit-hint">Puedes escribir notación científica, por ejemplo 5.972e24.</p>
+        </div>
+
+        <p class="caption error" id="errorMsg" style="display:none;"></p>
+
+        <div class="readout" aria-live="polite">
+          <div class="readout-row">
+            <span class="readout-label">G (constante de gravitación)</span>
+            <span class="readout-value">6.674 × 10⁻¹¹ N·m²/kg²</span>
+          </div>
+          <div class="divider"></div>
+          <p class="formula-line">F = G · m₁ · m₂ / r²</p>
+          <p class="formula-line" id="subLine" style="font-size:11.5px; color:var(--ink-faint);"></p>
+
+          <div class="answer">
+            <span class="answer-label">FUERZA DE ATRACCIÓN (F)</span>
+            <span class="answer-value" id="outF">—</span>
+          </div>
+
+          <div class="divider"></div>
+          <div class="readout-row">
+            <span class="readout-label">Aceleración de m₁ (a₁ = F/m₁)</span>
+            <span class="readout-value" id="outA1">—</span>
+          </div>
+          <div class="readout-row">
+            <span class="readout-label">Aceleración de m₂ (a₂ = F/m₂)</span>
+            <span class="readout-value" id="outA2">—</span>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+<script>
+(function(){
+  const SIZE = 420;
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const G = 6.674e-11;
+
+  const m1Input = document.getElementById('m1Input');
+  const m2Input = document.getElementById('m2Input');
+  const rInput = document.getElementById('rInput');
+  const errorMsg = document.getElementById('errorMsg');
+  const subLine = document.getElementById('subLine');
+  const outF = document.getElementById('outF');
+  const outA1 = document.getElementById('outA1');
+  const outA2 = document.getElementById('outA2');
+
+  function setupCanvas(){
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = SIZE*dpr; canvas.height = SIZE*dpr;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+
+  const SUP = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','-':'⁻'};
+  function toSup(n){ return String(n).split('').map(c => SUP[c] !== undefined ? SUP[c] : c).join(''); }
+  function fmtSci(value, digits){
+    digits = digits || 3;
+    if(!isFinite(value)) return '—';
+    if(value === 0) return '0';
+    const sign = value < 0 ? '-' : '';
+    const abs = Math.abs(value);
+    let exp = Math.floor(Math.log10(abs));
+    let mantissa = abs / Math.pow(10, exp);
+    let mantissaStr = mantissa.toFixed(digits);
+    if(parseFloat(mantissaStr) >= 10){ mantissa = mantissa/10; exp += 1; mantissaStr = mantissa.toFixed(digits); }
+    return sign + mantissaStr + ' × 10' + toSup(exp);
+  }
+
+  function massRadius(mass){
+    const logm = Math.log10(Math.max(mass, 1e-6));
+    const lo=-2, hi=31;
+    const t = Math.min(1, Math.max(0, (logm-lo)/(hi-lo)));
+    return 12 + t*46;
+  }
+
+  function showError(msg){ errorMsg.textContent = msg; errorMsg.style.display=''; }
+  function hideError(){ errorMsg.style.display='none'; errorMsg.textContent=''; }
+
+  function recompute(){
+    hideError();
+    const m1 = parseFloat(m1Input.value);
+    const m2 = parseFloat(m2Input.value);
+    const r = parseFloat(rInput.value);
+
+    if(!isFinite(m1) || !isFinite(m2) || !isFinite(r)){
+      showError('Completa m₁, m₂ y r con valores numéricos.');
+      render(null,null,null,null);
+      return;
+    }
+    if(m1<=0 || m2<=0 || r<=0){
+      showError('m₁, m₂ y r deben ser mayores que cero.');
+      render(null,null,null,null);
+      return;
+    }
+
+    const F = G*m1*m2/(r*r);
+    const a1 = F/m1, a2 = F/m2;
+
+    subLine.textContent = 'F = (6.674×10⁻¹¹)(' + fmtSci(m1,2) + ')(' + fmtSci(m2,2) + ') / (' + fmtSci(r,2) + ')²';
+    outF.textContent = fmtSci(F,4) + ' N';
+    outA1.textContent = fmtSci(a1,3) + ' m/s²';
+    outA2.textContent = fmtSci(a2,3) + ' m/s²';
+
+    render(m1,m2,r,F);
+  }
+
+  function render(m1,m2,r,F){
+    ctx.clearRect(0,0,SIZE,SIZE);
+
+    ctx.strokeStyle='rgba(231,237,243,0.05)';
+    ctx.lineWidth=1;
+    for(let x=10;x<SIZE;x+=20){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,SIZE); ctx.stroke(); }
+    for(let y=10;y<SIZE;y+=20){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(SIZE,y); ctx.stroke(); }
+
+    if(m1===null){
+      ctx.font='13px ui-monospace, monospace';
+      ctx.fillStyle='rgba(231,237,243,0.4)';
+      ctx.textAlign='center';
+      ctx.fillText('Ingresa valores válidos para ver el diagrama', SIZE/2, SIZE/2);
+      return;
+    }
+
+    const cy = 185;
+    const gap = 120;
+    const cx1 = SIZE/2 - gap, cx2 = SIZE/2 + gap;
+    const r1 = massRadius(m1), r2 = massRadius(m2);
+
+    function drawSphere(x,y,rad,tint){
+      const grad = ctx.createRadialGradient(x-rad*0.35,y-rad*0.35,rad*0.1, x,y,rad);
+      grad.addColorStop(0, tint.light);
+      grad.addColorStop(0.6, tint.mid);
+      grad.addColorStop(1, tint.dark);
+      ctx.beginPath();
+      ctx.arc(x,y,rad,0,Math.PI*2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(12,26,43,0.5)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    drawSphere(cx1, cy, r1, {light:'#c9d8e6', mid:'#7fa0bd', dark:'#3b5977'});
+    drawSphere(cx2, cy, r2, {light:'#f3d9a8', mid:'#d9a45f', dark:'#8a5a2a'});
+
+    const arrowLen = 55;
+    function drawArrow(x0,y0,x1,y1,color){
+      ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 2.4;
+      ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.stroke();
+      const ang = Math.atan2(y1-y0, x1-x0);
+      ctx.beginPath();
+      ctx.moveTo(x1,y1);
+      ctx.lineTo(x1-9*Math.cos(ang-0.4), y1-9*Math.sin(ang-0.4));
+      ctx.lineTo(x1-9*Math.cos(ang+0.4), y1-9*Math.sin(ang+0.4));
+      ctx.closePath(); ctx.fill();
+    }
+
+    const startX1 = cx1+r1, endX1 = Math.min(cx1+r1+arrowLen, cx2-r2-6);
+    const startX2 = cx2-r2, endX2 = Math.max(cx2-r2-arrowLen, cx1+r1+6);
+    drawArrow(startX1, cy, endX1, cy, '#e3a857');
+    drawArrow(startX2, cy, endX2, cy, '#e3a857');
+
+    ctx.font='11px ui-monospace, monospace';
+    ctx.fillStyle='#e3a857';
+    ctx.textAlign='center';
+    ctx.fillText('F', (startX1+endX1)/2, cy-10);
+    ctx.fillText('F', (startX2+endX2)/2, cy-10);
+    ctx.font='9.5px ui-monospace, monospace';
+    ctx.fillStyle='rgba(227,168,87,0.85)';
+    ctx.fillText(fmtSci(F,3)+' N', (startX1+endX1)/2, cy+20);
+    ctx.fillText(fmtSci(F,3)+' N', (startX2+endX2)/2, cy+20);
+
+    ctx.font='11px ui-monospace, monospace';
+    ctx.fillStyle='rgba(231,237,243,0.75)';
+    ctx.textAlign='center';
+    ctx.fillText('m₁ = '+fmtSci(m1,2)+' kg', cx1, cy+Math.max(r1,30)+22);
+    ctx.fillText('m₂ = '+fmtSci(m2,2)+' kg', cx2, cy+Math.max(r2,30)+22);
+
+    const dimY = cy + Math.max(r1,r2,30) + 46;
+    ctx.strokeStyle='rgba(231,237,243,0.35)';
+    ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(cx1,dimY-6); ctx.lineTo(cx1,dimY+6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx2,dimY-6); ctx.lineTo(cx2,dimY+6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx1,dimY); ctx.lineTo(cx2,dimY); ctx.stroke();
+    ctx.font='11px ui-monospace, monospace';
+    ctx.fillStyle='rgba(231,237,243,0.65)';
+    ctx.fillText('r = '+fmtSci(r,2)+' m', (cx1+cx2)/2, dimY+18);
+  }
+
+  document.querySelectorAll('.chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      m1Input.value = btn.dataset.m1;
+      m2Input.value = btn.dataset.m2;
+      rInput.value = btn.dataset.r;
+      recompute();
+    });
+  });
+
+  [m1Input, m2Input, rInput].forEach(inp => inp.addEventListener('input', recompute));
+
+  setupCanvas();
+  recompute();
+  window.addEventListener('resize', () => { setupCanvas(); recompute(); });
+})();
+</script>
+</body>
+</html>

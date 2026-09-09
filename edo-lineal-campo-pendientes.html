@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>EDO lineal — curva solución y campo de pendientes</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/15.2.0/math.min.js"></script>
+<style>
+  :root{
+    --bg: #0c1a2b;
+    --panel: #12233a;
+    --panel-border: rgba(231,237,243,0.10);
+    --ink: #e7edf3;
+    --ink-dim: rgba(231,237,243,0.58);
+    --ink-faint: rgba(231,237,243,0.30);
+    --amber: #e3a857;
+    --amber-dim: rgba(227,168,87,0.16);
+    --teal: #5fa8a0;
+    --teal-dim: rgba(95,168,160,0.16);
+    --error: #e2836b;
+    --grid-strong: rgba(231,237,243,0.10);
+    --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
+    --font-label: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; min-height:100vh;
+    background:
+      radial-gradient(ellipse at 20% -10%, rgba(95,168,160,0.10), transparent 55%),
+      radial-gradient(ellipse at 100% 110%, rgba(227,168,87,0.08), transparent 50%),
+      var(--bg);
+    color: var(--ink); font-family: var(--font-label); padding:40px 20px 60px;
+  }
+  .page{ max-width:1000px; margin:0 auto; }
+  .masthead{ margin-bottom:26px; }
+  .eyebrow{ font-family: var(--font-mono); font-size:11px; letter-spacing:0.16em; color: var(--teal); text-transform:uppercase; margin:0 0 10px; }
+  h1{ font-size:clamp(20px,3.4vw,28px); font-weight:650; letter-spacing:-0.01em; margin:0 0 8px; }
+  .sub{ margin:0; font-size:14px; color: var(--ink-dim); max-width:640px; }
+
+  .layout{ display:grid; grid-template-columns: minmax(0,440px) 1fr; gap:22px; align-items:start; }
+  @media (max-width:780px){ .layout{ grid-template-columns:1fr; } }
+
+  .instrument{ background: var(--panel); border:1px solid var(--panel-border); border-radius:14px; padding:18px 18px 14px; }
+  #canvas{ width:100%; height:auto; display:block; border-radius:8px; cursor:crosshair; }
+  .fig-caption{ margin:12px 2px 0; font-family: var(--font-mono); font-size:10px; letter-spacing:0.14em; color: var(--ink-faint); text-transform:uppercase; }
+  .hint{ margin:6px 2px 0; font-size:11.5px; color: var(--ink-faint); }
+
+  .controls{ background: var(--panel); border:1px solid var(--panel-border); border-radius:14px; padding:20px 20px 22px; display:flex; flex-direction:column; gap:14px; }
+
+  .field-head{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; }
+  .field-head label{ font-family: var(--font-mono); font-size:11px; letter-spacing:0.08em; color: var(--ink-dim); }
+
+  .chips{ display:flex; flex-wrap:wrap; gap:6px; }
+  .chip{ font-family: var(--font-mono); font-size:10.8px; padding:5px 10px; border-radius:20px; border:1px solid var(--panel-border); background:rgba(255,255,255,0.03); color: var(--ink-dim); cursor:pointer; }
+  .chip:hover{ border-color: rgba(227,168,87,0.5); color: var(--amber); }
+
+  .eq-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-family: var(--font-mono); font-size:13px; color: var(--ink-dim); }
+  .text-input{
+    background: rgba(255,255,255,0.04); border:1px solid var(--panel-border);
+    border-radius:8px; color: var(--ink); font-family: var(--font-mono); font-size:14px; padding:8px 9px; width:100px;
+  }
+  .text-input:focus{ outline:2px solid var(--amber); outline-offset:1px; }
+
+  .row2{ display:flex; gap:12px; }
+  .subfield{ flex:1; display:flex; flex-direction:column; gap:6px; }
+  .subfield label{ font-family: var(--font-mono); font-size:10.5px; letter-spacing:0.08em; color: var(--ink-dim); }
+  .num-input{
+    width:100%; background: rgba(255,255,255,0.04); border:1px solid var(--panel-border);
+    border-radius:6px; color: var(--ink); font-family: var(--font-mono); font-size:13.5px; padding:7px 8px;
+  }
+  .num-input:focus{ outline:2px solid var(--amber); outline-offset:1px; }
+
+  .caption.error{ color: var(--error); font-size:12px; margin:2px 2px 0; }
+
+  .readout{ border-top:1px solid var(--panel-border); padding-top:14px; display:flex; flex-direction:column; gap:8px; }
+  .readout-row{ display:flex; justify-content:space-between; align-items:baseline; }
+  .readout-label{ font-family: var(--font-mono); font-size:10.5px; letter-spacing:0.06em; color: var(--ink-faint); }
+  .readout-value{ font-family: var(--font-mono); font-size:13.5px; color: var(--ink); }
+
+  .answer{ border-radius:10px; padding:12px 14px; display:flex; flex-direction:column; gap:4px; background: var(--amber-dim); border:1px solid rgba(227,168,87,0.35); }
+  .answer-label{ font-family: var(--font-mono); font-size:9.5px; letter-spacing:0.08em; color: rgba(227,168,87,0.85); }
+  .answer-value{ font-family: var(--font-mono); font-size:18px; font-weight:600; color: var(--amber); }
+</style>
+</head>
+<body>
+  <div class="page">
+    <header class="masthead">
+      <p class="eyebrow">Ecuaciones diferenciales · EDO lineal</p>
+      <h1>Curva solución y campo de pendientes de una EDO lineal</h1>
+      <p class="sub">Ecuación: y' + p(x)·y = q(x), con condición inicial y(x₀) = y₀. Se traza el campo de pendientes y la curva solución (integrada con Runge–Kutta de orden 4).</p>
+    </header>
+
+    <main class="layout">
+      <section class="instrument">
+        <canvas id="canvas" width="420" height="420" role="img" aria-label="Campo de pendientes y curva solución de la ecuación diferencial lineal"></canvas>
+        <p class="fig-caption">Fig. 8 — Campo de pendientes y curva solución</p>
+        <p class="hint">Haz clic en la gráfica para fijar un nuevo punto inicial (x₀, y₀).</p>
+      </section>
+
+      <section class="controls">
+        <div class="field">
+          <div class="field-head"><label>Ejemplos rápidos</label></div>
+          <div class="chips">
+            <button type="button" class="chip" data-p="1" data-q="0" data-x0="0" data-y0="1" data-xmin="-1" data-xmax="6">Decaimiento: y'+y=0</button>
+            <button type="button" class="chip" data-p="-1" data-q="0" data-x0="0" data-y0="1" data-xmin="-1" data-xmax="4">Crecimiento: y'-y=0</button>
+            <button type="button" class="chip" data-p="1" data-q="sin(x)" data-x0="0" data-y0="0" data-xmin="-1" data-xmax="12">Forzada: y'+y=sin(x)</button>
+            <button type="button" class="chip" data-p="2" data-q="4" data-x0="0" data-y0="0" data-xmin="-1" data-xmax="5">Estable: y'+2y=4</button>
+            <button type="button" class="chip" data-p="0.5" data-q="10" data-x0="0" data-y0="90" data-xmin="0" data-xmax="15">Enfriamiento</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-head"><label>Ecuación y' + p(x)·y = q(x)</label></div>
+          <div class="eq-row">
+            <span>p(x) =</span>
+            <input id="pInput" type="text" value="1" class="text-input" aria-label="p(x)" />
+            <span>&nbsp;&nbsp;q(x) =</span>
+            <input id="qInput" type="text" value="sin(x)" class="text-input" aria-label="q(x)" />
+          </div>
+        </div>
+
+        <div class="row2">
+          <div class="subfield">
+            <label for="x0Input">x₀</label>
+            <input id="x0Input" type="number" step="0.1" value="0" class="num-input" aria-label="x inicial" />
+          </div>
+          <div class="subfield">
+            <label for="y0Input">y₀</label>
+            <input id="y0Input" type="number" step="0.1" value="0" class="num-input" aria-label="y inicial" />
+          </div>
+        </div>
+
+        <div class="row2">
+          <div class="subfield">
+            <label for="xMinInput">x mínimo</label>
+            <input id="xMinInput" type="number" step="0.5" value="-1" class="num-input" aria-label="x mínimo del dominio" />
+          </div>
+          <div class="subfield">
+            <label for="xMaxInput">x máximo</label>
+            <input id="xMaxInput" type="number" step="0.5" value="12" class="num-input" aria-label="x máximo del dominio" />
+          </div>
+        </div>
+
+        <p class="caption error" id="errorMsg" style="display:none;"></p>
+
+        <div class="readout" aria-live="polite">
+          <div class="readout-row">
+            <span class="readout-label">Ecuación</span>
+            <span class="readout-value" id="outEq">y' + 1·y = sin(x)</span>
+          </div>
+          <div class="readout-row">
+            <span class="readout-label">Condición inicial</span>
+            <span class="readout-value" id="outIC">y(0) = 0</span>
+          </div>
+          <div class="answer">
+            <span class="answer-label">SOLUCIÓN EN x = xMáx</span>
+            <span class="answer-value" id="outYEnd">—</span>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+<script>
+(function(){
+  if(typeof math === 'undefined'){
+    document.querySelector('.page').insertAdjacentHTML('afterbegin',
+      '<p style="color:#e2836b;font-family:ui-monospace,monospace;font-size:13px;">No se pudo cargar la librería matemática (math.js). Revisa tu conexión a internet y recarga la página.</p>');
+    return;
+  }
+
+  const SIZE = 420;
+  const marginLeft=44, marginRight=16, marginTop=16, marginBottom=32;
+  const plotW = SIZE-marginLeft-marginRight;
+  const plotH = SIZE-marginTop-marginBottom;
+
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+
+  const pInput = document.getElementById('pInput');
+  const qInput = document.getElementById('qInput');
+  const x0Input = document.getElementById('x0Input');
+  const y0Input = document.getElementById('y0Input');
+  const xMinInput = document.getElementById('xMinInput');
+  const xMaxInput = document.getElementById('xMaxInput');
+  const errorMsg = document.getElementById('errorMsg');
+  const outEq = document.getElementById('outEq');
+  const outIC = document.getElementById('outIC');
+  const outYEnd = document.getElementById('outYEnd');
+
+  let xMin=-1, xMax=12, yMin=-1, yMax=1;
+
+  function setupCanvas(){
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = SIZE*dpr; canvas.height = SIZE*dpr;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+
+  function px(x){ return marginLeft + (x-xMin)/(xMax-xMin)*plotW; }
+  function py(y){ return marginTop + (yMax-y)/(yMax-yMin)*plotH; }
+  function invX(pxv){ return xMin + (pxv-marginLeft)/plotW*(xMax-xMin); }
+  function invY(pyv){ return yMax - (pyv-marginTop)/plotH*(yMax-yMin); }
+
+  function showError(msg){ errorMsg.textContent = msg; errorMsg.style.display=''; }
+  function hideError(){ errorMsg.style.display='none'; errorMsg.textContent=''; }
+
+  function rk4Step(x,y,h,f){
+    const k1=f(x,y);
+    const k2=f(x+h/2, y+h/2*k1);
+    const k3=f(x+h/2, y+h/2*k2);
+    const k4=f(x+h, y+h*k3);
+    return y + h/6*(k1+2*k2+2*k3+k4);
+  }
+
+  function integrateIVP(f, x0, y0, xLo, xHi, steps){
+    const forward=[{x:x0,y:y0}];
+    let xc=x0, yc=y0;
+    const hf=(xHi-x0)/Math.max(steps,1);
+    for(let i=0;i<steps;i++){
+      if(xc>=xHi-1e-12) break;
+      const h=Math.min(hf, xHi-xc);
+      yc = rk4Step(xc,yc,h,f);
+      xc += h;
+      if(!isFinite(yc)) break;
+      forward.push({x:xc,y:yc});
+    }
+    const backward=[];
+    xc=x0; yc=y0;
+    const hb=(x0-xLo)/Math.max(steps,1);
+    for(let i=0;i<steps;i++){
+      if(xc<=xLo+1e-12) break;
+      const h=Math.min(hb, xc-xLo);
+      yc = rk4Step(xc,yc,-h,f);
+      xc -= h;
+      if(!isFinite(yc)) break;
+      backward.push({x:xc,y:yc});
+    }
+    backward.reverse();
+    return backward.concat(forward);
+  }
+
+  function fmt(n,d){ return isFinite(n) ? n.toFixed(d) : '—'; }
+
+  function recompute(){
+    hideError();
+    const pText = pInput.value.trim();
+    const qText = qInput.value.trim();
+    const x0 = parseFloat(x0Input.value);
+    const y0 = parseFloat(y0Input.value);
+    const xLo = parseFloat(xMinInput.value);
+    const xHi = parseFloat(xMaxInput.value);
+
+    if(!pText || !qText){ showError('Escribe p(x) y q(x).'); return; }
+    if(![x0,y0,xLo,xHi].every(isFinite)){ showError('x₀, y₀, x mínimo y x máximo deben ser números.'); return; }
+    if(xHi<=xLo){ showError('x máximo debe ser mayor que x mínimo.'); return; }
+
+    let pCompiled, qCompiled;
+    try{
+      pCompiled = math.compile(pText);
+      qCompiled = math.compile(qText);
+      const t1 = pCompiled.evaluate({x:x0}), t2 = qCompiled.evaluate({x:x0});
+      if(typeof t1 !== 'number' || typeof t2 !== 'number') throw new Error('no numérico');
+    } catch(err){
+      showError('p(x) o q(x) no son expresiones válidas. Usa notación como sin(x), x^2, exp(x).');
+      return;
+    }
+    const pf = x => { try{ const v=pCompiled.evaluate({x}); return typeof v==='number'?v:NaN; } catch(e){ return NaN; } };
+    const qf = x => { try{ const v=qCompiled.evaluate({x}); return typeof v==='number'?v:NaN; } catch(e){ return NaN; } };
+    const f = (x,y) => qf(x) - pf(x)*y;
+
+    xMin = xLo; xMax = xHi;
+
+    const curve = integrateIVP(f, x0, y0, xLo, xHi, 160);
+    if(curve.length < 2){ showError('No fue posible integrar la ecuación en este intervalo.'); return; }
+
+    let minY=y0, maxY=y0;
+    for(const pt of curve){ if(isFinite(pt.y)){ minY=Math.min(minY,pt.y); maxY=Math.max(maxY,pt.y); } }
+    let rangeY = maxY-minY;
+    if(rangeY < 1e-6) rangeY = 1;
+    yMin = minY - rangeY*0.18;
+    yMax = maxY + rangeY*0.18;
+
+    outEq.textContent = "y' + (" + pText + ")·y = " + qText;
+    outIC.textContent = 'y(' + fmt(x0,2) + ') = ' + fmt(y0,2);
+    const last = curve[curve.length-1];
+    outYEnd.textContent = 'y(' + fmt(last.x,2) + ') ≈ ' + fmt(last.y,5);
+
+    render(curve, f, x0, y0);
+  }
+
+  function render(curve, f, x0, y0){
+    ctx.clearRect(0,0,SIZE,SIZE);
+
+    ctx.strokeStyle='rgba(231,237,243,0.05)';
+    ctx.lineWidth=1;
+    for(let x=marginLeft;x<=SIZE-marginRight;x+=20){ ctx.beginPath(); ctx.moveTo(x,marginTop); ctx.lineTo(x,SIZE-marginBottom); ctx.stroke(); }
+    for(let y=marginTop;y<=SIZE-marginBottom;y+=20){ ctx.beginPath(); ctx.moveTo(marginLeft,y); ctx.lineTo(SIZE-marginRight,y); ctx.stroke(); }
+
+    ctx.strokeStyle='rgba(231,237,243,0.15)';
+    ctx.lineWidth=1;
+    ctx.strokeRect(marginLeft,marginTop,plotW,plotH);
+
+    ctx.strokeStyle='rgba(231,237,243,0.4)';
+    ctx.lineWidth=1.3;
+    if(yMin<=0 && yMax>=0){ ctx.beginPath(); ctx.moveTo(marginLeft,py(0)); ctx.lineTo(SIZE-marginRight,py(0)); ctx.stroke(); }
+    if(xMin<=0 && xMax>=0){ ctx.beginPath(); ctx.moveTo(px(0),marginTop); ctx.lineTo(px(0),SIZE-marginBottom); ctx.stroke(); }
+
+    const cols=20, rows=15;
+    const segPx=11;
+    for(let i=0;i<=cols;i++){
+      for(let j=0;j<=rows;j++){
+        const xd = xMin + (xMax-xMin)*i/cols;
+        const yd = yMin + (yMax-yMin)*j/rows;
+        const m = f(xd,yd);
+        if(!isFinite(m)) continue;
+        const dxSmall = (xMax-xMin)*0.0015;
+        const xa=xd-dxSmall, ya=yd-m*dxSmall, xb=xd+dxSmall, yb=yd+m*dxSmall;
+        let ax=px(xa), ay=py(ya), bx=px(xb), by=py(yb);
+        let vx=bx-ax, vy=by-ay;
+        const len=Math.hypot(vx,vy) || 1;
+        vx = vx/len*segPx; vy = vy/len*segPx;
+        const cx0=px(xd), cy0=py(yd);
+        ctx.beginPath();
+        ctx.moveTo(cx0-vx/2, cy0-vy/2);
+        ctx.lineTo(cx0+vx/2, cy0+vy/2);
+        ctx.strokeStyle='rgba(95,168,160,0.55)';
+        ctx.lineWidth=1.2;
+        ctx.stroke();
+      }
+    }
+
+    ctx.beginPath();
+    let started=false;
+    for(const pt of curve){
+      if(!isFinite(pt.y)){ started=false; continue; }
+      const X=px(pt.x), Y=py(pt.y);
+      if(Y<marginTop-40 || Y>SIZE-marginBottom+40){ started=false; continue; }
+      if(!started){ ctx.moveTo(X,Y); started=true; } else { ctx.lineTo(X,Y); }
+    }
+    ctx.strokeStyle='#e3a857';
+    ctx.lineWidth=2.4;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(px(x0), py(y0), 5, 0, Math.PI*2);
+    ctx.fillStyle='#e3a857';
+    ctx.fill();
+    ctx.lineWidth=2; ctx.strokeStyle='#0c1a2b'; ctx.stroke();
+
+    ctx.font='10.5px ui-monospace, monospace';
+    ctx.fillStyle='rgba(231,237,243,0.6)';
+    ctx.textAlign='center';
+    ctx.fillText('x', SIZE-marginRight+2>SIZE-8?SIZE-8:SIZE-marginRight-4, py(0)-6 >= marginTop ? py(0)-6 : marginTop+10);
+    ctx.textAlign='right';
+    ctx.fillText('y', px(0)-6 >= marginLeft ? px(0)-6 : marginLeft+2, marginTop+10);
+  }
+
+  document.querySelectorAll('.chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      pInput.value = btn.dataset.p;
+      qInput.value = btn.dataset.q;
+      x0Input.value = btn.dataset.x0;
+      y0Input.value = btn.dataset.y0;
+      xMinInput.value = btn.dataset.xmin;
+      xMaxInput.value = btn.dataset.xmax;
+      recompute();
+    });
+  });
+
+  [pInput,qInput,x0Input,y0Input,xMinInput,xMaxInput].forEach(inp => inp.addEventListener('input', recompute));
+
+  canvas.addEventListener('click', e => {
+    const rect = canvas.getBoundingClientRect();
+    const scale = SIZE/rect.width;
+    const mx = (e.clientX-rect.left)*scale;
+    const my = (e.clientY-rect.top)*scale;
+    if(mx<marginLeft || mx>SIZE-marginRight || my<marginTop || my>SIZE-marginBottom) return;
+    const xd = invX(mx), yd = invY(my);
+    x0Input.value = xd.toFixed(3);
+    y0Input.value = yd.toFixed(3);
+    recompute();
+  });
+
+  setupCanvas();
+  recompute();
+  window.addEventListener('resize', () => { setupCanvas(); recompute(); });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Calculadora de longitud de arco</title>
+<style>
+  :root{
+    --bg: #0c1a2b;
+    --panel: #12233a;
+    --panel-border: rgba(231,237,243,0.10);
+    --ink: #e7edf3;
+    --ink-dim: rgba(231,237,243,0.58);
+    --ink-faint: rgba(231,237,243,0.30);
+    --amber: #e3a857;
+    --amber-dim: rgba(227,168,87,0.16);
+    --teal: #5fa8a0;
+    --grid-line: rgba(231,237,243,0.055);
+    --grid-strong: rgba(231,237,243,0.10);
+    --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
+    --font-label: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+
+  *{ box-sizing: border-box; }
+
+  body{
+    margin:0;
+    min-height:100vh;
+    background:
+      radial-gradient(ellipse at 20% -10%, rgba(95,168,160,0.10), transparent 55%),
+      radial-gradient(ellipse at 100% 110%, rgba(227,168,87,0.08), transparent 50%),
+      var(--bg);
+    color: var(--ink);
+    font-family: var(--font-label);
+    padding: 40px 20px 60px;
+  }
+
+  .page{ max-width: 980px; margin: 0 auto; }
+
+  .masthead{ margin-bottom: 28px; }
+  .eyebrow{
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    color: var(--teal);
+    text-transform: uppercase;
+    margin: 0 0 10px;
+  }
+  h1{
+    font-size: clamp(24px, 4vw, 32px);
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    margin: 0 0 8px;
+  }
+  .sub{
+    margin: 0;
+    font-size: 14px;
+    color: var(--ink-dim);
+  }
+
+  .layout{
+    display: grid;
+    grid-template-columns: minmax(0,440px) 1fr;
+    gap: 22px;
+    align-items: start;
+  }
+  @media (max-width: 780px){
+    .layout{ grid-template-columns: 1fr; }
+  }
+
+  .instrument{
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 14px;
+    padding: 18px 18px 12px;
+  }
+  #canvas{
+    width: 100%;
+    height: auto;
+    display: block;
+    touch-action: none;
+    cursor: grab;
+    border-radius: 8px;
+  }
+  #canvas.dragging{ cursor: grabbing; }
+
+  .fig-caption{
+    margin: 12px 2px 2px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+  }
+
+  .controls{
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 14px;
+    padding: 20px 20px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .field-head{
+    display:flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 8px;
+  }
+  .field-head label{
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--ink-dim);
+  }
+  .num-input{
+    width: 84px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    color: var(--ink);
+    font-family: var(--font-mono);
+    font-size: 14px;
+    text-align: right;
+    padding: 4px 8px;
+  }
+  .num-input:focus{
+    outline: 2px solid var(--amber);
+    outline-offset: 1px;
+  }
+
+  input[type="range"]{
+    -webkit-appearance: none;
+    width: 100%;
+    height: 26px;
+    background: transparent;
+  }
+  input[type="range"]::-webkit-slider-runnable-track{
+    height: 3px;
+    background: var(--grid-strong);
+    border-radius: 2px;
+  }
+  input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance: none;
+    margin-top: -8px;
+    width: 19px; height: 19px;
+    border-radius: 50%;
+    background: var(--amber);
+    border: 3px solid #1a2f4a;
+    box-shadow: 0 0 0 1px rgba(227,168,87,0.4);
+    cursor: pointer;
+  }
+  input[type="range"]::-moz-range-track{
+    height: 3px;
+    background: var(--grid-strong);
+    border-radius: 2px;
+  }
+  input[type="range"]::-moz-range-thumb{
+    width: 13px; height: 13px;
+    border-radius: 50%;
+    background: var(--amber);
+    border: 3px solid #1a2f4a;
+    cursor: pointer;
+  }
+  input[type="range"]:focus-visible::-webkit-slider-thumb{
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
+
+  .readout{
+    border-top: 1px solid var(--panel-border);
+    padding-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .readout-row{
+    display:flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .readout-label{
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    color: var(--ink-faint);
+  }
+  .readout-value{
+    font-family: var(--font-mono);
+    font-size: 15px;
+    color: var(--ink);
+  }
+  .sub-row{ margin-top: -4px; }
+  .readout-label-sm{
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
+    color: var(--ink-faint);
+  }
+  .readout-value-sm{
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--teal);
+  }
+
+  .divider{
+    height: 1px;
+    background: var(--panel-border);
+    margin: 4px 0;
+  }
+
+  .formula-block{ display:flex; flex-direction:column; gap:4px; }
+  .formula-line{
+    margin:0;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--ink-dim);
+  }
+  .formula-line.dim{ color: var(--ink-faint); font-size: 12px; }
+
+  .answer{
+    margin-top: 6px;
+    background: var(--amber-dim);
+    border: 1px solid rgba(227,168,87,0.35);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display:flex;
+    flex-direction:column;
+    gap: 4px;
+  }
+  .answer-label{
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    color: rgba(227,168,87,0.85);
+  }
+  .answer-value{
+    font-family: var(--font-mono);
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--amber);
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+    <header class="masthead">
+      <p class="eyebrow">Geometría · Circunferencia</p>
+      <h1>Calculadora de longitud de arco</h1>
+      <p class="sub">Arrastra el punto sobre la circunferencia o usa los controles para cambiar el radio y el ángulo.</p>
+    </header>
+
+    <main class="layout">
+      <section class="instrument">
+        <canvas id="canvas" width="420" height="420" role="img" aria-label="Círculo con el radio y el arco resaltados según el ángulo elegido"></canvas>
+        <p class="fig-caption">Fig. 1 — Arco circular</p>
+      </section>
+
+      <section class="controls">
+        <div class="field">
+          <div class="field-head">
+            <label for="radiusRange">Radio (r)</label>
+            <input id="radiusNumber" type="number" min="0.1" max="50" step="0.1" value="5" class="num-input" aria-label="Valor del radio" />
+          </div>
+          <input id="radiusRange" type="range" min="0.5" max="20" step="0.1" value="5" aria-label="Deslizador del radio" />
+        </div>
+
+        <div class="field">
+          <div class="field-head">
+            <label for="angleRange">Ángulo (θ) en grados</label>
+            <input id="angleNumber" type="number" min="0" max="360" step="0.1" value="60" class="num-input" aria-label="Valor del ángulo en grados" />
+          </div>
+          <input id="angleRange" type="range" min="0" max="360" step="0.1" value="60" aria-label="Deslizador del ángulo" />
+        </div>
+
+        <div class="readout" aria-live="polite">
+          <div class="readout-row">
+            <span class="readout-label">Ángulo en grados</span>
+            <span class="readout-value" id="outDeg">60.00°</span>
+          </div>
+          <div class="readout-row">
+            <span class="readout-label">Ángulo en radianes</span>
+            <span class="readout-value" id="outRad">1.0472 rad</span>
+          </div>
+          <div class="readout-row sub-row">
+            <span class="readout-label-sm">Equivalente en π</span>
+            <span class="readout-value-sm" id="outPi">0.3333π rad</span>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="formula-block">
+            <p class="formula-line">s = r · θ</p>
+            <p class="formula-line dim" id="outSub">s = 5.00 × 1.0472</p>
+          </div>
+
+          <div class="answer">
+            <span class="answer-label">Longitud de arco</span>
+            <span class="answer-value" id="outAnswer">s ≈ 5.2360</span>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+<script>
+(function(){
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const SIZE = 420;
+  const cx = SIZE/2, cy = SIZE/2, R = 150;
+
+  const radiusRange = document.getElementById('radiusRange');
+  const radiusNumber = document.getElementById('radiusNumber');
+  const angleRange = document.getElementById('angleRange');
+  const angleNumber = document.getElementById('angleNumber');
+
+  const outDeg = document.getElementById('outDeg');
+  const outRad = document.getElementById('outRad');
+  const outPi = document.getElementById('outPi');
+  const outSub = document.getElementById('outSub');
+  const outAnswer = document.getElementById('outAnswer');
+
+  let state = { r: 5, thetaDeg: 60 };
+  let dragging = false;
+
+  function setupCanvas(){
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = SIZE * dpr;
+    canvas.height = SIZE * dpr;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+
+  function toXY(angleDeg, radius){
+    const rad = angleDeg * Math.PI/180;
+    return { x: cx + radius*Math.cos(rad), y: cy - radius*Math.sin(rad) };
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,SIZE,SIZE);
+
+    // blueprint grid
+    ctx.strokeStyle = 'rgba(231,237,243,0.05)';
+    ctx.lineWidth = 1;
+    for(let x=10; x<SIZE; x+=20){
+      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,SIZE); ctx.stroke();
+    }
+    for(let y=10; y<SIZE; y+=20){
+      ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(SIZE,y); ctx.stroke();
+    }
+
+    const thetaDeg = state.thetaDeg;
+    const thetaRad = thetaDeg * Math.PI/180;
+
+    // main circle
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, 0, Math.PI*2);
+    ctx.strokeStyle = 'rgba(231,237,243,0.35)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // 0 deg reference (faint dashed)
+    const p0 = toXY(0, R);
+    ctx.save();
+    ctx.setLineDash([4,4]);
+    ctx.strokeStyle = 'rgba(231,237,243,0.22)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(p0.x,p0.y); ctx.stroke();
+    ctx.restore();
+
+    // theta radius line (teal dashed)
+    const pT = toXY(thetaDeg, R);
+    ctx.save();
+    ctx.setLineDash([5,4]);
+    ctx.strokeStyle = '#5fa8a0';
+    ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(pT.x,pT.y); ctx.stroke();
+    ctx.restore();
+
+    // highlighted arc (amber, thick)
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, 0, -thetaRad, true);
+    ctx.strokeStyle = '#e3a857';
+    ctx.lineWidth = 5;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+
+    // small angle wedge near center
+    ctx.beginPath();
+    ctx.moveTo(cx,cy);
+    ctx.arc(cx, cy, 34, 0, -thetaRad, true);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(227,168,87,0.16)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(227,168,87,0.5)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // center dot
+    ctx.beginPath();
+    ctx.arc(cx,cy,3,0,Math.PI*2);
+    ctx.fillStyle = '#e7edf3';
+    ctx.fill();
+
+    // theta label near bisector
+    const bis = toXY(thetaDeg/2, 54);
+    ctx.font = '13px ui-monospace, monospace';
+    ctx.fillStyle = '#e3a857';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('θ', bis.x, bis.y);
+
+    // r label along theta radius
+    const rLbl = toXY(thetaDeg, R*0.5);
+    ctx.font = '12px ui-monospace, monospace';
+    ctx.fillStyle = '#5fa8a0';
+    ctx.fillText('r', rLbl.x + (thetaDeg>90 && thetaDeg<270 ? -10:10), rLbl.y - 8);
+
+    // s label outside arc
+    const sLbl = toXY(thetaDeg/2, R + 20);
+    ctx.font = '12px ui-monospace, monospace';
+    ctx.fillStyle = '#e3a857';
+    ctx.fillText('s', sLbl.x, sLbl.y);
+
+    // draggable handle at theta point
+    ctx.beginPath();
+    ctx.arc(pT.x, pT.y, 7, 0, Math.PI*2);
+    ctx.fillStyle = '#e3a857';
+    ctx.fill();
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = '#0c1a2b';
+    ctx.stroke();
+
+    // fixed marker at 0 deg
+    ctx.beginPath();
+    ctx.arc(p0.x, p0.y, 4, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(231,237,243,0.45)';
+    ctx.fill();
+
+    updateReadout(thetaDeg, thetaRad);
+  }
+
+  function updateReadout(thetaDeg, thetaRad){
+    const r = state.r;
+    const arcLength = r * thetaRad;
+    const piMultiple = thetaDeg/180;
+
+    outDeg.textContent = thetaDeg.toFixed(2) + '°';
+    outRad.textContent = thetaRad.toFixed(4) + ' rad';
+    outPi.textContent = piMultiple.toFixed(4) + 'π rad';
+    outSub.textContent = 's = ' + r.toFixed(2) + ' × ' + thetaRad.toFixed(4);
+    outAnswer.textContent = 's ≈ ' + arcLength.toFixed(4);
+  }
+
+  function clamp(v,min,max){ return Math.min(max, Math.max(min,v)); }
+
+  function setRadius(v){
+    v = clamp(parseFloat(v)||0, 0.1, 50);
+    state.r = v;
+    radiusNumber.value = v;
+    radiusRange.value = clamp(v, 0.5, 20);
+    draw();
+  }
+
+  function setAngle(v){
+    v = clamp(parseFloat(v)||0, 0, 360);
+    state.thetaDeg = v;
+    angleNumber.value = v.toFixed( Number.isInteger(v) ? 0 : 1 );
+    angleRange.value = v;
+    draw();
+  }
+
+  radiusRange.addEventListener('input', e => setRadius(e.target.value));
+  radiusNumber.addEventListener('input', e => setRadius(e.target.value));
+  angleRange.addEventListener('input', e => setAngle(e.target.value));
+  angleNumber.addEventListener('input', e => setAngle(e.target.value));
+
+  function angleFromPointer(clientX, clientY){
+    const rect = canvas.getBoundingClientRect();
+    const scale = SIZE / rect.width;
+    const mx = (clientX - rect.left) * scale;
+    const my = (clientY - rect.top) * scale;
+    const dx = mx - cx;
+    const dy = cy - my;
+    let deg = Math.atan2(dy,dx) * 180/Math.PI;
+    if(deg < 0) deg += 360;
+    return deg;
+  }
+
+  canvas.addEventListener('pointerdown', e => {
+    dragging = true;
+    canvas.classList.add('dragging');
+    canvas.setPointerCapture(e.pointerId);
+    setAngle(angleFromPointer(e.clientX, e.clientY));
+  });
+  canvas.addEventListener('pointermove', e => {
+    if(!dragging) return;
+    setAngle(angleFromPointer(e.clientX, e.clientY));
+  });
+  canvas.addEventListener('pointerup', e => {
+    dragging = false;
+    canvas.classList.remove('dragging');
+  });
+  canvas.addEventListener('pointercancel', () => {
+    dragging = false;
+    canvas.classList.remove('dragging');
+  });
+
+  setupCanvas();
+  draw();
+  window.addEventListener('resize', () => { setupCanvas(); draw(); });
+})();
+</script>
+</body>
+</html>

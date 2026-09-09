@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Las tres leyes de Kepler</title>
+<style>
+  :root{
+    --bg: #0c1a2b;
+    --panel: #12233a;
+    --panel-border: rgba(231,237,243,0.10);
+    --ink: #e7edf3;
+    --ink-dim: rgba(231,237,243,0.58);
+    --ink-faint: rgba(231,237,243,0.30);
+    --amber: #e3a857;
+    --amber-dim: rgba(227,168,87,0.16);
+    --teal: #5fa8a0;
+    --teal-dim: rgba(95,168,160,0.16);
+    --grid-strong: rgba(231,237,243,0.10);
+    --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", "Roboto Mono", Menlo, Consolas, monospace;
+    --font-label: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; min-height:100vh;
+    background:
+      radial-gradient(ellipse at 20% -10%, rgba(95,168,160,0.10), transparent 55%),
+      radial-gradient(ellipse at 100% 110%, rgba(227,168,87,0.08), transparent 50%),
+      var(--bg);
+    color: var(--ink); font-family: var(--font-label); padding:40px 20px 60px;
+  }
+  .page{ max-width:1000px; margin:0 auto; }
+  .masthead{ margin-bottom:22px; }
+  .eyebrow{ font-family: var(--font-mono); font-size:11px; letter-spacing:0.16em; color: var(--teal); text-transform:uppercase; margin:0 0 10px; }
+  h1{ font-size:clamp(22px,3.6vw,30px); font-weight:650; letter-spacing:-0.01em; margin:0 0 8px; }
+  .sub{ margin:0; font-size:14px; color: var(--ink-dim); max-width:640px; }
+
+  .picker-card{
+    background: var(--panel); border:1px solid var(--panel-border); border-radius:14px;
+    padding:16px 18px; margin: 20px 0 14px;
+  }
+  .field-head{ margin-bottom:10px; }
+  .field-head label{ font-family: var(--font-mono); font-size:11px; letter-spacing:0.1em; color: var(--ink-dim); }
+  .planet-chips{ display:flex; flex-wrap:wrap; gap:8px; }
+  .planet-chip{
+    display:flex; align-items:center; gap:7px;
+    font-family: var(--font-mono); font-size:12px; padding:7px 12px;
+    border-radius:20px; border:1px solid var(--panel-border); background:rgba(255,255,255,0.03);
+    color: var(--ink-dim); cursor:pointer;
+  }
+  .planet-chip .dot{ width:8px; height:8px; border-radius:50%; background: var(--pcolor); flex:0 0 auto; }
+  .planet-chip.active{ border-color: var(--pcolor); color: var(--ink); background: rgba(255,255,255,0.06); }
+
+  .tab-switch{ display:flex; gap:8px; margin-bottom:16px; }
+  .tabsw-btn{
+    flex:1; font-family: var(--font-mono); font-size:12.5px; padding:10px 8px;
+    border-radius:10px; border:1px solid var(--panel-border); background:rgba(255,255,255,0.03);
+    color: var(--ink-dim); cursor:pointer;
+  }
+  .tabsw-btn.active{ border-color: rgba(227,168,87,0.55); color: var(--amber); background: var(--amber-dim); }
+
+  .layout{ display:grid; grid-template-columns: minmax(0,440px) 1fr; gap:22px; align-items:start; }
+  @media (max-width:780px){ .layout{ grid-template-columns:1fr; } }
+
+  .instrument{ background: var(--panel); border:1px solid var(--panel-border); border-radius:14px; padding:18px 18px 14px; }
+  canvas{ width:100%; height:auto; display:block; border-radius:8px; }
+  .fig-caption{ margin:12px 2px 0; font-family: var(--font-mono); font-size:10px; letter-spacing:0.14em; color: var(--ink-faint); text-transform:uppercase; }
+
+  .transport{ display:flex; gap:8px; margin-top:14px; }
+  .btn{ font-family: var(--font-mono); font-size:12px; letter-spacing:0.06em; padding:8px 14px; border-radius:8px; cursor:pointer; background:transparent; }
+  .btn-primary{ border:1px solid rgba(227,168,87,0.5); color: var(--amber); }
+  .btn-primary:hover{ background: var(--amber-dim); }
+  .btn-secondary{ border:1px solid var(--panel-border); color: var(--ink-dim); }
+  .btn-secondary:hover{ background: rgba(255,255,255,0.05); }
+
+  .controls{ background: var(--panel); border:1px solid var(--panel-border); border-radius:14px; padding:20px 20px 22px; display:flex; flex-direction:column; gap:10px; }
+
+  .readout-row{ display:flex; justify-content:space-between; align-items:baseline; }
+  .readout-label{ font-family: var(--font-mono); font-size:10.5px; letter-spacing:0.08em; color: var(--ink-faint); }
+  .readout-value{ font-family: var(--font-mono); font-size:14px; color: var(--ink); }
+
+  .exag-row{
+    display:flex; align-items:flex-start; gap:9px; cursor:pointer;
+    font-size:12px; color: var(--ink-dim); line-height:1.4;
+    padding-bottom:6px; margin-bottom:4px; border-bottom:1px solid var(--panel-border);
+  }
+  .exag-row input{ margin-top:2px; accent-color: var(--amber); flex:0 0 auto; }
+
+  .divider{ height:1px; background: var(--panel-border); margin:6px 0; }
+  .formula-line{ margin:0 0 4px; font-family: var(--font-mono); font-size:12.5px; color: var(--ink-dim); }
+
+  .answers{ display:flex; gap:10px; margin:4px 0 2px; flex-wrap:wrap; }
+  .answer{ flex:1 1 150px; border-radius:10px; padding:12px 14px; display:flex; flex-direction:column; gap:4px; }
+  .answer.amber{ background: var(--amber-dim); border:1px solid rgba(227,168,87,0.35); }
+  .answer.teal{ background: var(--teal-dim); border:1px solid rgba(95,168,160,0.35); }
+  .answer-label{ font-family: var(--font-mono); font-size:9.5px; letter-spacing:0.08em; }
+  .answer.amber .answer-label{ color: rgba(227,168,87,0.85); }
+  .answer.teal .answer-label{ color: rgba(95,168,160,0.9); }
+  .answer-value{ font-family: var(--font-mono); font-size:16px; font-weight:600; }
+  .answer.amber .answer-value{ color: var(--amber); }
+  .answer.teal .answer-value{ color: var(--teal); }
+
+  .data-table{ width:100%; border-collapse:collapse; font-family: var(--font-mono); font-size:10.8px; }
+  .data-table th{ text-align:right; font-weight:500; color: var(--ink-faint); font-size:9.5px; letter-spacing:0.05em; padding:5px 6px; border-bottom:1px solid var(--panel-border); }
+  .data-table th:first-child, .data-table td:first-child{ text-align:left; }
+  .data-table td{ text-align:right; padding:6px 6px; border-bottom:1px solid var(--panel-border); color: var(--ink-dim); }
+  .data-table tr.sel-row td{ color: var(--amber); background: var(--amber-dim); }
+  .table-caption{ font-size:11px; color: var(--ink-dim); margin:0 0 8px; }
+</style>
+</head>
+<body>
+  <div class="page">
+    <header class="masthead">
+      <p class="eyebrow">Astronomía · Leyes de Kepler</p>
+      <h1>Las tres leyes de Kepler</h1>
+      <p class="sub">Elige un planeta del sistema solar y observa su órbita real (1ª y 2ª ley) o compáralo con los demás planetas en la relación T² ∝ a³ (3ª ley).</p>
+    </header>
+
+    <div class="picker-card">
+      <div class="field-head"><label>Planeta</label></div>
+      <div class="planet-chips" id="planetChips"></div>
+    </div>
+
+    <div class="tab-switch">
+      <button type="button" class="tabsw-btn active" data-tab="orbit">Órbita — 1ª y 2ª ley</button>
+      <button type="button" class="tabsw-btn" data-tab="third">3ª ley — T² ∝ a³</button>
+    </div>
+
+    <div id="tabOrbit" class="layout">
+      <section class="instrument">
+        <canvas id="canvasA" width="420" height="420" role="img" aria-label="Órbita elíptica del planeta seleccionado, con el Sol en un foco y sectores de área igual"></canvas>
+        <p class="fig-caption">Fig. 5 — Órbita kepleriana</p>
+        <div class="transport">
+          <button id="playBtnK" class="btn btn-primary">⏸ Pausar</button>
+          <button id="resetBtnK" class="btn btn-secondary">↺ Reiniciar</button>
+        </div>
+      </section>
+
+      <section class="controls">
+        <label class="exag-row">
+          <input type="checkbox" id="exagCheck" checked />
+          <span>Exagerar excentricidad en el dibujo (para ver mejor la elipse)</span>
+        </label>
+        <div class="readout-row"><span class="readout-label">a (semieje mayor)</span><span class="readout-value" id="orbA">—</span></div>
+        <div class="readout-row"><span class="readout-label">e (excentricidad)</span><span class="readout-value" id="orbE">—</span></div>
+        <div class="readout-row"><span class="readout-label">b (semieje menor)</span><span class="readout-value" id="orbB">—</span></div>
+        <div class="readout-row"><span class="readout-label">Perihelio (distancia mínima)</span><span class="readout-value" id="orbPeri">—</span></div>
+        <div class="readout-row"><span class="readout-label">Afelio (distancia máxima)</span><span class="readout-value" id="orbApo">—</span></div>
+        <div class="readout-row"><span class="readout-label">T (período orbital)</span><span class="readout-value" id="orbT">—</span></div>
+
+        <div class="divider"></div>
+        <p class="formula-line">2ª ley: área barrida en Δt = T/12 (igual en cualquier tramo de la órbita)</p>
+        <div class="answers">
+          <div class="answer amber">
+            <span class="answer-label">ÁREA BARRIDA (AMBOS SECTORES)</span>
+            <span class="answer-value" id="orbArea">—</span>
+          </div>
+          <div class="answer teal">
+            <span class="answer-label">RAZÓN v(PERIHELIO) / v(AFELIO)</span>
+            <span class="answer-value" id="orbSpeedRatio">—</span>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div id="tabThird" class="layout" style="display:none;">
+      <section class="instrument">
+        <canvas id="canvasB" width="420" height="420" role="img" aria-label="Gráfico logarítmico de período orbital contra semieje mayor para los ocho planetas"></canvas>
+        <p class="fig-caption">Fig. 6 — Ley de Kepler: T² ∝ a³</p>
+      </section>
+
+      <section class="controls">
+        <p class="table-caption">T² = a³ · k, con k ≈ 1 cuando a se mide en UA y T en años. La fila resaltada es el planeta seleccionado.</p>
+        <table class="data-table">
+          <thead>
+            <tr><th>Planeta</th><th>a (UA)</th><th>T (años)</th><th>a³</th><th>T²</th><th>T²/a³</th></tr>
+          </thead>
+          <tbody id="thirdTableBody"></tbody>
+        </table>
+      </section>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const PLANETS = [
+    { name:'Mercurio', a:0.387, e:0.206, T:0.241, color:'#b7a99a' },
+    { name:'Venus',    a:0.723, e:0.007, T:0.615, color:'#e6c98a' },
+    { name:'Tierra',   a:1.000, e:0.017, T:1.000, color:'#4f8fc4' },
+    { name:'Marte',    a:1.524, e:0.093, T:1.881, color:'#c1623f' },
+    { name:'Júpiter',  a:5.203, e:0.049, T:11.86, color:'#d9a066' },
+    { name:'Saturno',  a:9.537, e:0.057, T:29.46, color:'#e3cf95' },
+    { name:'Urano',    a:19.191,e:0.046, T:84.01, color:'#8fd3d9' },
+    { name:'Neptuno',  a:30.069,e:0.010, T:164.8, color:'#4f6fd1' },
+  ];
+  let selectedIdx = 3; // Marte por defecto
+
+  const SIZE = 420;
+  const canvasA = document.getElementById('canvasA');
+  const ctxA = canvasA.getContext('2d');
+  const canvasB = document.getElementById('canvasB');
+  const ctxB = canvasB.getContext('2d');
+
+  function setupCanvas(canvas, ctx){
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = SIZE*dpr; canvas.height = SIZE*dpr;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+
+  function solveKepler(M, e){
+    let E = M;
+    for(let i=0;i<8;i++){
+      const dE = (E - e*Math.sin(E) - M) / (1 - e*Math.cos(E));
+      E -= dE;
+    }
+    return E;
+  }
+  function keplerPoint(M, e, a_px, b_px, cx, cy){
+    const E = solveKepler(M, e);
+    return { x: cx + a_px*Math.cos(E), y: cy + b_px*Math.sin(E) };
+  }
+  function buildWedge(Mstart, Mend, e, a_px, b_px, cx, cy, samples){
+    const pts = [];
+    for(let i=0;i<=samples;i++){
+      const M = Mstart + (Mend-Mstart)*i/samples;
+      pts.push(keplerPoint(M, e, a_px, b_px, cx, cy));
+    }
+    return pts;
+  }
+
+  let animProgress = 0;
+  let anim = { playing:true, raf:null, startTs:0, duration:7 };
+
+  let exaggerate = true;
+  function displayEccentricity(eReal){
+    return exaggerate ? Math.min(0.62, Math.sqrt(eReal)*1.10) : eReal;
+  }
+
+  function renderOrbit(){
+    const p = PLANETS[selectedIdx];
+    const e = displayEccentricity(p.e);
+    const a_px = 150, cx = 210, cy = 210;
+    const b_px = a_px*Math.sqrt(1-e*e);
+    const c_px = a_px*e;
+    const sunX = cx + c_px, sunY = cy;
+
+    ctxA.clearRect(0,0,SIZE,SIZE);
+
+    ctxA.strokeStyle='rgba(231,237,243,0.045)';
+    ctxA.lineWidth=1;
+    for(let x=10;x<SIZE;x+=20){ ctxA.beginPath(); ctxA.moveTo(x,0); ctxA.lineTo(x,SIZE); ctxA.stroke(); }
+    for(let y=10;y<SIZE;y+=20){ ctxA.beginPath(); ctxA.moveTo(0,y); ctxA.lineTo(SIZE,y); ctxA.stroke(); }
+
+    ctxA.save();
+    ctxA.setLineDash([4,4]);
+    ctxA.strokeStyle='rgba(231,237,243,0.16)';
+    ctxA.lineWidth=1;
+    ctxA.beginPath(); ctxA.moveTo(cx-a_px,cy); ctxA.lineTo(cx+a_px,cy); ctxA.stroke();
+    ctxA.beginPath(); ctxA.moveTo(cx,cy-b_px); ctxA.lineTo(cx,cy+b_px); ctxA.stroke();
+    ctxA.restore();
+
+    ctxA.beginPath();
+    for(let i=0;i<=200;i++){
+      const E=(i/200)*2*Math.PI;
+      const x=cx+a_px*Math.cos(E), y=cy+b_px*Math.sin(E);
+      if(i===0) ctxA.moveTo(x,y); else ctxA.lineTo(x,y);
+    }
+    ctxA.closePath();
+    ctxA.strokeStyle='rgba(231,237,243,0.6)';
+    ctxA.lineWidth=2;
+    ctxA.stroke();
+
+    const dM = 2*Math.PI/12;
+    const wedge1 = buildWedge(0, dM, e, a_px,b_px,cx,cy, 14);
+    const wedge2 = buildWedge(Math.PI, Math.PI+dM, e, a_px,b_px,cx,cy, 14);
+    [wedge1, wedge2].forEach(pts => {
+      ctxA.beginPath();
+      ctxA.moveTo(sunX, sunY);
+      for(const pt of pts) ctxA.lineTo(pt.x, pt.y);
+      ctxA.closePath();
+      ctxA.fillStyle='rgba(227,168,87,0.30)';
+      ctxA.fill();
+      ctxA.strokeStyle='rgba(227,168,87,0.75)';
+      ctxA.lineWidth=1;
+      ctxA.stroke();
+    });
+
+    const grad = ctxA.createRadialGradient(sunX,sunY,0,sunX,sunY,15);
+    grad.addColorStop(0,'rgba(255,243,214,0.9)');
+    grad.addColorStop(0.45,'rgba(240,185,92,0.55)');
+    grad.addColorStop(1,'rgba(227,168,87,0)');
+    ctxA.fillStyle=grad;
+    ctxA.beginPath(); ctxA.arc(sunX,sunY,15,0,Math.PI*2); ctxA.fill();
+    ctxA.beginPath(); ctxA.arc(sunX,sunY,6,0,Math.PI*2); ctxA.fillStyle='#f4c065'; ctxA.fill();
+
+    const periX=cx+a_px, apoX=cx-a_px;
+    ctxA.fillStyle='rgba(231,237,243,0.75)';
+    ctxA.beginPath(); ctxA.arc(periX,cy,2.5,0,Math.PI*2); ctxA.fill();
+    ctxA.beginPath(); ctxA.arc(apoX,cy,2.5,0,Math.PI*2); ctxA.fill();
+    ctxA.font='10px ui-monospace, monospace';
+    ctxA.textAlign='center';
+    ctxA.fillStyle='rgba(231,237,243,0.6)';
+    ctxA.fillText('perihelio', periX, cy+20);
+    ctxA.fillText((p.a*(1-p.e)).toFixed(3)+' UA', periX, cy+32);
+    ctxA.fillText('afelio', apoX, cy-26);
+    ctxA.fillText((p.a*(1+p.e)).toFixed(3)+' UA', apoX, cy-14);
+
+    const M = animProgress*2*Math.PI;
+    const pt = keplerPoint(M, e, a_px,b_px,cx,cy);
+
+    ctxA.save();
+    ctxA.strokeStyle='rgba(95,168,160,0.6)';
+    ctxA.lineWidth=1.3;
+    ctxA.beginPath();
+    ctxA.moveTo(sunX, sunY);
+    ctxA.lineTo(pt.x, pt.y);
+    ctxA.stroke();
+    ctxA.restore();
+
+    ctxA.beginPath();
+    ctxA.arc(pt.x, pt.y, 7, 0, Math.PI*2);
+    ctxA.fillStyle = p.color;
+    ctxA.fill();
+    ctxA.lineWidth=2.2; ctxA.strokeStyle='#0c1a2b'; ctxA.stroke();
+  }
+
+  function updateOrbitReadout(){
+    const p = PLANETS[selectedIdx];
+    const b = p.a*Math.sqrt(1-p.e*p.e);
+    const peri = p.a*(1-p.e), apo = p.a*(1+p.e);
+    const areaSwept = Math.PI*p.a*b/12;
+    const speedRatio = (1+p.e)/(1-p.e);
+    document.getElementById('orbA').textContent = p.a.toFixed(3)+' UA';
+    document.getElementById('orbE').textContent = p.e.toFixed(3);
+    document.getElementById('orbB').textContent = b.toFixed(3)+' UA';
+    document.getElementById('orbPeri').textContent = peri.toFixed(3)+' UA';
+    document.getElementById('orbApo').textContent = apo.toFixed(3)+' UA';
+    document.getElementById('orbT').textContent = p.T.toFixed(3)+' años';
+    document.getElementById('orbArea').textContent = areaSwept.toFixed(4)+' UA²';
+    document.getElementById('orbSpeedRatio').textContent = speedRatio.toFixed(3);
+  }
+
+  function renderThird(){
+    ctxB.clearRect(0,0,SIZE,SIZE);
+    const logAs = PLANETS.map(p=>Math.log10(p.a));
+    const logTs = PLANETS.map(p=>Math.log10(p.T));
+    const xMinD = Math.min(...logAs)-0.28, xMaxD = Math.max(...logAs)+0.28;
+    const yMinD = Math.min(...logTs)-0.28, yMaxD = Math.max(...logTs)+0.28;
+    const mL=48, mR=18, mT=18, mB=34;
+    const pw=SIZE-mL-mR, ph=SIZE-mT-mB;
+    const X = aVal => mL + (Math.log10(aVal)-xMinD)/(xMaxD-xMinD)*pw;
+    const Y = tVal => mT + ph - (Math.log10(tVal)-yMinD)/(yMaxD-yMinD)*ph;
+
+    ctxB.strokeStyle='rgba(231,237,243,0.15)';
+    ctxB.lineWidth=1;
+    ctxB.strokeRect(mL,mT,pw,ph);
+
+    const xTicks=[0.3,0.5,1,2,3,5,10,20,30].filter(v=>Math.log10(v)>=xMinD&&Math.log10(v)<=xMaxD);
+    const yTicks=[0.3,1,3,10,30,100,300].filter(v=>Math.log10(v)>=yMinD&&Math.log10(v)<=yMaxD);
+    ctxB.font='9.5px ui-monospace, monospace';
+    xTicks.forEach(v=>{
+      const x=X(v);
+      ctxB.strokeStyle='rgba(231,237,243,0.06)';
+      ctxB.beginPath(); ctxB.moveTo(x,mT); ctxB.lineTo(x,mT+ph); ctxB.stroke();
+      ctxB.fillStyle='rgba(231,237,243,0.5)';
+      ctxB.textAlign='center';
+      ctxB.fillText(v>=1?String(v):v.toFixed(1), x, mT+ph+14);
+    });
+    yTicks.forEach(v=>{
+      const y=Y(v);
+      ctxB.strokeStyle='rgba(231,237,243,0.06)';
+      ctxB.beginPath(); ctxB.moveTo(mL,y); ctxB.lineTo(mL+pw,y); ctxB.stroke();
+      ctxB.fillStyle='rgba(231,237,243,0.5)';
+      ctxB.textAlign='right';
+      ctxB.fillText(v>=1?String(v):v.toFixed(1), mL-6, y+3);
+    });
+
+    ctxB.fillStyle='rgba(231,237,243,0.6)';
+    ctxB.textAlign='center';
+    ctxB.fillText('a (UA, escala log)', mL+pw/2, SIZE-6);
+    ctxB.save();
+    ctxB.translate(14, mT+ph/2);
+    ctxB.rotate(-Math.PI/2);
+    ctxB.textAlign='center';
+    ctxB.fillText('T (años, escala log)', 0,0);
+    ctxB.restore();
+
+    const xA0=Math.pow(10,xMinD), xA1=Math.pow(10,xMaxD);
+    const tA0=Math.pow(xA0,1.5), tA1=Math.pow(xA1,1.5);
+    ctxB.save();
+    ctxB.setLineDash([5,4]);
+    ctxB.strokeStyle='rgba(231,237,243,0.4)';
+    ctxB.lineWidth=1.3;
+    ctxB.beginPath(); ctxB.moveTo(X(xA0),Y(tA0)); ctxB.lineTo(X(xA1),Y(tA1)); ctxB.stroke();
+    ctxB.restore();
+    ctxB.fillStyle='rgba(231,237,243,0.55)';
+    ctxB.font='10px ui-monospace, monospace';
+    ctxB.textAlign='right';
+    ctxB.fillText('T ∝ a^1.5', X(xA1)-4, Y(tA1)-8);
+
+    PLANETS.forEach((p,i)=>{
+      const x=X(p.a), y=Y(p.T);
+      const isSel = i===selectedIdx;
+      ctxB.beginPath();
+      ctxB.arc(x,y, isSel?7:4, 0, Math.PI*2);
+      ctxB.fillStyle = p.color;
+      ctxB.fill();
+      if(isSel){ ctxB.lineWidth=2; ctxB.strokeStyle='#e7edf3'; ctxB.stroke(); }
+      ctxB.font = isSel ? '11px ui-monospace, monospace' : '9.5px ui-monospace, monospace';
+      ctxB.fillStyle = isSel ? 'rgba(231,237,243,0.95)' : 'rgba(231,237,243,0.55)';
+      ctxB.textAlign='left';
+      ctxB.fillText(p.name, x+9, y-7);
+    });
+  }
+
+  function buildThirdTable(){
+    const tbody = document.getElementById('thirdTableBody');
+    tbody.innerHTML = '';
+    PLANETS.forEach((p,i)=>{
+      const a3=Math.pow(p.a,3), T2=Math.pow(p.T,2), ratio=T2/a3;
+      const tr = document.createElement('tr');
+      if(i===selectedIdx) tr.className='sel-row';
+      tr.innerHTML = '<td>'+p.name+'</td><td>'+p.a.toFixed(3)+'</td><td>'+p.T.toFixed(3)+'</td><td>'+a3.toFixed(3)+'</td><td>'+T2.toFixed(3)+'</td><td>'+ratio.toFixed(3)+'</td>';
+      tbody.appendChild(tr);
+    });
+  }
+
+  const chipsContainer = document.getElementById('planetChips');
+  PLANETS.forEach((p,i)=>{
+    const btn = document.createElement('button');
+    btn.type='button';
+    btn.className='planet-chip'+(i===selectedIdx?' active':'');
+    btn.style.setProperty('--pcolor', p.color);
+    btn.innerHTML = '<span class="dot"></span>'+p.name;
+    btn.addEventListener('click', ()=>selectPlanet(i));
+    chipsContainer.appendChild(btn);
+  });
+
+  function selectPlanet(idx){
+    selectedIdx = idx;
+    document.querySelectorAll('.planet-chip').forEach((c,i)=>c.classList.toggle('active', i===idx));
+    animProgress = 0; anim.startTs = 0;
+    updateOrbitReadout();
+    renderOrbit();
+    buildThirdTable();
+    renderThird();
+  }
+
+  document.querySelectorAll('.tabsw-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.tabsw-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      const tab = btn.dataset.tab;
+      document.getElementById('tabOrbit').style.display = tab==='orbit' ? '' : 'none';
+      document.getElementById('tabThird').style.display = tab==='third' ? '' : 'none';
+    });
+  });
+
+  const playBtnK = document.getElementById('playBtnK');
+  const resetBtnK = document.getElementById('resetBtnK');
+
+  function loopA(ts){
+    if(!anim.playing) return;
+    if(!anim.startTs) anim.startTs = ts - animProgress*anim.duration*1000;
+    const elapsed = (ts-anim.startTs)/1000;
+    animProgress = (elapsed/anim.duration) % 1;
+    renderOrbit();
+    anim.raf = requestAnimationFrame(loopA);
+  }
+
+  playBtnK.addEventListener('click', () => {
+    anim.playing = !anim.playing;
+    playBtnK.textContent = anim.playing ? '⏸ Pausar' : '▶ Reproducir';
+    if(anim.playing){ anim.startTs = 0; anim.raf = requestAnimationFrame(loopA); }
+    else if(anim.raf) cancelAnimationFrame(anim.raf);
+  });
+  resetBtnK.addEventListener('click', () => {
+    animProgress = 0; anim.startTs = 0;
+    renderOrbit();
+  });
+
+  document.getElementById('exagCheck').addEventListener('change', e => {
+    exaggerate = e.target.checked;
+    renderOrbit();
+  });
+
+  setupCanvas(canvasA, ctxA);
+  setupCanvas(canvasB, ctxB);
+  updateOrbitReadout();
+  renderOrbit();
+  buildThirdTable();
+  renderThird();
+  anim.playing = true;
+  anim.raf = requestAnimationFrame(loopA);
+
+  window.addEventListener('resize', () => {
+    setupCanvas(canvasA, ctxA);
+    setupCanvas(canvasB, ctxB);
+    renderOrbit();
+    renderThird();
+  });
+})();
+</script>
+</body>
+</html>
