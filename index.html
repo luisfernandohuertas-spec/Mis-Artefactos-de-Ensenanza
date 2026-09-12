@@ -6,7 +6,7 @@
   <title>Laboratorio interactivo — matemáticas y física</title>
   <meta
     name="description"
-    content="Galería de herramientas interactivas de matemáticas y física: ecuaciones diferenciales, mecánica, ondas, álgebra lineal, astronomía y más."
+    content="Galería de herramientas interactivas de matemáticas y física: ecuaciones diferenciales, mecánica, ondas, astronomía y más."
   />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -43,18 +43,16 @@
   </div>
 
   <main class="gallery-section">
-    <p id="count" class="gallery-count"></p>
+    <p id="count" class="gallery-count" hidden></p>
     <div id="gallery" class="gallery-grid"></div>
-    <p id="empty-state" class="empty-state" hidden>
-      No hay ninguna herramienta que coincida con esa búsqueda.
-    </p>
+    <p id="status" class="empty-state" hidden></p>
   </main>
 
   <footer class="site-footer">
     <p>Construido artefacto por artefacto — solo HTML, CSS y JavaScript, sin frameworks.</p>
   </footer>
 
-  <script src="tools.js"></script>
+  <script src="categories.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
