@@ -1,0 +1,1014 @@
+<title>Imagen y Superficie</title>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#f3f3f0;
+    --surface:#ffffff;
+    --ink:#15161b;
+    --ink-2:#5a5c66;
+    --ink-3:#8b8d97;
+    --hair:#dedcd4;
+    --accent:#5b3fd6;
+    --accent-ink:#ffffff;
+    --danger:#c23b3b;
+    --stage-bg:#101018;
+    --stage-hair:rgba(255,255,255,0.14);
+    --stage-hair-strong:rgba(255,255,255,0.32);
+    --stage-ink:#f2f1ee;
+    --stage-ink-2:#9a9cab;
+    --focus:#5b3fd6;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#111114;
+      --surface:#1a1a20;
+      --ink:#f3f2ee;
+      --ink-2:#b7b7c2;
+      --ink-3:#83838f;
+      --hair:#2d2d35;
+      --accent:#8f7dff;
+      --accent-ink:#111114;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#111114;
+    --surface:#1a1a20;
+    --ink:#f3f2ee;
+    --ink-2:#b7b7c2;
+    --ink-3:#83838f;
+    --hair:#2d2d35;
+    --accent:#8f7dff;
+    --accent-ink:#111114;
+  }
+
+  *{box-sizing:border-box;}
+  html, body{ height:100%; }
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .app{
+    display:flex;
+    flex-direction:column;
+    height:100vh;
+    overflow:hidden;
+    padding:16px;
+    gap:14px;
+  }
+  @media (max-width: 860px){
+    .app{ height:auto; min-height:100vh; overflow:visible; }
+  }
+  .topbar{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+  }
+  .topbar h1{
+    margin:0;
+    font-size:1.28rem;
+    font-weight:700;
+    letter-spacing:-0.01em;
+    text-wrap:balance;
+  }
+  .topbar p{
+    margin:0;
+    color:var(--ink-2);
+    font-size:0.88rem;
+    max-width:62ch;
+  }
+  .layout{
+    display:flex;
+    gap:14px;
+    flex:1;
+    min-height:0;
+    align-items:stretch;
+  }
+  @media (max-width: 860px){
+    .layout{ flex-direction:column; }
+  }
+
+  .panel{
+    width:300px;
+    flex:0 0 auto;
+    background:var(--surface);
+    border:1px solid var(--hair);
+    border-radius:14px;
+    padding:16px;
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+    overflow-y:auto;
+  }
+  @media (max-width: 860px){
+    .panel{ width:auto; order:2; }
+  }
+
+  .field{ display:flex; flex-direction:column; gap:6px; }
+  .field-row{ display:flex; gap:10px; }
+  .field-row > .field{ flex:1; min-width:0; }
+  label{
+    font-size:0.72rem;
+    font-weight:600;
+    text-transform:uppercase;
+    letter-spacing:0.05em;
+    color:var(--ink-3);
+  }
+  .group-title{
+    font-size:0.72rem;
+    font-weight:600;
+    text-transform:uppercase;
+    letter-spacing:0.05em;
+    color:var(--ink-3);
+    margin:0 0 -4px 0;
+    padding-top:4px;
+    border-top:1px solid var(--hair);
+    padding-top:12px;
+  }
+  .panel > .group-title:first-child{ border-top:none; padding-top:0; }
+
+  input[type="text"], input[type="number"], select{
+    font-family:"IBM Plex Mono", ui-monospace, monospace;
+    font-size:0.92rem;
+    color:var(--ink);
+    background:var(--bg);
+    border:1px solid var(--hair);
+    border-radius:8px;
+    padding:8px 10px;
+    width:100%;
+  }
+  select{ font-family:"IBM Plex Sans", sans-serif; }
+  input:focus-visible, select:focus-visible, button:focus-visible, input[type="range"]:focus-visible{
+    outline:2px solid var(--focus);
+    outline-offset:1px;
+  }
+  .fn-preview{
+    font-family:"IBM Plex Mono", ui-monospace, monospace;
+    font-size:0.98rem;
+    color:var(--accent);
+    min-height:1.3em;
+    word-break:break-word;
+  }
+  .error-msg{
+    font-size:0.78rem;
+    color:var(--danger);
+    min-height:1.1em;
+  }
+  .point-readout{
+    font-family:"IBM Plex Mono", ui-monospace, monospace;
+    font-size:0.8rem;
+    color:var(--ink-2);
+    min-height:1.2em;
+  }
+  .point-readout .warn{ color:#b8860b; }
+  .point-readout b{ color:var(--accent); }
+
+  input[type="range"]{
+    width:100%;
+    accent-color:var(--accent);
+  }
+  .range-value{
+    font-family:"IBM Plex Mono", monospace;
+    font-size:0.78rem;
+    color:var(--ink-2);
+    font-variant-numeric:tabular-nums;
+  }
+
+  .btn{
+    font-family:inherit;
+    font-size:0.86rem;
+    font-weight:600;
+    border-radius:8px;
+    border:1px solid var(--hair);
+    background:var(--bg);
+    color:var(--ink);
+    padding:9px 12px;
+    cursor:pointer;
+  }
+  .btn:hover{ border-color:var(--ink-3); }
+  .btn-primary{
+    background:var(--accent);
+    border-color:var(--accent);
+    color:var(--accent-ink);
+  }
+  .btn-row{ display:flex; gap:8px; }
+  .btn-row .btn{ flex:1; }
+
+  .checkbox-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:0.86rem;
+    color:var(--ink);
+  }
+  .checkbox-row input{ accent-color:var(--accent); width:15px; height:15px; }
+
+  .preset-grid{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:6px;
+  }
+
+  .stage{
+    position:relative;
+    flex:1;
+    min-height:420px;
+    background:var(--stage-bg);
+    border-radius:14px;
+    overflow:hidden;
+    border:1px solid var(--hair);
+  }
+  #scene{ display:block; width:100%; height:100%; touch-action:none; cursor:grab; }
+  #scene:active{ cursor:grabbing; }
+
+  .stage-overlay{
+    position:absolute;
+    color:var(--stage-ink);
+    font-family:"IBM Plex Mono", monospace;
+    pointer-events:none;
+  }
+  .readout{
+    top:12px; left:14px;
+    font-size:0.78rem;
+    line-height:1.5;
+    color:var(--stage-ink-2);
+    max-width:60%;
+  }
+  .readout b{ color:var(--stage-ink); font-weight:600; }
+  .readout .scale-note{ opacity:0.85; }
+
+  .legend{
+    bottom:14px; left:14px;
+    display:flex;
+    align-items:stretch;
+    gap:8px;
+    background:rgba(16,16,24,0.55);
+    backdrop-filter:blur(3px);
+    border:1px solid var(--stage-hair);
+    border-radius:10px;
+    padding:10px 12px;
+  }
+  .legend-bar{
+    width:14px;
+    border-radius:4px;
+  }
+  .legend-labels{
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+    font-size:0.72rem;
+    font-variant-numeric:tabular-nums;
+  }
+  .legend-title{
+    position:absolute;
+    top:-18px; left:0;
+    font-size:0.66rem;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    color:var(--stage-ink-2);
+    white-space:nowrap;
+  }
+
+  .tooltip{
+    position:absolute;
+    pointer-events:none;
+    background:rgba(16,16,24,0.85);
+    border:1px solid var(--stage-hair-strong);
+    color:var(--stage-ink);
+    font-family:"IBM Plex Mono", monospace;
+    font-size:0.76rem;
+    padding:6px 9px;
+    border-radius:7px;
+    transform:translate(-50%,-130%);
+    white-space:nowrap;
+  }
+
+  .hint{
+    top:12px; right:14px;
+    font-size:0.7rem;
+    color:var(--stage-ink-2);
+    text-align:right;
+    line-height:1.4;
+  }
+  @media (max-width: 600px){
+    .hint{ display:none; }
+    .readout{ max-width:92%; font-size:0.7rem; }
+  }
+
+  ::-webkit-scrollbar{ width:9px; height:9px; }
+  ::-webkit-scrollbar-thumb{ background:var(--hair); border-radius:6px; }
+</style>
+
+<div class="app">
+  <div class="topbar">
+    <h1>Imagen y superficie de z = f(x, y)</h1>
+    <p>Elige un dominio cuadrado [a, b] × [a, b] y observa, de forma animada, cómo el "mapa de color" plano (la imagen de f) se levanta hasta convertirse en la superficie z = f(x, y).</p>
+  </div>
+
+  <div class="layout">
+    <aside class="panel" id="panel">
+      <div class="group-title">Función</div>
+      <div class="field">
+        <label for="fn-input">f(x, y) =</label>
+        <input type="text" id="fn-input" value="sin(x)*cos(y)" autocomplete="off" spellcheck="false">
+        <div class="fn-preview" id="fn-preview"></div>
+        <div class="error-msg" id="fn-error"></div>
+      </div>
+      <div class="field">
+        <label for="preset-select">Ejemplos</label>
+        <select id="preset-select">
+          <option value="custom">— personalizada —</option>
+          <option value="0">Paraboloide: x^2 + y^2</option>
+          <option value="1">Silla de montar: x^2 - y^2</option>
+          <option value="2" selected>Ondulación: sin(x)*cos(y)</option>
+          <option value="3">Ondas concéntricas: sin(r)</option>
+          <option value="4">Campana de Gauss: exp(-(x^2+y^2)/4)</option>
+          <option value="5">Plano inclinado: 0.4*x + 0.3*y</option>
+          <option value="6">Cresta: sin(x) + cos(y)</option>
+        </select>
+      </div>
+
+      <div class="group-title">Dominio (cuadrado)</div>
+      <div class="field-row">
+        <div class="field">
+          <label for="a-input">Límite inferior a</label>
+          <input type="number" id="a-input" value="-6" step="0.5">
+        </div>
+        <div class="field">
+          <label for="b-input">Límite superior b</label>
+          <input type="number" id="b-input" value="6" step="0.5">
+        </div>
+      </div>
+      <div class="field">
+        <label for="res-input">Resolución de malla — <span class="range-value" id="res-value">44 × 44</span></label>
+        <input type="range" id="res-input" min="10" max="80" value="44" step="2">
+      </div>
+
+      <div class="group-title">Animación</div>
+      <div class="field">
+        <label for="t-input">Interpolación plano → superficie — <span class="range-value" id="t-value">100%</span></label>
+        <input type="range" id="t-input" min="0" max="100" value="100" step="1">
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="play-btn">⏸ Pausar</button>
+        <button class="btn" id="reset-view-btn">Restablecer vista</button>
+      </div>
+      <label class="checkbox-row">
+        <input type="checkbox" id="rotate-check" checked>
+        Rotar cámara automáticamente
+      </label>
+      <label class="checkbox-row">
+        <input type="checkbox" id="loop-check" checked>
+        Animación en bucle (plano ⇄ superficie)
+      </label>
+
+      <div class="group-title">Punto (x₀, y₀)</div>
+      <label class="checkbox-row">
+        <input type="checkbox" id="point-check">
+        Marcar un punto y su imagen
+      </label>
+      <div class="field-row">
+        <div class="field">
+          <label for="point-x-input">x₀</label>
+          <input type="number" id="point-x-input" value="0" step="0.5">
+        </div>
+        <div class="field">
+          <label for="point-y-input">y₀</label>
+          <input type="number" id="point-y-input" value="0" step="0.5">
+        </div>
+      </div>
+      <div class="point-readout" id="point-readout"></div>
+
+      <div class="group-title">Cómo leerlo</div>
+      <p style="font-size:0.78rem; color:var(--ink-2); line-height:1.5; margin:0;">
+        El color de cada punto codifica el valor de f(x, y): así se ve la <b style="color:var(--ink)">imagen</b> de la función proyectada sobre el dominio plano. Al animar, esa misma malla se eleva según z = f(x, y), mostrando la <b style="color:var(--ink)">superficie</b> — el color no cambia, solo la altura.
+      </p>
+    </aside>
+
+    <main class="stage" id="stage">
+      <canvas id="scene"></canvas>
+      <div class="stage-overlay readout" id="readout"></div>
+      <div class="stage-overlay hint">Arrastra para rotar · rueda para acercar</div>
+      <div class="stage-overlay legend" id="legend" style="position:absolute;">
+        <div class="legend-title" id="legend-title">f(x, y)</div>
+        <div class="legend-bar" id="legend-bar"></div>
+        <div class="legend-labels" id="legend-labels"></div>
+      </div>
+      <div class="tooltip" id="tooltip" hidden></div>
+    </main>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- 1. Safe expression compiler ---------- */
+  var ALLOWED_IDENTIFIERS = ["x","y","r","pi","e","sin","cos","tan","asin","acos","atan","atan2",
+    "sinh","cosh","tanh","exp","log","log10","sqrt","abs","pow","min","max","sign"];
+
+  function compileFunction(exprRaw){
+    var expr = exprRaw.trim();
+    if(!expr) throw new Error("Escribe una función de x e y.");
+    expr = expr.replace(/\^/g, "**");
+
+    var charWhitelist = /^[0-9a-zA-Z_+\-*/%.^(), \t]*$/;
+    if(!charWhitelist.test(expr)){
+      throw new Error("Solo se permiten números, x, y, operadores y funciones matemáticas.");
+    }
+    var tokens = expr.match(/[a-zA-Z_]\w*/g) || [];
+    for(var i=0;i<tokens.length;i++){
+      if(ALLOWED_IDENTIFIERS.indexOf(tokens[i]) === -1){
+        throw new Error('Función no reconocida: "' + tokens[i] + '"');
+      }
+    }
+    /* eslint-disable no-new-func */
+    var fn = new Function("x","y",
+      "var sin=Math.sin,cos=Math.cos,tan=Math.tan,asin=Math.asin,acos=Math.acos,atan=Math.atan," +
+      "atan2=Math.atan2,sinh=Math.sinh,cosh=Math.cosh,tanh=Math.tanh,exp=Math.exp,log=Math.log," +
+      "log10=Math.log10,sqrt=Math.sqrt,abs=Math.abs,pow=Math.pow,min=Math.min,max=Math.max," +
+      "sign=Math.sign,pi=Math.PI,e=Math.E;" +
+      "var r=Math.sqrt(x*x+y*y);" +
+      "return (" + expr + ");"
+    );
+    /* smoke test */
+    var v = fn(1.3, -0.7);
+    if(typeof v !== "number") throw new Error("La expresión no produce un número.");
+    return fn;
+  }
+
+  var PRESETS = [
+    { fn:"x^2 + y^2",            a:-3, b:3 },
+    { fn:"x^2 - y^2",            a:-3, b:3 },
+    { fn:"sin(x)*cos(y)",        a:-6, b:6 },
+    { fn:"sin(r)",               a:-8, b:8 },
+    { fn:"exp(-(x^2+y^2)/4)",    a:-5, b:5 },
+    { fn:"0.4*x + 0.3*y",        a:-4, b:4 },
+    { fn:"sin(x) + cos(y)",      a:-6, b:6 }
+  ];
+
+  function prettify(expr){
+    return expr.replace(/\*\*/g,"^")
+      .replace(/\bpi\b/g,"π")
+      .replace(/\bsqrt\(/g,"√(")
+      .replace(/(\w|\))\^(-?\d+(\.\d+)?)/g, function(m, base, exp){
+        var supMap = {"0":"⁰","1":"¹","2":"²","3":"³","4":"⁴","5":"⁵","6":"⁶","7":"⁷","8":"⁸","9":"⁹","-":"⁻"};
+        var sup = exp.split("").map(function(c){ return supMap[c] !== undefined ? supMap[c] : c; }).join("");
+        return base + sup;
+      });
+  }
+
+  /* ---------- 2. Colormap ---------- */
+  function hexToRgb(hex){
+    var n = parseInt(hex.slice(1),16);
+    return [(n>>16)&255, (n>>8)&255, n&255];
+  }
+  function lerpStops(stops, t){
+    t = Math.max(0, Math.min(1, t));
+    var n = stops.length - 1;
+    var seg = t * n;
+    var i = Math.min(n-1, Math.floor(seg));
+    var localT = seg - i;
+    var c0 = hexToRgb(stops[i]), c1 = hexToRgb(stops[i+1]);
+    var r = c0[0] + (c1[0]-c0[0])*localT;
+    var g = c0[1] + (c1[1]-c0[1])*localT;
+    var b = c0[2] + (c1[2]-c0[2])*localT;
+    return "rgb(" + (r|0) + "," + (g|0) + "," + (b|0) + ")";
+  }
+  var NEG_STOPS = ["#6b6e7a", "#3987e5", "#a9d0ff"];
+  var POS_STOPS = ["#6b6e7a", "#e34948", "#ffb199"];
+  var SEQ_STOPS = ["#3d4250", "#3987e5", "#a9d0ff"];
+
+  function makeColormap(zmin, zmax){
+    var diverging = zmin < -1e-9 && zmax > 1e-9;
+    if(diverging){
+      var negSpan = Math.max(Math.abs(zmin), 1e-9);
+      var posSpan = Math.max(Math.abs(zmax), 1e-9);
+      return {
+        diverging: true,
+        color: function(v){
+          return v >= 0 ? lerpStops(POS_STOPS, v/posSpan) : lerpStops(NEG_STOPS, -v/negSpan);
+        },
+        mid: 0
+      };
+    }
+    var span = Math.max(zmax - zmin, 1e-9);
+    return {
+      diverging: false,
+      color: function(v){ return lerpStops(SEQ_STOPS, (v - zmin)/span); },
+      mid: (zmin+zmax)/2
+    };
+  }
+  function colorToThree(rgbStr){
+    var m = rgbStr.match(/\d+/g);
+    return new THREE.Color(m[0]/255, m[1]/255, m[2]/255);
+  }
+
+  /* ---------- 3. Scene setup ---------- */
+  var canvas = document.getElementById("scene");
+  var renderer = new THREE.WebGLRenderer({ canvas:canvas, antialias:true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  var scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x101018);
+
+  var camera = new THREE.PerspectiveCamera(42, 1, 0.05, 500);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.65));
+  var dirLight = new THREE.DirectionalLight(0xffffff, 0.75);
+  dirLight.position.set(4, 8, 6);
+  scene.add(dirLight);
+  var dirLight2 = new THREE.DirectionalLight(0x88aaff, 0.3);
+  dirLight2.position.set(-5, 3, -4);
+  scene.add(dirLight2);
+
+  var meshGroup = new THREE.Group();
+  scene.add(meshGroup);
+  var axesGroup = new THREE.Group();
+  scene.add(axesGroup);
+
+  var mesh = null, wireMesh = null;
+
+  /* ---- marked point (x0, y0) -> its image in space ---- */
+  var pointGroup = new THREE.Group();
+  pointGroup.visible = false;
+  scene.add(pointGroup);
+  var MARK_COLOR = 0xfff6d8;
+  var stemMesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(1, 1, 1, 14),
+    new THREE.MeshBasicMaterial({ color: MARK_COLOR, transparent:true, opacity:0.85 })
+  );
+  var baseDot = new THREE.Mesh(
+    new THREE.SphereGeometry(1, 18, 14),
+    new THREE.MeshBasicMaterial({ color: MARK_COLOR })
+  );
+  var topSphere = new THREE.Mesh(
+    new THREE.SphereGeometry(1, 22, 18),
+    new THREE.MeshStandardMaterial({ color: MARK_COLOR, emissive: 0x554600, emissiveIntensity:0.6, roughness:0.35 })
+  );
+  var topSphereOutline = new THREE.Mesh(
+    new THREE.SphereGeometry(1, 22, 18),
+    new THREE.MeshBasicMaterial({ color: 0x0b0b12, side: THREE.BackSide })
+  );
+  [stemMesh, baseDot, topSphere, topSphereOutline].forEach(function(m){ m.frustumCulled = false; });
+  pointGroup.add(stemMesh, baseDot, topSphere, topSphereOutline);
+  var pointLabel = makeLabelSprite("(x0, y0)");
+  pointGroup.add(pointLabel);
+  var pointLabelText = "";
+
+  /* ---- custom orbit controls ---- */
+  var orbit = { target:new THREE.Vector3(0,0,0), radius:10, theta:Math.PI*0.28, phi:Math.PI*0.36 };
+  function clampPhi(p){ return Math.max(0.12, Math.min(Math.PI*0.49, p)); }
+  function updateCameraFromOrbit(){
+    var phi = clampPhi(orbit.phi);
+    var x = orbit.radius * Math.sin(phi) * Math.sin(orbit.theta);
+    var z = orbit.radius * Math.sin(phi) * Math.cos(orbit.theta);
+    var y = orbit.radius * Math.cos(phi);
+    camera.position.set(orbit.target.x + x, orbit.target.y + y, orbit.target.z + z);
+    camera.lookAt(orbit.target);
+  }
+  var dragging = false, lastX=0, lastY=0;
+  canvas.addEventListener("pointerdown", function(e){
+    dragging = true; lastX = e.clientX; lastY = e.clientY;
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener("pointerup", function(e){ dragging = false; });
+  canvas.addEventListener("pointercancel", function(){ dragging = false; });
+  canvas.addEventListener("pointermove", function(e){
+    if(dragging){
+      var dx = e.clientX - lastX, dy = e.clientY - lastY;
+      lastX = e.clientX; lastY = e.clientY;
+      orbit.theta -= dx * 0.0065;
+      orbit.phi -= dy * 0.0065;
+      orbit.phi = clampPhi(orbit.phi);
+      updateCameraFromOrbit();
+    } else {
+      handleHover(e);
+    }
+  });
+  canvas.addEventListener("wheel", function(e){
+    e.preventDefault();
+    orbit.radius *= Math.pow(1.0012, e.deltaY);
+    orbit.radius = Math.max(1.5, Math.min(200, orbit.radius));
+    updateCameraFromOrbit();
+  }, { passive:false });
+  canvas.addEventListener("mouseleave", function(){ hideTooltip(); });
+
+  /* ---------- 4. Text sprites ---------- */
+  function makeLabelSprite(text){
+    var c = document.createElement("canvas");
+    var scale = 64;
+    c.width = 256; c.height = 64;
+    var ctx = c.getContext("2d");
+    ctx.font = "500 34px 'IBM Plex Mono', monospace";
+    ctx.fillStyle = "rgba(16,16,24,0)";
+    ctx.fillRect(0,0,c.width,c.height);
+    ctx.fillStyle = "#e7e6f5";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, 4, c.height/2);
+    var tex = new THREE.CanvasTexture(c);
+    tex.minFilter = THREE.LinearFilter;
+    var mat = new THREE.SpriteMaterial({ map:tex, transparent:true, depthTest:false });
+    var sprite = new THREE.Sprite(mat);
+    var w = ctx.measureText(text).width + 8;
+    sprite.scale.set(w/scale, c.height/scale, 1);
+    return sprite;
+  }
+
+  /* ---------- 5. Build grid geometry ---------- */
+  var state = {
+    fn: null,
+    a: -6, b: 6,
+    n: 44,
+    zValues: null,
+    zScale: 1,
+    zmin: 0, zmax: 0,
+    colormap: null,
+    t: 1.0,
+    playing: true,
+    loop: true,
+    direction: 1
+  };
+
+  function rebuildSurface(){
+    var a = state.a, b = state.b, n = state.n;
+    var span = b - a;
+    var count = n + 1;
+    var positions = new Float32Array(count*count*3);
+    var colors = new Float32Array(count*count*3);
+    var zRaw = new Float32Array(count*count);
+
+    var zmin = Infinity, zmax = -Infinity;
+    var anyInvalid = false;
+    for(var j=0;j<count;j++){
+      var yv = a + (span*j)/n;
+      for(var i=0;i<count;i++){
+        var xv = a + (span*i)/n;
+        var idx = j*count+i;
+        var zv;
+        try{ zv = state.fn(xv, yv); }catch(e){ zv = NaN; }
+        if(typeof zv !== "number" || !isFinite(zv)){ zv = NaN; anyInvalid = true; }
+        else { if(zv < zmin) zmin = zv; if(zv > zmax) zmax = zv; }
+        zRaw[idx] = zv;
+      }
+    }
+    if(!isFinite(zmin) || !isFinite(zmax)){ zmin = -1; zmax = 1; }
+    if(Math.abs(zmax - zmin) < 1e-9){ zmax += 0.5; zmin -= 0.5; }
+
+    var zScale = (span * 0.55) / (zmax - zmin);
+    var colormap = makeColormap(zmin, zmax);
+
+    for(var j2=0;j2<count;j2++){
+      var yv2 = a + (span*j2)/n;
+      for(var i2=0;i2<count;i2++){
+        var xv2 = a + (span*i2)/n;
+        var idx2 = j2*count+i2;
+        var zv2 = zRaw[idx2];
+        var display = isFinite(zv2) ? zv2 : colormap.mid;
+        var p = idx2*3;
+        positions[p] = xv2;
+        positions[p+1] = 0;
+        positions[p+2] = yv2;
+        var rgb = isFinite(zv2) ? colorToThree(colormap.color(zv2)) : new THREE.Color(0x45454f);
+        colors[p] = rgb.r; colors[p+1] = rgb.g; colors[p+2] = rgb.b;
+      }
+    }
+
+    var indices = [];
+    for(var j3=0;j3<n;j3++){
+      for(var i3=0;i3<n;i3++){
+        var a0 = j3*count+i3, a1 = a0+1, a2 = a0+count, a3 = a2+1;
+        indices.push(a0,a2,a1, a1,a2,a3);
+      }
+    }
+    var edgeIndices = [];
+    for(var j4=0;j4<count;j4++){
+      for(var i4=0;i4<count;i4++){
+        var eidx = j4*count+i4;
+        if(i4<n) edgeIndices.push(eidx, eidx+1);
+        if(j4<n) edgeIndices.push(eidx, eidx+count);
+      }
+    }
+
+    var posAttr = new THREE.BufferAttribute(positions, 3);
+    var geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", posAttr);
+    geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+
+    if(mesh){ meshGroup.remove(mesh); mesh.geometry.dispose(); mesh.material.dispose(); }
+    if(wireMesh){ meshGroup.remove(wireMesh); wireMesh.geometry.dispose(); wireMesh.material.dispose(); }
+
+    var mat = new THREE.MeshStandardMaterial({
+      vertexColors: true, side: THREE.DoubleSide,
+      roughness: 0.65, metalness: 0.05, flatShading:false
+    });
+    mesh = new THREE.Mesh(geo, mat);
+    mesh.frustumCulled = false;
+    meshGroup.add(mesh);
+
+    var wireGeo = new THREE.BufferGeometry();
+    wireGeo.setAttribute("position", posAttr);
+    wireGeo.setIndex(edgeIndices);
+    var wireMat = new THREE.LineBasicMaterial({ color:0x0b0b12, transparent:true, opacity:0.14 });
+    wireMesh = new THREE.LineSegments(wireGeo, wireMat);
+    wireMesh.frustumCulled = false;
+    meshGroup.add(wireMesh);
+
+    state.zRaw = zRaw;
+    state.count = count;
+    state.zmin = zmin; state.zmax = zmax;
+    state.zScale = zScale;
+    state.colormap = colormap;
+
+    rebuildAxes(a, b, zmin, zmax, zScale);
+    updateLegend(colormap, zmin, zmax);
+    applyMorph();
+
+    var cx = (a+b)/2, cz = (a+b)/2;
+    orbit.target.set(cx, (zmin+zmax)/2*zScale*0.4, cz);
+    orbit.radius = Math.max(span*1.9, 3);
+    updateCameraFromOrbit();
+  }
+
+  function applyMorph(){
+    if(!mesh) return;
+    var pos = mesh.geometry.attributes.position;
+    var count = state.count;
+    var t = state.t;
+    for(var j=0;j<count;j++){
+      for(var i=0;i<count;i++){
+        var idx = j*count+i;
+        var zv = state.zRaw[idx];
+        var h = isFinite(zv) ? zv * state.zScale * t : 0;
+        pos.setY(idx, h);
+      }
+    }
+    pos.needsUpdate = true;
+    mesh.geometry.computeVertexNormals();
+
+    var scaleFactor = state.zScale;
+    var note = (scaleFactor > 1.03 || scaleFactor < 0.97)
+      ? ("altura escalada ×" + scaleFactor.toFixed(2) + " para visualización")
+      : "altura a escala real";
+    document.getElementById("readout").innerHTML =
+      "<b>f(x,y) = " + prettify(document.getElementById("fn-input").value) + "</b><br>" +
+      "dominio: [" + state.a + ", " + state.b + "] × [" + state.a + ", " + state.b + "]<br>" +
+      "rango de f: [" + fmt(state.zmin) + ", " + fmt(state.zmax) + "]<br>" +
+      "t = " + Math.round(t*100) + "% · <span class='scale-note'>" + note + "</span>";
+
+    updatePointMarker();
+  }
+
+  function fmt(v){ return (Math.round(v*100)/100).toString(); }
+
+  function updatePointMarker(){
+    var readout = document.getElementById("point-readout");
+    var checkbox = document.getElementById("point-check");
+    if(!checkbox || !checkbox.checked || !state.fn){
+      pointGroup.visible = false;
+      if(readout) readout.innerHTML = "";
+      return;
+    }
+    var x0 = parseFloat(document.getElementById("point-x-input").value);
+    var y0 = parseFloat(document.getElementById("point-y-input").value);
+    if(!isFinite(x0) || !isFinite(y0)){
+      pointGroup.visible = false;
+      readout.innerHTML = "<span class='warn'>Ingresa valores numéricos para x₀ e y₀.</span>";
+      return;
+    }
+    var z0;
+    try{ z0 = state.fn(x0, y0); }catch(err){ z0 = NaN; }
+    if(!isFinite(z0)){
+      pointGroup.visible = false;
+      readout.innerHTML = "<span class='warn'>f no está definida en (" + fmt(x0) + ", " + fmt(y0) + ").</span>";
+      return;
+    }
+
+    var span = Math.max(state.b - state.a, 1e-6);
+    var h = z0 * state.zScale * state.t;
+    var stemHeight = Math.max(Math.abs(h), span * 0.0015);
+    var stemR = span * 0.007;
+
+    stemMesh.scale.set(stemR, stemHeight, stemR);
+    stemMesh.position.set(x0, h/2, y0);
+
+    var dotR = span * 0.014;
+    baseDot.scale.setScalar(dotR);
+    baseDot.position.set(x0, span*0.0025, y0);
+
+    var sphereR = span * 0.02;
+    topSphere.scale.setScalar(sphereR);
+    topSphere.position.set(x0, h, y0);
+    topSphereOutline.scale.setScalar(sphereR * 1.3);
+    topSphereOutline.position.copy(topSphere.position);
+
+    var labelText = "(" + fmt(x0) + ", " + fmt(y0) + ", " + fmt(z0) + ")";
+    if(labelText !== pointLabelText){
+      pointLabelText = labelText;
+      var newSprite = makeLabelSprite(labelText);
+      pointGroup.remove(pointLabel);
+      pointLabel.material.map.dispose();
+      pointLabel.material.dispose();
+      pointLabel = newSprite;
+      pointGroup.add(pointLabel);
+    }
+    pointLabel.position.set(x0, h + span*0.045, y0);
+
+    pointGroup.visible = true;
+
+    var outOfDomain = (x0 < state.a || x0 > state.b || y0 < state.a || y0 > state.b);
+    readout.innerHTML = "f(" + fmt(x0) + ", " + fmt(y0) + ") = <b>" + fmt(z0) + "</b>" +
+      (outOfDomain ? "<br><span class='warn'>fuera del dominio graficado</span>" : "");
+  }
+
+  function rebuildAxes(a, b, zmin, zmax, zScale){
+    axesGroup.clear();
+    var lineMat = new THREE.LineBasicMaterial({ color:0x8a8d99, transparent:true, opacity:0.55 });
+    var pts = [
+      new THREE.Vector3(a,0,a), new THREE.Vector3(b,0,a),
+      new THREE.Vector3(b,0,b), new THREE.Vector3(a,0,b),
+      new THREE.Vector3(a,0,a)
+    ];
+    var geo = new THREE.BufferGeometry().setFromPoints(pts);
+    axesGroup.add(new THREE.Line(geo, lineMat));
+
+    var vGeo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(a, zmin*zScale, a), new THREE.Vector3(a, zmax*zScale, a)
+    ]);
+    axesGroup.add(new THREE.Line(vGeo, lineMat));
+
+    var l1 = makeLabelSprite("(" + fmt(a) + ", " + fmt(a) + ")");
+    l1.position.set(a, -0.06*(b-a), a); axesGroup.add(l1);
+    var l2 = makeLabelSprite("(" + fmt(b) + ", " + fmt(a) + ")");
+    l2.position.set(b, -0.06*(b-a), a); axesGroup.add(l2);
+    var l3 = makeLabelSprite("(" + fmt(a) + ", " + fmt(b) + ")");
+    l3.position.set(a, -0.06*(b-a), b); axesGroup.add(l3);
+    var l4 = makeLabelSprite("z máx " + fmt(zmax));
+    l4.position.set(a, zmax*zScale + 0.05*(b-a), a); axesGroup.add(l4);
+    var l5 = makeLabelSprite("z mín " + fmt(zmin));
+    l5.position.set(a, zmin*zScale - 0.05*(b-a), a); axesGroup.add(l5);
+  }
+
+  function updateLegend(colormap, zmin, zmax){
+    var bar = document.getElementById("legend-bar");
+    var labels = document.getElementById("legend-labels");
+    var n = 24, stops = [];
+    for(var i=n;i>=0;i--){
+      var v = zmin + (zmax-zmin)*i/n;
+      stops.push(colormap.color(v) + " " + (100*(n-i)/n).toFixed(1) + "%");
+    }
+    bar.style.background = "linear-gradient(to bottom, " + stops.join(",") + ")";
+    labels.innerHTML =
+      "<span>" + fmt(zmax) + "</span>" +
+      (colormap.diverging ? "<span style='align-self:center;'>0</span>" : "<span></span>") +
+      "<span>" + fmt(zmin) + "</span>";
+  }
+
+  /* ---------- 6. Hover tooltip ---------- */
+  var raycaster = new THREE.Raycaster();
+  var mouseNdc = new THREE.Vector2();
+  var tooltip = document.getElementById("tooltip");
+  function handleHover(e){
+    if(!mesh){ return; }
+    var rect = canvas.getBoundingClientRect();
+    mouseNdc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    mouseNdc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(mouseNdc, camera);
+    var hits = raycaster.intersectObject(mesh, false);
+    if(hits.length){
+      var p = hits[0].point;
+      var xv = p.x, yv = p.z;
+      var zv;
+      try{ zv = state.fn(xv, yv); }catch(err){ zv = NaN; }
+      tooltip.hidden = false;
+      tooltip.style.left = (e.clientX - rect.left) + "px";
+      tooltip.style.top = (e.clientY - rect.top) + "px";
+      tooltip.textContent = "x=" + xv.toFixed(2) + "  y=" + yv.toFixed(2) + "  f=" + (isFinite(zv)?zv.toFixed(3):"—");
+    } else {
+      hideTooltip();
+    }
+  }
+  function hideTooltip(){ tooltip.hidden = true; }
+
+  /* ---------- 7. UI wiring ---------- */
+  var fnInput = document.getElementById("fn-input");
+  var fnPreview = document.getElementById("fn-preview");
+  var fnError = document.getElementById("fn-error");
+  var aInput = document.getElementById("a-input");
+  var bInput = document.getElementById("b-input");
+  var resInput = document.getElementById("res-input");
+  var resValue = document.getElementById("res-value");
+  var tInput = document.getElementById("t-input");
+  var tValue = document.getElementById("t-value");
+  var playBtn = document.getElementById("play-btn");
+  var rotateCheck = document.getElementById("rotate-check");
+  var loopCheck = document.getElementById("loop-check");
+  var presetSelect = document.getElementById("preset-select");
+  var pointCheck = document.getElementById("point-check");
+  var pointXInput = document.getElementById("point-x-input");
+  var pointYInput = document.getElementById("point-y-input");
+
+  function tryCompileAndRebuild(){
+    var exprStr = fnInput.value;
+    fnPreview.textContent = "f(x, y) = " + prettify(exprStr);
+    try{
+      state.fn = compileFunction(exprStr);
+      fnError.textContent = "";
+    }catch(err){
+      fnError.textContent = err.message;
+      if(!state.fn) return;
+    }
+    var a = parseFloat(aInput.value), b = parseFloat(bInput.value);
+    if(!isFinite(a) || !isFinite(b) || b <= a){
+      fnError.textContent = "El límite superior debe ser mayor que el inferior.";
+      return;
+    }
+    state.a = a; state.b = b;
+    state.n = parseInt(resInput.value, 10);
+    rebuildSurface();
+  }
+
+  fnInput.addEventListener("input", function(){ presetSelect.value = "custom"; tryCompileAndRebuild(); });
+  aInput.addEventListener("change", tryCompileAndRebuild);
+  bInput.addEventListener("change", tryCompileAndRebuild);
+  resInput.addEventListener("input", function(){
+    resValue.textContent = resInput.value + " × " + resInput.value;
+    tryCompileAndRebuild();
+  });
+  presetSelect.addEventListener("change", function(){
+    if(presetSelect.value === "custom") return;
+    var p = PRESETS[parseInt(presetSelect.value,10)];
+    fnInput.value = p.fn; aInput.value = p.a; bInput.value = p.b;
+    tryCompileAndRebuild();
+  });
+  tInput.addEventListener("input", function(){
+    state.playing = false;
+    playBtn.textContent = "▶ Reproducir";
+    state.t = parseInt(tInput.value,10)/100;
+    tValue.textContent = tInput.value + "%";
+    applyMorph();
+  });
+  playBtn.addEventListener("click", function(){
+    state.playing = !state.playing;
+    playBtn.textContent = state.playing ? "⏸ Pausar" : "▶ Reproducir";
+  });
+  rotateCheck.addEventListener("change", function(){ state.autoRotate = rotateCheck.checked; });
+  loopCheck.addEventListener("change", function(){ state.loop = loopCheck.checked; });
+  pointCheck.addEventListener("change", updatePointMarker);
+  pointXInput.addEventListener("input", updatePointMarker);
+  pointYInput.addEventListener("input", updatePointMarker);
+  document.getElementById("reset-view-btn").addEventListener("click", function(){
+    var span = state.b - state.a;
+    orbit.theta = Math.PI*0.28; orbit.phi = Math.PI*0.36;
+    orbit.radius = Math.max(span*1.9, 3);
+    updateCameraFromOrbit();
+  });
+
+  state.autoRotate = rotateCheck.checked;
+
+  var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if(reduceMotion){
+    state.playing = false; state.autoRotate = false;
+    playBtn.textContent = "▶ Reproducir";
+    rotateCheck.checked = false; state.autoRotate = false;
+  }
+
+  /* ---------- 8. Resize + render loop ---------- */
+  function resize(){
+    var stage = document.getElementById("stage");
+    var w = stage.clientWidth, h = stage.clientHeight;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / Math.max(h,1);
+    camera.updateProjectionMatrix();
+  }
+  window.addEventListener("resize", resize);
+
+  var clock = new THREE.Clock();
+  function animate(){
+    requestAnimationFrame(animate);
+    var dt = clock.getDelta();
+    if(state.playing){
+      state.t += dt * 0.35 * state.direction;
+      if(state.t >= 1){ state.t = 1; state.direction = state.loop ? -1 : 0; if(state.direction===0) state.playing=false, playBtn.textContent="▶ Reproducir"; }
+      if(state.t <= 0){ state.t = 0; state.direction = state.loop ? 1 : 0; if(state.direction===0) state.playing=false, playBtn.textContent="▶ Reproducir"; }
+      tInput.value = Math.round(state.t*100);
+      tValue.textContent = Math.round(state.t*100) + "%";
+      applyMorph();
+    }
+    if(state.autoRotate && !dragging){
+      orbit.theta += dt * 0.18;
+      updateCameraFromOrbit();
+    }
+    renderer.render(scene, camera);
+  }
+
+  resize();
+  tryCompileAndRebuild();
+  updateCameraFromOrbit();
+  requestAnimationFrame(animate);
+})();
+</script>
