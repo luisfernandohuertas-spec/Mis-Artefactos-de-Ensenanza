@@ -1,0 +1,757 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>body{margin:0;}</style></head><body><title>Interferómetro de Young</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#0a0c11;
+    --surface:#12151d;
+    --surface-2:#191d28;
+    --surface-3:#20242f;
+    --border:#282d3c;
+    --border-soft:#1b1f29;
+    --text:#eceef3;
+    --text-dim:#9298ac;
+    --text-faint:#5b6075;
+    --accent-ui:#ff6857;
+    --accent-true:#ff3b2a;
+    --accent-glow:rgba(255,59,42,.32);
+    --focus:#7ea7ff;
+    --radius:12px;
+  }
+  @media (prefers-color-scheme:light){
+    :root:not([data-theme="dark"]){
+      --bg:#f3f1f6;
+      --surface:#ffffff;
+      --surface-2:#edebf3;
+      --surface-3:#e3e1ec;
+      --border:#d9d6e3;
+      --border-soft:#e7e5ee;
+      --text:#15161d;
+      --text-dim:#5a5e70;
+      --text-faint:#8a8ea0;
+      --accent-ui:#c2381f;
+      --accent-glow:rgba(194,56,31,.22);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0a0c11; --surface:#12151d; --surface-2:#191d28; --surface-3:#20242f;
+    --border:#282d3c; --border-soft:#1b1f29; --text:#eceef3; --text-dim:#9298ac;
+    --text-faint:#5b6075; --accent-glow:rgba(255,59,42,.32);
+  }
+  :root[data-theme="light"]{
+    --bg:#f3f1f6; --surface:#ffffff; --surface-2:#edebf3; --surface-3:#e3e1ec;
+    --border:#d9d6e3; --border-soft:#e7e5ee; --text:#15161d; --text-dim:#5a5e70;
+    --text-faint:#8a8ea0; --accent-ui:#c2381f; --accent-glow:rgba(194,56,31,.22);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:"Archivo",system-ui,sans-serif;
+    padding-inline:20px;
+    padding-block:28px 60px;
+    display:flex;
+    justify-content:center;
+  }
+  .page{ width:100%; max-width:840px; display:flex; flex-direction:column; gap:28px; }
+
+  .eyebrow{
+    font-family:"IBM Plex Mono",monospace;
+    font-size:11.5px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--accent-ui);
+    font-weight:500;
+  }
+  h1{
+    font-family:"Big Shoulders Display",sans-serif;
+    font-weight:800;
+    font-size:clamp(30px,6vw,46px);
+    line-height:1;
+    letter-spacing:.005em;
+    text-transform:uppercase;
+    margin:6px 0 0;
+    text-wrap:balance;
+  }
+  .subtitle{
+    font-size:15px;
+    line-height:1.55;
+    color:var(--text-dim);
+    max-width:62ch;
+    margin-top:10px;
+  }
+
+  section{ display:flex; flex-direction:column; gap:12px; }
+  .section-head{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  h2{
+    font-family:"Big Shoulders Display",sans-serif;
+    font-weight:700;
+    font-size:20px;
+    letter-spacing:.02em;
+    text-transform:uppercase;
+    margin:0;
+  }
+  .hint{ font-size:12.5px; color:var(--text-faint); }
+
+  .panel{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:16px;
+  }
+
+  canvas{ display:block; width:100%; }
+  .bench-canvas{ aspect-ratio: 900 / 270; border-radius:8px; background:var(--bg); }
+  .pattern-canvas{ aspect-ratio: 720 / 380; border-radius:8px; cursor:crosshair; }
+
+  /* controls */
+  .controls-grid{ display:grid; grid-template-columns:1fr 1fr; gap:20px 24px; }
+  @media (max-width:560px){ .controls-grid{ grid-template-columns:1fr; } }
+
+  .control{ display:flex; flex-direction:column; gap:8px; }
+  .control-top{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .control-label{ font-size:13px; font-weight:600; }
+  .control-value{
+    font-family:"IBM Plex Mono",monospace;
+    font-size:13px;
+    color:var(--accent-ui);
+    font-variant-numeric:tabular-nums;
+    display:flex; align-items:center; gap:6px;
+  }
+  .swatch{ width:11px; height:11px; border-radius:50%; background:var(--accent-true); box-shadow:0 0 6px var(--accent-glow); flex:none; }
+  .control-sub{ font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--text-faint); }
+
+  input[type=range]{
+    -webkit-appearance:none; appearance:none;
+    width:100%; height:4px; border-radius:2px;
+    background:var(--border); outline:none; cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:17px; height:17px; border-radius:50%;
+    background:var(--accent-ui); border:2px solid var(--surface);
+    box-shadow:0 0 0 1px var(--border), 0 0 10px var(--accent-glow);
+    cursor:pointer;
+  }
+  input[type=range]::-moz-range-thumb{
+    width:17px; height:17px; border-radius:50%;
+    background:var(--accent-ui); border:2px solid var(--surface);
+    box-shadow:0 0 0 1px var(--border), 0 0 10px var(--accent-glow);
+    cursor:pointer;
+  }
+  input[type=range]:focus-visible{ box-shadow:0 0 0 2px var(--focus); border-radius:2px; }
+  .scale-caption{ display:flex; justify-content:space-between; font-size:11px; color:var(--text-faint); font-family:"IBM Plex Mono",monospace; }
+
+  details{ margin-top:4px; border-top:1px solid var(--border-soft); padding-top:14px; }
+  summary{
+    cursor:pointer; font-size:12.5px; font-weight:600; color:var(--text-dim);
+    text-transform:uppercase; letter-spacing:.05em; list-style:none;
+    display:flex; align-items:center; gap:6px;
+  }
+  summary::-webkit-details-marker{ display:none; }
+  summary::before{ content:"▸"; color:var(--accent-ui); font-size:10px; transition:transform .15s; }
+  details[open] summary::before{ transform:rotate(90deg); }
+  details .controls-grid{ margin-top:16px; }
+
+  /* readouts */
+  .readouts{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    border-top:1px solid var(--border-soft);
+    margin-top:6px;
+  }
+  @media (max-width:520px){ .readouts{ grid-template-columns:repeat(2,1fr); } }
+  .readout{
+    padding:12px 14px;
+    border-right:1px solid var(--border-soft);
+    border-bottom:1px solid var(--border-soft);
+  }
+  .readout-label{ font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--text-faint); }
+  .readout-value{
+    font-family:"IBM Plex Mono",monospace; font-size:15px; font-weight:500;
+    margin-top:3px; font-variant-numeric:tabular-nums;
+    display:flex; align-items:center; gap:6px;
+  }
+
+  .note{ font-size:12px; color:var(--text-faint); font-family:"IBM Plex Mono",monospace; }
+
+  .formula{
+    font-family:"IBM Plex Mono",monospace;
+    font-size:13px;
+    line-height:2;
+    color:var(--text-dim);
+    background:var(--surface-2);
+    border:1px solid var(--border-soft);
+    border-radius:8px;
+    padding:14px 16px;
+    overflow-x:auto;
+  }
+  .formula b{ color:var(--text); font-weight:600; }
+
+  footer{ font-size:12px; color:var(--text-faint); text-align:center; padding-top:8px; }
+</style>
+
+<div class="page">
+
+  <header>
+    <div class="eyebrow">Instrumento óptico virtual</div>
+    <h1>Difracción e interferencia láser</h1>
+    <p class="subtitle">Simulación de un experimento de doble rendija: ajusta la frecuencia del láser y la distancia a la pantalla y observa cómo se redibuja el patrón de interferencia en tiempo real.</p>
+  </header>
+
+  <section>
+    <div class="section-head">
+      <h2>Banco óptico</h2>
+      <span class="hint">esquema ilustrativo — las distancias no están a escala</span>
+    </div>
+    <div class="panel">
+      <canvas class="bench-canvas" id="benchCanvas" aria-label="Animación del láser atravesando una rendija doble hacia una pantalla"></canvas>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head"><h2>Parámetros</h2></div>
+    <div class="panel">
+      <div class="controls-grid">
+        <div class="control">
+          <div class="control-top">
+            <span class="control-label">Frecuencia del láser</span>
+            <span class="control-value"><span class="swatch" id="freqSwatch"></span><span id="freqValue">474 THz</span></span>
+          </div>
+          <input type="range" id="freqInput" min="400" max="790" step="1" value="474">
+          <div class="scale-caption"><span>400 THz · rojo</span><span>790 THz · violeta</span></div>
+          <div class="control-sub" id="wavelengthLine">λ = 632,7 nm · rojo</div>
+        </div>
+
+        <div class="control">
+          <div class="control-top">
+            <span class="control-label">Distancia a la pantalla (L)</span>
+            <span class="control-value" id="distValue">1,50 m</span>
+          </div>
+          <input type="range" id="distInput" min="0.3" max="4" step="0.05" value="1.5">
+          <div class="scale-caption"><span>0,3 m</span><span>4 m</span></div>
+          <div class="control-sub">&nbsp;</div>
+        </div>
+      </div>
+
+      <details id="advanced">
+        <summary>Parámetros de la rendija (avanzado)</summary>
+        <div class="controls-grid">
+          <div class="control">
+            <div class="control-top">
+              <span class="control-label">Separación entre rendijas (d)</span>
+              <span class="control-value" id="dValue">0,300 mm</span>
+            </div>
+            <input type="range" id="dInput" min="0.15" max="0.8" step="0.005" value="0.3">
+            <div class="scale-caption"><span>0,15 mm</span><span>0,80 mm</span></div>
+          </div>
+          <div class="control">
+            <div class="control-top">
+              <span class="control-label">Ancho de cada rendija (a)</span>
+              <span class="control-value" id="aValue">0,060 mm</span>
+            </div>
+            <input type="range" id="aInput" min="0.03" max="0.15" step="0.005" value="0.06">
+            <div class="scale-caption"><span>0,03 mm</span><span id="aMaxCaption">0,15 mm</span></div>
+          </div>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Patrón en la pantalla</h2>
+      <span class="hint">intensidad relativa I(y) y franja de color observada</span>
+    </div>
+    <div class="panel">
+      <canvas class="pattern-canvas" id="patternCanvas" aria-label="Gráfica de intensidad del patrón de interferencia en función de la posición en la pantalla"></canvas>
+      <p class="note" id="clipNote" style="display:none;margin-top:8px;">el patrón se extiende más allá del ancho de pantalla mostrado (±50 mm)</p>
+
+      <div class="readouts">
+        <div class="readout"><div class="readout-label">Longitud de onda</div><div class="readout-value" id="roLambda">632,7 nm</div></div>
+        <div class="readout"><div class="readout-label">Color</div><div class="readout-value"><span class="swatch" id="roSwatch"></span><span id="roColor">Rojo</span></div></div>
+        <div class="readout"><div class="readout-label">Distancia L</div><div class="readout-value" id="roL">1,50 m</div></div>
+        <div class="readout"><div class="readout-label">Espaciado de franjas Δy</div><div class="readout-value" id="roDy">3,16 mm</div></div>
+        <div class="readout"><div class="readout-label">Semiancho envolvente y₀</div><div class="readout-value" id="roY0">15,8 mm</div></div>
+        <div class="readout"><div class="readout-label">Franjas brillantes visibles</div><div class="readout-value" id="roN">~9</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head"><h2>Modelo físico</h2></div>
+    <div class="formula">
+      I(θ) = I₀ · <b>[sin β / β]²</b> · <b>[cos δ]²</b><br>
+      β = π·a·sin θ / λ &nbsp;&nbsp;(envolvente de difracción de una rendija)<br>
+      δ = π·d·sin θ / λ &nbsp;&nbsp;(interferencia de las dos rendijas)<br>
+      y = L·tan θ &nbsp;&nbsp;(posición en la pantalla, con θ el ángulo respecto al eje óptico)
+    </div>
+  </section>
+
+  <footer>Interferómetro de Young — simulación interactiva</footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var C_KM_S = 299792.458; // km/s -> nm·THz conversion constant
+
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // ---------- color science ----------
+  function wavelengthToRGB(nm){
+    var r=0,g=0,b=0;
+    if(nm>=380&&nm<440){ r=-(nm-440)/(440-380); g=0; b=1; }
+    else if(nm>=440&&nm<490){ r=0; g=(nm-440)/(490-440); b=1; }
+    else if(nm>=490&&nm<510){ r=0; g=1; b=-(nm-510)/(510-490); }
+    else if(nm>=510&&nm<580){ r=(nm-510)/(580-510); g=1; b=0; }
+    else if(nm>=580&&nm<645){ r=1; g=-(nm-645)/(645-580); b=0; }
+    else if(nm>=645&&nm<=750){ r=1; g=0; b=0; }
+    var factor;
+    if(nm>=380&&nm<420) factor=0.3+0.7*(nm-380)/(420-380);
+    else if(nm>=420&&nm<701) factor=1;
+    else if(nm>=701&&nm<=750) factor=0.3+0.7*(750-nm)/(750-700);
+    else factor=0.3;
+    var gamma=0.8;
+    function ch(c){ return c<=0?0:Math.round(255*Math.pow(c*factor,gamma)); }
+    return [ch(r),ch(g),ch(b)];
+  }
+  function rgbCss(rgb,a){ return "rgba("+rgb[0]+","+rgb[1]+","+rgb[2]+","+(a==null?1:a)+")"; }
+  function rgbToHsl(rgb){
+    var r=rgb[0]/255,g=rgb[1]/255,b=rgb[2]/255;
+    var max=Math.max(r,g,b),min=Math.min(r,g,b),h,s,l=(max+min)/2;
+    if(max===min){ h=s=0; }
+    else{
+      var d=max-min;
+      s=l>0.5? d/(2-max-min): d/(max+min);
+      switch(max){
+        case r: h=(g-b)/d+(g<b?6:0); break;
+        case g: h=(b-r)/d+2; break;
+        default: h=(r-g)/d+4;
+      }
+      h/=6;
+    }
+    return [h*360,s*100,l*100];
+  }
+  function colorName(nm){
+    if(nm<450) return "Violeta";
+    if(nm<485) return "Azul";
+    if(nm<500) return "Cian";
+    if(nm<565) return "Verde";
+    if(nm<590) return "Amarillo";
+    if(nm<625) return "Naranja";
+    return "Rojo";
+  }
+  function isLightTheme(){
+    var attr = document.documentElement.getAttribute('data-theme');
+    if(attr==='dark') return false;
+    if(attr==='light') return true;
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+  }
+  function accentUiFromRgb(rgb){
+    var hsl = rgbToHsl(rgb);
+    var light = isLightTheme();
+    var s = Math.max(hsl[1], 62);
+    var l = light ? clamp(hsl[2]*0.6, 34, 48) : clamp(hsl[2], 52, 66);
+    return "hsl("+hsl[0].toFixed(0)+"deg "+s.toFixed(0)+"% "+l.toFixed(0)+"%)";
+  }
+
+  function clamp(v,min,max){ return Math.max(min,Math.min(max,v)); }
+  function fmt(v,d){ return v.toLocaleString('es-CO',{minimumFractionDigits:d,maximumFractionDigits:d}); }
+
+  // ---------- physics ----------
+  var DISPLAY_HALF_MM = 50;      // pattern canvas x-axis half-range
+  var DISPLAY_HALF_MM_BENCH = 25; // bench canvas screen-strip half-range
+
+  var state = { fTHz:474, L:1.5, d:0.3, a:0.06 };
+  var derived = {};
+
+  function recomputeDerived(){
+    var nm = C_KM_S / state.fTHz;
+    var rgb = wavelengthToRGB(nm);
+    derived.nm = nm;
+    derived.rgb = rgb;
+    derived.trueCss = rgbCss(rgb,1);
+    derived.uiCss = accentUiFromRgb(rgb);
+    derived.name = colorName(nm);
+    var lam = nm*1e-9, dM = state.d*1e-3, aM = state.a*1e-3, L = state.L;
+    derived.dy_mm = (lam*L/dM)*1000;
+    derived.y0_mm = (lam*L/aM)*1000;
+    derived.nFringes = Math.max(1, 2*Math.floor(derived.y0_mm/derived.dy_mm)+1);
+  }
+
+  function intensityAt(y_m){
+    var lam = derived.nm*1e-9, dM = state.d*1e-3, aM = state.a*1e-3, L = state.L;
+    var theta = Math.atan2(y_m, L);
+    var beta = Math.PI*aM*Math.sin(theta)/lam;
+    var diff = Math.abs(beta) < 1e-9 ? 1 : Math.pow(Math.sin(beta)/beta, 2);
+    var delta = Math.PI*dM*Math.sin(theta)/lam;
+    var interf = Math.pow(Math.cos(delta), 2);
+    return diff*interf;
+  }
+
+  // ---------- DOM refs ----------
+  var freqInput=document.getElementById('freqInput'), distInput=document.getElementById('distInput'),
+      dInput=document.getElementById('dInput'), aInput=document.getElementById('aInput');
+  var freqValue=document.getElementById('freqValue'), distValue=document.getElementById('distValue'),
+      dValue=document.getElementById('dValue'), aValue=document.getElementById('aValue'),
+      wavelengthLine=document.getElementById('wavelengthLine'), aMaxCaption=document.getElementById('aMaxCaption');
+  var freqSwatch=document.getElementById('freqSwatch'), roSwatch=document.getElementById('roSwatch');
+  var roLambda=document.getElementById('roLambda'), roColor=document.getElementById('roColor'),
+      roL=document.getElementById('roL'), roDy=document.getElementById('roDy'), roY0=document.getElementById('roY0'),
+      roN=document.getElementById('roN'), clipNote=document.getElementById('clipNote');
+
+  function fillTrack(input){
+    var min=parseFloat(input.min), max=parseFloat(input.max), v=parseFloat(input.value);
+    var pct = ((v-min)/(max-min))*100;
+    input.style.background = "linear-gradient(to right, var(--accent-ui) "+pct+"%, var(--border) "+pct+"%)";
+  }
+
+  function updateUI(){
+    recomputeDerived();
+    document.documentElement.style.setProperty('--accent-true', derived.trueCss);
+    document.documentElement.style.setProperty('--accent-ui', derived.uiCss);
+    document.documentElement.style.setProperty('--accent-glow', rgbCss(derived.rgb,0.32));
+
+    freqValue.textContent = state.fTHz.toFixed(0)+" THz";
+    wavelengthLine.textContent = "λ = "+fmt(derived.nm,1)+" nm · "+derived.name.toLowerCase();
+    distValue.textContent = fmt(state.L,2)+" m";
+    dValue.textContent = fmt(state.d,3)+" mm";
+    aValue.textContent = fmt(state.a,3)+" mm";
+    freqSwatch.style.background = derived.trueCss;
+    roSwatch.style.background = derived.trueCss;
+
+    roLambda.textContent = fmt(derived.nm,1)+" nm";
+    roColor.textContent = derived.name;
+    roL.textContent = fmt(state.L,2)+" m";
+    roDy.textContent = fmt(derived.dy_mm,2)+" mm";
+    roY0.textContent = fmt(derived.y0_mm,1)+" mm";
+    roN.textContent = "~"+derived.nFringes;
+    clipNote.style.display = derived.y0_mm > DISPLAY_HALF_MM*1.05 ? 'block' : 'none';
+
+    fillTrack(freqInput); fillTrack(distInput); fillTrack(dInput); fillTrack(aInput);
+    drawPattern();
+    computeBenchStrip();
+  }
+
+  function onSlider(){
+    state.fTHz = parseFloat(freqInput.value);
+    state.L = parseFloat(distInput.value);
+    state.d = parseFloat(dInput.value);
+    var aMax = Math.max(0.03, state.d*0.6);
+    aInput.max = aMax.toFixed(3);
+    aMaxCaption.textContent = fmt(aMax,2)+" mm";
+    if(parseFloat(aInput.value) > aMax){ aInput.value = aMax.toFixed(3); }
+    state.a = parseFloat(aInput.value);
+    updateUI();
+  }
+  [freqInput,distInput,dInput,aInput].forEach(function(el){ el.addEventListener('input', onSlider); });
+
+  // ---------- canvas sizing ----------
+  function sizeCanvas(canvas){
+    var rect = canvas.getBoundingClientRect();
+    var dpr = Math.min(window.devicePixelRatio||1, 2);
+    var w = Math.max(1,Math.round(rect.width)), h = Math.max(1,Math.round(rect.height));
+    canvas.width = w*dpr; canvas.height = h*dpr;
+    var ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    return {ctx:ctx, w:w, h:h};
+  }
+
+  var cssVar = function(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); };
+
+  // ---------- pattern canvas ----------
+  var patternCanvas = document.getElementById('patternCanvas');
+  var patternDims = null;
+  var patternSamples = null; // cached {xs_mm, I}
+  var hoverX = null;
+
+  function buildPatternSamples(w){
+    var padL=40, padR=14, gTop=10, stripH=24, axisH=26, gap=6;
+    var graphW = w - padL - padR;
+    var n = Math.max(40, Math.round(graphW));
+    var xs=new Array(n), I=new Array(n);
+    for(var i=0;i<n;i++){
+      var xmm = -DISPLAY_HALF_MM + (2*DISPLAY_HALF_MM)*(i/(n-1));
+      xs[i]=xmm; I[i]=intensityAt(xmm/1000);
+    }
+    return {xs:xs, I:I, padL:padL, padR:padR, gTop:gTop, stripH:stripH, axisH:axisH, gap:gap};
+  }
+
+  function drawPattern(){
+    if(!patternDims) patternDims = sizeCanvas(patternCanvas);
+    var ctx=patternDims.ctx, w=patternDims.w, h=patternDims.h;
+    patternSamples = buildPatternSamples(w);
+    renderPattern(ctx,w,h,patternSamples);
+  }
+
+  function renderPattern(ctx,w,h,S){
+    var border = cssVar('--border-soft'), textFaint=cssVar('--text-faint'), textDim=cssVar('--text-dim');
+    ctx.clearRect(0,0,w,h);
+    var graphBottom = h - S.axisH - S.stripH - S.gap;
+    var graphH = graphBottom - S.gTop;
+
+    // gridlines
+    ctx.strokeStyle = border; ctx.lineWidth = 1; ctx.font = "11px 'IBM Plex Mono', monospace";
+    [0.25,0.5,0.75,1].forEach(function(f){
+      var y = graphBottom - f*graphH;
+      ctx.beginPath(); ctx.moveTo(S.padL,y+0.5); ctx.lineTo(w-S.padR,y+0.5); ctx.stroke();
+    });
+
+    // area + line
+    var rgb = derived.rgb;
+    var grad = ctx.createLinearGradient(0,S.gTop,0,graphBottom);
+    grad.addColorStop(0, rgbCss(rgb,0.55));
+    grad.addColorStop(1, rgbCss(rgb,0.04));
+    ctx.beginPath();
+    for(var i=0;i<S.xs.length;i++){
+      var px = S.padL + (S.xs[i]+DISPLAY_HALF_MM)/(2*DISPLAY_HALF_MM)*(w-S.padL-S.padR);
+      var py = graphBottom - S.I[i]*graphH;
+      if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+    }
+    ctx.lineTo(w-S.padR, graphBottom); ctx.lineTo(S.padL, graphBottom); ctx.closePath();
+    ctx.fillStyle = grad; ctx.fill();
+
+    ctx.beginPath();
+    for(i=0;i<S.xs.length;i++){
+      px = S.padL + (S.xs[i]+DISPLAY_HALF_MM)/(2*DISPLAY_HALF_MM)*(w-S.padL-S.padR);
+      py = graphBottom - S.I[i]*graphH;
+      if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+    }
+    ctx.lineWidth = 2; ctx.strokeStyle = derived.trueCss;
+    ctx.shadowColor = derived.trueCss; ctx.shadowBlur = 6;
+    ctx.stroke(); ctx.shadowBlur = 0;
+
+    // color strip
+    var stripTop = graphBottom + S.gap;
+    for(i=0;i<S.xs.length;i++){
+      px = S.padL + (S.xs[i]+DISPLAY_HALF_MM)/(2*DISPLAY_HALF_MM)*(w-S.padL-S.padR);
+      var Iv = S.I[i];
+      ctx.fillStyle = "rgb("+Math.round(rgb[0]*Iv+3)+","+Math.round(rgb[1]*Iv+3)+","+Math.round(rgb[2]*Iv+3)+")";
+      ctx.fillRect(px,stripTop,1.2,S.stripH);
+    }
+    ctx.strokeStyle = border; ctx.strokeRect(S.padL+0.5, stripTop+0.5, (w-S.padL-S.padR), S.stripH);
+
+    // x ticks
+    ctx.fillStyle = textFaint; ctx.textAlign='center'; ctx.textBaseline='top';
+    for(var t=-40;t<=40;t+=20){
+      px = S.padL + (t+DISPLAY_HALF_MM)/(2*DISPLAY_HALF_MM)*(w-S.padL-S.padR);
+      ctx.fillText(t.toString(), px, stripTop+S.stripH+6);
+    }
+    ctx.fillStyle = textDim; ctx.textAlign='center';
+    ctx.fillText("y (mm)", w/2, stripTop+S.stripH+18);
+
+    // y axis label
+    ctx.save();
+    ctx.translate(12, S.gTop+graphH/2);
+    ctx.rotate(-Math.PI/2);
+    ctx.fillStyle = textDim; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText("I (u. rel.)", 0, 0);
+    ctx.restore();
+
+    if(hoverX!=null){ drawCrosshair(ctx,w,h,S,graphBottom,graphH); }
+  }
+
+  function drawCrosshair(ctx,w,h,S,graphBottom,graphH){
+    var frac = clamp((hoverX - S.padL)/(w-S.padL-S.padR), 0, 1);
+    var idx = clamp(Math.round(frac*(S.xs.length-1)),0,S.xs.length-1);
+    var xmm = S.xs[idx], Iv = S.I[idx];
+    var px = S.padL + frac*(w-S.padL-S.padR);
+    ctx.strokeStyle = cssVar('--text-faint'); ctx.setLineDash([3,3]); ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(px,S.gTop); ctx.lineTo(px,graphBottom); ctx.stroke(); ctx.setLineDash([]);
+
+    var py = graphBottom - Iv*graphH;
+    ctx.beginPath(); ctx.arc(px,py,3.5,0,Math.PI*2);
+    ctx.fillStyle = derived.trueCss; ctx.fill();
+
+    var label = fmt(xmm,1)+" mm  ·  I="+fmt(Iv*100,0)+"%";
+    ctx.font = "12px 'IBM Plex Mono', monospace";
+    var tw = ctx.measureText(label).width + 16;
+    var bx = clamp(px - tw/2, 4, w-tw-4), by = S.gTop+2;
+    ctx.fillStyle = cssVar('--surface-2');
+    ctx.strokeStyle = cssVar('--border');
+    ctx.beginPath(); ctx.rect(bx,by,tw,20); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = cssVar('--text'); ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(label, bx+tw/2, by+11);
+  }
+
+  patternCanvas.addEventListener('mousemove', function(e){
+    var rect = patternCanvas.getBoundingClientRect();
+    hoverX = e.clientX - rect.left;
+    drawPattern();
+  });
+  patternCanvas.addEventListener('mouseleave', function(){ hoverX=null; drawPattern(); });
+  patternCanvas.addEventListener('touchmove', function(e){
+    var rect = patternCanvas.getBoundingClientRect();
+    hoverX = e.touches[0].clientX - rect.left; drawPattern();
+  }, {passive:true});
+  patternCanvas.addEventListener('touchend', function(){ hoverX=null; drawPattern(); });
+
+  // ---------- bench canvas (animated) ----------
+  var benchCanvas = document.getElementById('benchCanvas');
+  var benchDims = null;
+  var benchStrip = null; // cached array of intensities for the screen preview
+
+  function computeBenchStrip(){
+    var n = 120, arr = new Array(n);
+    for(var i=0;i<n;i++){
+      var ymm = -DISPLAY_HALF_MM_BENCH + (2*DISPLAY_HALF_MM_BENCH)*(i/(n-1));
+      arr[i] = intensityAt(ymm/1000);
+    }
+    benchStrip = arr;
+  }
+
+  function lerp(a,b,t){ return a+(b-a)*t; }
+
+  function renderBench(ctx,w,h,elapsed){
+    var textFaint = cssVar('--text-faint'), textDim = cssVar('--text-dim'), surface2 = cssVar('--surface-2'), border = cssVar('--border');
+    ctx.clearRect(0,0,w,h);
+
+    var laserX = w*0.09, screenX = w*0.90, centerY = h*0.5;
+    var Lnorm = clamp((state.L-0.3)/(4.0-0.3),0,1);
+    var barrierX = lerp(w*0.36, w*0.56, Lnorm);
+    var slitGap = clamp(h*0.10, 12, 30);
+    var slit1Y = centerY - slitGap, slit2Y = centerY + slitGap;
+
+    // laser device
+    ctx.fillStyle = surface2; ctx.strokeStyle = border; ctx.lineWidth=1;
+    roundRect(ctx, laserX-26, centerY-14, 30, 28, 5); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = derived.trueCss; ctx.shadowColor = derived.trueCss; ctx.shadowBlur=10;
+    ctx.beginPath(); ctx.arc(laserX+4, centerY, 3.2, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur=0;
+
+    // beam particles
+    var beamStart = laserX+8, beamEnd = barrierX-4;
+    for(var i=0;i<6;i++){
+      var t = ((elapsed*0.55 + i/6) % 1);
+      var x = lerp(beamStart, beamEnd, t);
+      var alpha = 0.85*Math.sin(Math.PI*t)+0.15;
+      ctx.fillStyle = rgbCss(derived.rgb, alpha);
+      ctx.shadowColor = derived.trueCss; ctx.shadowBlur = 6;
+      ctx.beginPath(); ctx.arc(x, centerY, 2.1, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+
+    // wavelets from the two slits
+    var nmSpacing = clamp( lerp(18, 10, (derived.nm-380)/(750-380)), 9, 19 );
+    var maxR = (screenX - barrierX) * 1.12;
+    ctx.globalCompositeOperation = 'lighter';
+    [slit1Y, slit2Y].forEach(function(sy){
+      var nRings = Math.ceil(maxR/nmSpacing)+1;
+      var phase = (elapsed*46) % nmSpacing;
+      for(var k=0;k<nRings;k++){
+        var r = k*nmSpacing + phase;
+        if(r<=2 || r>maxR) continue;
+        var alpha = 0.5*(1 - r/maxR);
+        ctx.strokeStyle = rgbCss(derived.rgb, alpha);
+        ctx.lineWidth = 1.3;
+        ctx.beginPath();
+        ctx.arc(barrierX, sy, r, -1.15, 1.15);
+        ctx.stroke();
+      }
+    });
+    ctx.globalCompositeOperation = 'source-over';
+
+    // barrier
+    var barW = 9;
+    ctx.fillStyle = cssVar('--surface-3'); ctx.strokeStyle = textDim; ctx.lineWidth = 1;
+    ctx.fillRect(barrierX-barW/2, 6, barW, slit1Y-6-7);
+    ctx.strokeRect(barrierX-barW/2, 6, barW, slit1Y-6-7);
+    ctx.fillRect(barrierX-barW/2, slit1Y+7, barW, slit2Y-slit1Y-14);
+    ctx.strokeRect(barrierX-barW/2, slit1Y+7, barW, slit2Y-slit1Y-14);
+    ctx.fillRect(barrierX-barW/2, slit2Y+7, barW, h-6-(slit2Y+7));
+    ctx.strokeRect(barrierX-barW/2, slit2Y+7, barW, h-6-(slit2Y+7));
+    // slit apertures - small glowing gaps to read clearly as openings
+    [slit1Y, slit2Y].forEach(function(sy){
+      ctx.fillStyle = rgbCss(derived.rgb, 0.9);
+      ctx.shadowColor = derived.trueCss; ctx.shadowBlur = 8;
+      ctx.fillRect(barrierX-barW/2+1, sy-6, barW-2, 12);
+      ctx.shadowBlur = 0;
+    });
+
+    // screen glow + strip
+    if(benchStrip){
+      var peak = Math.max.apply(null, benchStrip);
+      var glowGrad = ctx.createRadialGradient(screenX, centerY, 2, screenX, centerY, h*0.55);
+      glowGrad.addColorStop(0, rgbCss(derived.rgb, 0.22*Math.min(1,peak+0.2)));
+      glowGrad.addColorStop(1, rgbCss(derived.rgb, 0));
+      ctx.fillStyle = glowGrad;
+      ctx.fillRect(screenX-40, 0, 80, h);
+
+      var stripTop=8, stripBottom=h-8, stripH=stripBottom-stripTop;
+      for(i=0;i<benchStrip.length;i++){
+        var py = stripTop + (i/(benchStrip.length-1))*stripH;
+        var Iv = benchStrip[i];
+        ctx.fillStyle = "rgb("+Math.round(derived.rgb[0]*Iv+3)+","+Math.round(derived.rgb[1]*Iv+3)+","+Math.round(derived.rgb[2]*Iv+3)+")";
+        ctx.fillRect(screenX-3, py, 6, stripH/benchStrip.length+1);
+      }
+      ctx.strokeStyle = border; ctx.strokeRect(screenX-3+0.5, stripTop+0.5, 6, stripH);
+    }
+
+    // distance annotation
+    var ay = h-16;
+    ctx.strokeStyle = textFaint; ctx.setLineDash([4,4]); ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(barrierX, ay); ctx.lineTo(screenX, ay); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = textDim; ctx.font = "11px 'IBM Plex Mono', monospace"; ctx.textAlign='center'; ctx.textBaseline='alphabetic';
+    ctx.fillText("L = "+fmt(state.L,2)+" m", (barrierX+screenX)/2, ay-6);
+
+    // labels
+    ctx.fillStyle = textFaint; ctx.font = "10.5px 'IBM Plex Mono', monospace"; ctx.textAlign='center';
+    ctx.fillText("LÁSER", laserX-10, centerY+30);
+    ctx.fillText("RENDIJA DOBLE", barrierX, 20);
+    ctx.fillText("PANTALLA", screenX, 20);
+  }
+
+  function roundRect(ctx,x,y,w,h,r){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);
+    ctx.arcTo(x,y,x+w,y,r);
+    ctx.closePath();
+  }
+
+  function benchLoop(ts){
+    if(!benchDims) benchDims = sizeCanvas(benchCanvas);
+    renderBench(benchDims.ctx, benchDims.w, benchDims.h, ts/1000);
+    if(!reduceMotion) requestAnimationFrame(benchLoop);
+  }
+
+  // ---------- resize ----------
+  var resizeTimer=null;
+  window.addEventListener('resize', function(){
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function(){
+      patternDims = null; benchDims = null;
+      drawPattern();
+      if(reduceMotion){ benchDims = sizeCanvas(benchCanvas); renderBench(benchDims.ctx,benchDims.w,benchDims.h,0); }
+    }, 120);
+  });
+  if(window.matchMedia){
+    window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', updateUI);
+  }
+
+  // ---------- init ----------
+  function start(saved){
+    if(saved && typeof saved.fTHz==='number'){
+      state.fTHz = saved.fTHz; state.L = saved.L; state.d = saved.d; state.a = saved.a;
+      freqInput.value=state.fTHz; distInput.value=state.L; dInput.value=state.d; aInput.value=state.a;
+    }
+    var aMax = Math.max(0.03, state.d*0.6);
+    aInput.max = aMax.toFixed(3); aMaxCaption.textContent = fmt(aMax,2)+" mm";
+    updateUI();
+    benchDims = sizeCanvas(benchCanvas);
+    if(reduceMotion){ renderBench(benchDims.ctx,benchDims.w,benchDims.h,0); }
+    else { requestAnimationFrame(benchLoop); }
+
+    if(window.claude && window.claude.hot && window.claude.hot.snapshot){
+      window.claude.hot.snapshot(function(){ return state; });
+    }
+  }
+  if(window.claude && window.claude.hot && window.claude.hot.ready){
+    window.claude.hot.ready(start);
+  } else {
+    start(window.claude && window.claude.hot ? window.claude.hot.data : null);
+  }
+})();
+</script>
+</body></html>
