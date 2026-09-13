@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reflexión y Refracción de Láser</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        #container {
+            display: flex;
+            gap: 20px;
+            padding: 20px;
+            max-width: 1400px;
+            width: 100%;
+        }
+        
+        #canvas-wrapper {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+        
+        canvas {
+            display: block;
+            background: #000;
+            border: 2px solid #333;
+            border-radius: 10px;
+            cursor: crosshair;
+        }
+        
+        #controls {
+            width: 320px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            color: white;
+        }
+        
+        h2 {
+            margin-top: 0;
+            color: #ff4444;
+            font-size: 24px;
+            text-align: center;
+            text-shadow: 0 0 10px rgba(255, 68, 68, 0.5);
+        }
+        
+        .control-group {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border-left: 3px solid #ff4444;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #ffaaaa;
+            font-weight: 600;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+            margin-bottom: 5px;
+        }
+        
+        .value-display {
+            display: inline-block;
+            background: rgba(255, 68, 68, 0.2);
+            padding: 3px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            color: #ff4444;
+            font-size: 13px;
+        }
+        
+        select {
+            width: 100%;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid #555;
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
+        }
+        
+        .info-box {
+            background: rgba(68, 68, 255, 0.1);
+            border-left: 3px solid #4444ff;
+            padding: 12px;
+            border-radius: 5px;
+            margin-top: 15px;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        
+        .formula {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 8px;
+            border-radius: 4px;
+            margin-top: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            color: #88ff88;
+        }
+        
+        button {
+            width: 100%;
+            padding: 12px;
+            margin-top: 10px;
+            background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 68, 68, 0.4);
+        }
+        
+        .instruction {
+            text-align: center;
+            color: #aaa;
+            font-size: 12px;
+            margin-top: 15px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="canvas-wrapper">
+            <canvas id="canvas" width="800" height="600"></canvas>
+            <div class="instruction">
+                🖱️ Haz clic y arrastra para cambiar el ángulo del láser
+            </div>
+        </div>
+        
+        <div id="controls">
+            <h2>⚡ Control de Láser</h2>
+            
+            <div class="control-group">
+                <label>Medio 1 (Arriba):</label>
+                <select id="medium1">
+                    <option value="1.0">Aire (n=1.0)</option>
+                    <option value="1.33">Agua (n=1.33)</option>
+                    <option value="1.5">Vidrio (n=1.5)</option>
+                    <option value="2.4">Diamante (n=2.4)</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label>Medio 2 (Abajo):</label>
+                <select id="medium2">
+                    <option value="1.0">Aire (n=1.0)</option>
+                    <option value="1.33">Agua (n=1.33)</option>
+                    <option value="1.5" selected>Vidrio (n=1.5)</option>
+                    <option value="2.4">Diamante (n=2.4)</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label>Ángulo de Incidencia: <span class="value-display" id="angle-value">45°</span></label>
+                <input type="range" id="angle" min="0" max="89" value="45">
+            </div>
+            
+            <div class="control-group">
+                <label>Intensidad del Láser: <span class="value-display" id="intensity-value">0.8</span></label>
+                <input type="range" id="intensity" min="0.1" max="1" step="0.1" value="0.8">
+            </div>
+            
+            <div class="control-group">
+                <label>Color del Láser:</label>
+                <select id="laser-color">
+                    <option value="#ff0000" selected>Rojo (650nm)</option>
+                    <option value="#00ff00">Verde (532nm)</option>
+                    <option value="#0000ff">Azul (450nm)</option>
+                    <option value="#ff00ff">Violeta (405nm)</option>
+                </select>
+            </div>
+            
+            <button id="reset">🔄 Resetear</button>
+            
+            <div class="info-box">
+                <strong>Ley de Snell:</strong>
+                <div class="formula">n₁ × sen(θ₁) = n₂ × sen(θ₂)</div>
+                <div style="margin-top: 8px;">
+                    <div>Ángulo refractado: <span class="value-display" id="refracted-angle">0°</span></div>
+                    <div style="margin-top: 5px;">Ángulo reflejado: <span class="value-display" id="reflected-angle">0°</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let angle = 45;
+        let n1 = 1.0;
+        let n2 = 1.5;
+        let intensity = 0.8;
+        let laserColor = '#ff0000';
+        let isDragging = false;
+        
+        const interfaceY = canvas.height / 2;
+        const laserStartX = 100;
+        
+        function drawBackground() {
+            // Medio 1 (arriba)
+            ctx.fillStyle = 'rgba(135, 206, 250, 0.15)';
+            ctx.fillRect(0, 0, canvas.width, interfaceY);
+            
+            // Medio 2 (abajo)
+            ctx.fillStyle = 'rgba(100, 149, 237, 0.25)';
+            ctx.fillRect(0, interfaceY, canvas.width, canvas.height - interfaceY);
+            
+            // Línea de interfaz
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([10, 5]);
+            ctx.beginPath();
+            ctx.moveTo(0, interfaceY);
+            ctx.lineTo(canvas.width, interfaceY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // Etiquetas
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '16px Arial';
+            ctx.fillText(`Medio 1 (n=${n1})`, 20, 30);
+            ctx.fillText(`Medio 2 (n=${n2})`, 20, interfaceY + 30);
+        }
+        
+        function drawNormal() {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+        
+        function degToRad(deg) {
+            return deg * Math.PI / 180;
+        }
+        
+        function radToDeg(rad) {
+            return rad * 180 / Math.PI;
+        }
+        
+        function calculateRefraction(angleIncident, n1, n2) {
+            const sinTheta1 = Math.sin(degToRad(angleIncident));
+            const sinTheta2 = (n1 / n2) * sinTheta1;
+            
+            // Verificar reflexión interna total
+            if (Math.abs(sinTheta2) > 1) {
+                return null; // Reflexión interna total
+            }
+            
+            return radToDeg(Math.asin(sinTheta2));
+        }
+        
+        function drawLaser(x1, y1, x2, y2, color, alpha, width = 3) {
+            // Glow effect
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = color;
+            
+            ctx.strokeStyle = color;
+            ctx.globalAlpha = alpha;
+            ctx.lineWidth = width;
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+            
+            ctx.shadowBlur = 0;
+            ctx.globalAlpha = 1;
+        }
+        
+        function drawScene() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            drawBackground();
+            drawNormal();
+            
+            const centerX = canvas.width / 2;
+            const angleRad = degToRad(angle);
+            
+            // Punto de incidencia
+            const incidentX = centerX;
+            const incidentY = interfaceY;
+            
+            // Rayo incidente
+            const incidentLength = 200;
+            const incidentStartX = incidentX - Math.sin(angleRad) * incidentLength;
+            const incidentStartY = incidentY - Math.cos(angleRad) * incidentLength;
+            
+            drawLaser(incidentStartX, incidentStartY, incidentX, incidentY, laserColor, intensity);
+            
+            // Calcular ángulo de refracción
+            const refractedAngle = calculateRefraction(angle, n1, n2);
+            
+            // Rayo reflejado (siempre existe)
+            const reflectedAngle = angle;
+            const reflectedRad = degToRad(reflectedAngle);
+            const reflectedLength = 150;
+            const reflectedEndX = incidentX + Math.sin(reflectedRad) * reflectedLength;
+            const reflectedEndY = incidentY - Math.cos(reflectedRad) * reflectedLength;
+            
+            // Coeficiente de reflexión (Fresnel simplificado)
+            let reflectionCoeff = 0.04;
+            if (refractedAngle === null) {
+                reflectionCoeff = 1.0; // Reflexión interna total
+            } else {
+                const theta1 = degToRad(angle);
+                const theta2 = degToRad(refractedAngle);
+                const rs = Math.pow((n1 * Math.cos(theta1) - n2 * Math.cos(theta2)) / 
+                                   (n1 * Math.cos(theta1) + n2 * Math.cos(theta2)), 2);
+                const rp = Math.pow((n1 * Math.cos(theta2) - n2 * Math.cos(theta1)) / 
+                                   (n1 * Math.cos(theta2) + n2 * Math.cos(theta1)), 2);
+                reflectionCoeff = (rs + rp) / 2;
+            }
+            
+            drawLaser(incidentX, incidentY, reflectedEndX, reflectedEndY, 
+                     laserColor, intensity * reflectionCoeff * 0.6, 2);
+            
+            // Rayo refractado
+            if (refractedAngle !== null) {
+                const refractedRad = degToRad(refractedAngle);
+                const refractedLength = 200;
+                const refractedEndX = incidentX + Math.sin(refractedRad) * refractedLength;
+                const refractedEndY = incidentY + Math.cos(refractedRad) * refractedLength;
+                
+                const transmissionCoeff = 1 - reflectionCoeff;
+                drawLaser(incidentX, incidentY, refractedEndX, refractedEndY, 
+                         laserColor, intensity * transmissionCoeff);
+                
+                document.getElementById('refracted-angle').textContent = refractedAngle.toFixed(1) + '°';
+            } else {
+                document.getElementById('refracted-angle').textContent = 'Reflexión Total';
+            }
+            
+            document.getElementById('reflected-angle').textContent = reflectedAngle.toFixed(1) + '°';
+            
+            // Punto de incidencia
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(incidentX, incidentY, 4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        function updateFromMouse(e) {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            
+            const centerX = canvas.width / 2;
+            const dx = centerX - mouseX;
+            const dy = interfaceY - mouseY;
+            
+            if (dy > 0) {
+                let newAngle = radToDeg(Math.atan2(Math.abs(dx), dy));
+                newAngle = Math.max(0, Math.min(89, newAngle));
+                angle = newAngle;
+                document.getElementById('angle').value = angle;
+                document.getElementById('angle-value').textContent = angle.toFixed(0) + '°';
+                drawScene();
+            }
+        }
+        
+        canvas.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            updateFromMouse(e);
+        });
+        
+        canvas.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                updateFromMouse(e);
+            }
+        });
+        
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+        
+        document.getElementById('medium1').addEventListener('change', (e) => {
+            n1 = parseFloat(e.target.value);
+            drawScene();
+        });
+        
+        document.getElementById('medium2').addEventListener('change', (e) => {
+            n2 = parseFloat(e.target.value);
+            drawScene();
+        });
+        
+        document.getElementById('angle').addEventListener('input', (e) => {
+            angle = parseFloat(e.target.value);
+            document.getElementById('angle-value').textContent = angle.toFixed(0) + '°';
+            drawScene();
+        });
+        
+        document.getElementById('intensity').addEventListener('input', (e) => {
+            intensity = parseFloat(e.target.value);
+            document.getElementById('intensity-value').textContent = intensity.toFixed(1);
+            drawScene();
+        });
+        
+        document.getElementById('laser-color').addEventListener('change', (e) => {
+            laserColor = e.target.value;
+            drawScene();
+        });
+        
+        document.getElementById('reset').addEventListener('click', () => {
+            angle = 45;
+            n1 = 1.0;
+            n2 = 1.5;
+            intensity = 0.8;
+            laserColor = '#ff0000';
+            
+            document.getElementById('angle').value = angle;
+            document.getElementById('angle-value').textContent = angle + '°';
+            document.getElementById('medium1').value = n1;
+            document.getElementById('medium2').value = n2;
+            document.getElementById('intensity').value = intensity;
+            document.getElementById('intensity-value').textContent = intensity;
+            document.getElementById('laser-color').value = laserColor;
+            
+            drawScene();
+        });
+        
+        drawScene();
+    </script>
+</body>
+</html>
