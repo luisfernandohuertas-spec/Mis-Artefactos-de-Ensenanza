@@ -1,0 +1,877 @@
+<title>Curva de Nivel</title>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#f3f3f0;
+    --surface:#ffffff;
+    --ink:#15161b;
+    --ink-2:#5a5c66;
+    --ink-3:#8b8d97;
+    --hair:#dedcd4;
+    --accent:#0e8a78;
+    --accent-ink:#ffffff;
+    --danger:#c23b3b;
+    --stage-bg:#101018;
+    --stage-hair:rgba(255,255,255,0.14);
+    --stage-hair-strong:rgba(255,255,255,0.32);
+    --stage-ink:#f2f1ee;
+    --stage-ink-2:#9a9cab;
+    --focus:#0e8a78;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#111114;
+      --surface:#1a1a20;
+      --ink:#f3f2ee;
+      --ink-2:#b7b7c2;
+      --ink-3:#83838f;
+      --hair:#2d2d35;
+      --accent:#2dd4b0;
+      --accent-ink:#0b1512;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#111114;
+    --surface:#1a1a20;
+    --ink:#f3f2ee;
+    --ink-2:#b7b7c2;
+    --ink-3:#83838f;
+    --hair:#2d2d35;
+    --accent:#2dd4b0;
+    --accent-ink:#0b1512;
+  }
+
+  *{box-sizing:border-box;}
+  html, body{ height:100%; }
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .app{
+    display:flex;
+    flex-direction:column;
+    height:100vh;
+    overflow:hidden;
+    padding:16px;
+    gap:14px;
+  }
+  @media (max-width: 900px){
+    .app{ height:auto; min-height:100vh; overflow:visible; }
+  }
+  .topbar{ display:flex; flex-direction:column; gap:2px; }
+  .topbar h1{ margin:0; font-size:1.28rem; font-weight:700; letter-spacing:-0.01em; text-wrap:balance; }
+  .topbar p{ margin:0; color:var(--ink-2); font-size:0.88rem; max-width:66ch; }
+
+  .layout{ display:flex; gap:14px; flex:1; min-height:0; align-items:stretch; }
+  @media (max-width: 900px){ .layout{ flex-direction:column; } }
+
+  .panel{
+    width:300px; flex:0 0 auto;
+    background:var(--surface); border:1px solid var(--hair); border-radius:14px;
+    padding:16px; display:flex; flex-direction:column; gap:16px; overflow-y:auto;
+  }
+  @media (max-width: 900px){ .panel{ width:auto; order:2; } }
+
+  .stages{ flex:1; display:flex; flex-direction:column; gap:14px; min-height:0; }
+  @media (max-width: 900px){ .stages{ order:1; } }
+  .stage3d, .stage2d{
+    position:relative; border-radius:14px; overflow:hidden; border:1px solid var(--hair);
+    background:var(--stage-bg); min-height:300px;
+  }
+  .stage3d{ flex:1.15; }
+  .stage2d{ flex:1; }
+  @media (max-width: 900px){ .stage3d, .stage2d{ min-height:340px; } }
+  #scene3d{ display:block; width:100%; height:100%; touch-action:none; cursor:grab; }
+  #scene3d:active{ cursor:grabbing; }
+  #scene2d{ display:block; width:100%; height:100%; touch-action:none; cursor:crosshair; }
+
+  .field{ display:flex; flex-direction:column; gap:6px; }
+  .field-row{ display:flex; gap:10px; }
+  .field-row > .field{ flex:1; min-width:0; }
+  label{
+    font-size:0.72rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-3);
+  }
+  .group-title{
+    font-size:0.72rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-3);
+    margin:0 0 -4px 0; border-top:1px solid var(--hair); padding-top:12px;
+  }
+  .panel > .group-title:first-child{ border-top:none; padding-top:0; }
+
+  input[type="text"], input[type="number"], select{
+    font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:0.92rem; color:var(--ink);
+    background:var(--bg); border:1px solid var(--hair); border-radius:8px; padding:8px 10px; width:100%;
+  }
+  select{ font-family:"IBM Plex Sans", sans-serif; }
+  input:focus-visible, select:focus-visible, button:focus-visible, input[type="range"]:focus-visible{
+    outline:2px solid var(--focus); outline-offset:1px;
+  }
+  .fn-preview{
+    font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:0.98rem; color:var(--accent);
+    min-height:1.3em; word-break:break-word;
+  }
+  .error-msg{ font-size:0.78rem; color:var(--danger); min-height:1.1em; }
+  .level-readout{
+    font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:0.84rem; color:var(--ink-2); min-height:1.2em; line-height:1.5;
+  }
+  .level-readout b{ color:var(--accent); }
+  .level-readout .warn{ color:#b8860b; }
+
+  input[type="range"]{ width:100%; accent-color:var(--accent); }
+  .range-value{
+    font-family:"IBM Plex Mono", monospace; font-size:0.78rem; color:var(--ink-2); font-variant-numeric:tabular-nums;
+  }
+
+  .btn{
+    font-family:inherit; font-size:0.86rem; font-weight:600; border-radius:8px; border:1px solid var(--hair);
+    background:var(--bg); color:var(--ink); padding:9px 12px; cursor:pointer;
+  }
+  .btn:hover{ border-color:var(--ink-3); }
+  .btn-row{ display:flex; gap:8px; }
+  .btn-row .btn{ flex:1; }
+
+  .checkbox-row{ display:flex; align-items:center; gap:8px; font-size:0.86rem; color:var(--ink); }
+  .checkbox-row input{ accent-color:var(--accent); width:15px; height:15px; }
+
+  .stage-title{
+    position:absolute; top:10px; left:12px; z-index:2;
+    font-size:0.68rem; text-transform:uppercase; letter-spacing:0.06em;
+    color:var(--stage-ink-2); font-family:"IBM Plex Mono", monospace; pointer-events:none;
+  }
+  .stage-overlay{
+    position:absolute; color:var(--stage-ink); font-family:"IBM Plex Mono", monospace; pointer-events:none;
+  }
+  .hint3d{ bottom:10px; right:12px; font-size:0.66rem; color:var(--stage-ink-2); text-align:right; line-height:1.4; }
+  @media (max-width: 600px){ .hint3d{ display:none; } }
+
+  .tooltip{
+    position:absolute; pointer-events:none; background:rgba(16,16,24,0.85);
+    border:1px solid var(--stage-hair-strong); color:var(--stage-ink); font-family:"IBM Plex Mono", monospace;
+    font-size:0.76rem; padding:6px 9px; border-radius:7px; transform:translate(-50%,-130%); white-space:nowrap; z-index:3;
+  }
+
+  .legend2d{
+    position:absolute; bottom:10px; left:12px; z-index:2;
+    font-size:0.68rem; color:var(--stage-ink-2); font-family:"IBM Plex Mono", monospace;
+    display:flex; align-items:center; gap:6px; pointer-events:none;
+  }
+  .legend2d .swatch{ width:18px; height:3px; background:var(--accent); border-radius:2px; }
+
+  ::-webkit-scrollbar{ width:9px; height:9px; }
+  ::-webkit-scrollbar-thumb{ background:var(--hair); border-radius:6px; }
+</style>
+
+<div class="app">
+  <div class="topbar">
+    <h1>Curva de nivel de z = f(x, y)</h1>
+    <p>Elige una función y un dominio cuadrado [a, b] × [a, b]. Ingresa una altura c y observa la curva de nivel f(x, y) = c: dónde corta al plano z = c en la superficie, y cómo se ve proyectada sobre el dominio plano.</p>
+  </div>
+
+  <div class="layout">
+    <aside class="panel" id="panel">
+      <div class="group-title">Función</div>
+      <div class="field">
+        <label for="fn-input">f(x, y) =</label>
+        <input type="text" id="fn-input" value="sin(x)*cos(y)" autocomplete="off" spellcheck="false">
+        <div class="fn-preview" id="fn-preview"></div>
+        <div class="error-msg" id="fn-error"></div>
+      </div>
+      <div class="field">
+        <label for="preset-select">Ejemplos</label>
+        <select id="preset-select">
+          <option value="custom">— personalizada —</option>
+          <option value="0">Paraboloide: x^2 + y^2</option>
+          <option value="1">Silla de montar: x^2 - y^2</option>
+          <option value="2" selected>Ondulación: sin(x)*cos(y)</option>
+          <option value="3">Ondas concéntricas: sin(r)</option>
+          <option value="4">Campana de Gauss: exp(-(x^2+y^2)/4)</option>
+          <option value="5">Plano inclinado: 0.4*x + 0.3*y</option>
+          <option value="6">Cresta: sin(x) + cos(y)</option>
+        </select>
+      </div>
+
+      <div class="group-title">Dominio (cuadrado)</div>
+      <div class="field-row">
+        <div class="field">
+          <label for="a-input">Límite inferior a</label>
+          <input type="number" id="a-input" value="-6" step="0.5">
+        </div>
+        <div class="field">
+          <label for="b-input">Límite superior b</label>
+          <input type="number" id="b-input" value="6" step="0.5">
+        </div>
+      </div>
+      <div class="field">
+        <label for="res-input">Resolución de malla — <span class="range-value" id="res-value">50 × 50</span></label>
+        <input type="range" id="res-input" min="16" max="90" value="50" step="2">
+      </div>
+
+      <div class="group-title">Altura de la curva de nivel</div>
+      <div class="field">
+        <label for="c-input">c (f(x, y) = c)</label>
+        <input type="number" id="c-input" value="0" step="0.05">
+      </div>
+      <div class="field">
+        <input type="range" id="c-slider" min="-1" max="1" value="0" step="0.01">
+      </div>
+      <div class="level-readout" id="level-readout"></div>
+      <div class="btn-row">
+        <button class="btn" id="center-btn">Centrar altura</button>
+      </div>
+      <label class="checkbox-row">
+        <input type="checkbox" id="aux-check" checked>
+        Mostrar curvas de nivel auxiliares
+      </label>
+      <label class="checkbox-row">
+        <input type="checkbox" id="plane-check" checked>
+        Mostrar plano de corte en 3D
+      </label>
+
+      <div class="group-title">Cómo leerlo</div>
+      <p style="font-size:0.78rem; color:var(--ink-2); line-height:1.5; margin:0;">
+        En la vista 3D, el plano horizontal z = c corta la superficie exactamente donde f(x, y) = c (línea resaltada). Esa misma línea, proyectada sobre el dominio, es la <b style="color:var(--ink)">curva de nivel</b> que ves en el mapa de abajo — el mismo dibujo que usan los mapas topográficos.
+      </p>
+    </aside>
+
+    <div class="stages">
+      <div class="stage3d" id="stage3d">
+        <canvas id="scene3d"></canvas>
+        <div class="stage-title">Vista 3D — superficie y plano de corte</div>
+        <div class="stage-overlay hint3d">Arrastra para rotar · rueda para acercar</div>
+        <div class="tooltip" id="tooltip3d" hidden></div>
+      </div>
+      <div class="stage2d" id="stage2d">
+        <canvas id="scene2d"></canvas>
+        <div class="stage-title">Mapa de curvas de nivel (vista superior)</div>
+        <div class="legend2d"><span class="swatch"></span><span id="legend2d-text">curva f(x,y) = c</span></div>
+        <div class="tooltip" id="tooltip2d" hidden></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- 1. Safe expression compiler ---------- */
+  var ALLOWED_IDENTIFIERS = ["x","y","r","pi","e","sin","cos","tan","asin","acos","atan","atan2",
+    "sinh","cosh","tanh","exp","log","log10","sqrt","abs","pow","min","max","sign"];
+
+  function compileFunction(exprRaw){
+    var expr = exprRaw.trim();
+    if(!expr) throw new Error("Escribe una función de x e y.");
+    expr = expr.replace(/\^/g, "**");
+    var charWhitelist = /^[0-9a-zA-Z_+\-*/%.^(), \t]*$/;
+    if(!charWhitelist.test(expr)){
+      throw new Error("Solo se permiten números, x, y, operadores y funciones matemáticas.");
+    }
+    var tokens = expr.match(/[a-zA-Z_]\w*/g) || [];
+    for(var i=0;i<tokens.length;i++){
+      if(ALLOWED_IDENTIFIERS.indexOf(tokens[i]) === -1){
+        throw new Error('Función no reconocida: "' + tokens[i] + '"');
+      }
+    }
+    var fn = new Function("x","y",
+      "var sin=Math.sin,cos=Math.cos,tan=Math.tan,asin=Math.asin,acos=Math.acos,atan=Math.atan," +
+      "atan2=Math.atan2,sinh=Math.sinh,cosh=Math.cosh,tanh=Math.tanh,exp=Math.exp,log=Math.log," +
+      "log10=Math.log10,sqrt=Math.sqrt,abs=Math.abs,pow=Math.pow,min=Math.min,max=Math.max," +
+      "sign=Math.sign,pi=Math.PI,e=Math.E;" +
+      "var r=Math.sqrt(x*x+y*y);" +
+      "return (" + expr + ");"
+    );
+    var v = fn(1.3, -0.7);
+    if(typeof v !== "number") throw new Error("La expresión no produce un número.");
+    return fn;
+  }
+
+  var PRESETS = [
+    { fn:"x^2 + y^2",            a:-3, b:3 },
+    { fn:"x^2 - y^2",            a:-3, b:3 },
+    { fn:"sin(x)*cos(y)",        a:-6, b:6 },
+    { fn:"sin(r)",               a:-8, b:8 },
+    { fn:"exp(-(x^2+y^2)/4)",    a:-5, b:5 },
+    { fn:"0.4*x + 0.3*y",        a:-4, b:4 },
+    { fn:"sin(x) + cos(y)",      a:-6, b:6 }
+  ];
+
+  function prettify(expr){
+    return expr.replace(/\*\*/g,"^")
+      .replace(/\bpi\b/g,"π")
+      .replace(/\bsqrt\(/g,"√(")
+      .replace(/(\w|\))\^(-?\d+(\.\d+)?)/g, function(m, base, exp){
+        var supMap = {"0":"⁰","1":"¹","2":"²","3":"³","4":"⁴","5":"⁵","6":"⁶","7":"⁷","8":"⁸","9":"⁹","-":"⁻"};
+        var sup = exp.split("").map(function(c){ return supMap[c] !== undefined ? supMap[c] : c; }).join("");
+        return base + sup;
+      });
+  }
+  function fmt(v){ return (Math.round(v*100)/100).toString(); }
+
+  /* ---------- 2. Colormap (diverging blue/red, dark-stage optimized) ---------- */
+  function hexToRgbArr(hex){ var n = parseInt(hex.slice(1),16); return [(n>>16)&255,(n>>8)&255,n&255]; }
+  function lerpStops(stops, t){
+    t = Math.max(0, Math.min(1, t));
+    var n = stops.length - 1, seg = t*n, i = Math.min(n-1, Math.floor(seg)), lt = seg-i;
+    var c0 = hexToRgbArr(stops[i]), c1 = hexToRgbArr(stops[i+1]);
+    return [c0[0]+(c1[0]-c0[0])*lt, c0[1]+(c1[1]-c0[1])*lt, c0[2]+(c1[2]-c0[2])*lt];
+  }
+  var NEG_STOPS = ["#6b6e7a", "#3987e5", "#a9d0ff"];
+  var POS_STOPS = ["#6b6e7a", "#e34948", "#ffb199"];
+  var SEQ_STOPS = ["#3d4250", "#3987e5", "#a9d0ff"];
+  function makeColormap(zmin, zmax){
+    var diverging = zmin < -1e-9 && zmax > 1e-9;
+    if(diverging){
+      var negSpan = Math.max(Math.abs(zmin), 1e-9), posSpan = Math.max(Math.abs(zmax), 1e-9);
+      return { diverging:true, rgb:function(v){ return v>=0 ? lerpStops(POS_STOPS, v/posSpan) : lerpStops(NEG_STOPS, -v/negSpan); }, mid:0 };
+    }
+    var span = Math.max(zmax-zmin, 1e-9);
+    return { diverging:false, rgb:function(v){ return lerpStops(SEQ_STOPS, (v-zmin)/span); }, mid:(zmin+zmax)/2 };
+  }
+  function rgbCss(rgb, a){ return "rgba(" + (rgb[0]|0) + "," + (rgb[1]|0) + "," + (rgb[2]|0) + "," + (a===undefined?1:a) + ")"; }
+
+  /* ---------- 3. Marching squares: contour segments in domain coords ---------- */
+  function interpPt(ax,ay,av, bx,by,bv, level){
+    var t = (level-av)/(bv-av);
+    return { x: ax+(bx-ax)*t, y: ay+(by-ay)*t };
+  }
+  function computeContourSegments(zRaw, count, a, b, n, level){
+    var span = b-a, segs = [];
+    for(var j=0;j<n;j++){
+      var y0 = a + span*j/n, y1 = a + span*(j+1)/n;
+      for(var i=0;i<n;i++){
+        var x0 = a + span*i/n, x1 = a + span*(i+1)/n;
+        var v00 = zRaw[j*count+i], v10 = zRaw[j*count+i+1];
+        var v11 = zRaw[(j+1)*count+i+1], v01 = zRaw[(j+1)*count+i];
+        if(!isFinite(v00) || !isFinite(v10) || !isFinite(v11) || !isFinite(v01)) continue;
+        var idx = (v00>=level?1:0) | (v10>=level?2:0) | (v11>=level?4:0) | (v01>=level?8:0);
+        if(idx===0 || idx===15) continue;
+        var l = interpPt(x0,y0,v00, x0,y1,v01, level);
+        var bm = interpPt(x0,y0,v00, x1,y0,v10, level);
+        var r = interpPt(x1,y0,v10, x1,y1,v11, level);
+        var t = interpPt(x0,y1,v01, x1,y1,v11, level);
+        var avg = (v00+v10+v11+v01)/4;
+        switch(idx){
+          case 1: segs.push([l,bm]); break;
+          case 2: segs.push([bm,r]); break;
+          case 3: segs.push([l,r]); break;
+          case 4: segs.push([r,t]); break;
+          case 5:
+            if(avg>=level){ segs.push([l,t]); segs.push([bm,r]); } else { segs.push([l,bm]); segs.push([t,r]); }
+            break;
+          case 6: segs.push([bm,t]); break;
+          case 7: segs.push([l,t]); break;
+          case 8: segs.push([t,l]); break;
+          case 9: segs.push([t,bm]); break;
+          case 10:
+            if(avg>=level){ segs.push([l,bm]); segs.push([t,r]); } else { segs.push([l,t]); segs.push([bm,r]); }
+            break;
+          case 11: segs.push([t,r]); break;
+          case 12: segs.push([r,l]); break;
+          case 13: segs.push([r,bm]); break;
+          case 14: segs.push([bm,l]); break;
+        }
+      }
+    }
+    return segs;
+  }
+
+  /* ---------- 4. Shared state ---------- */
+  var state = {
+    fn:null, a:-6, b:6, n:50,
+    zRaw:null, count:0, zmin:0, zmax:0, zScale:1, colormap:null,
+    c: 0
+  };
+
+  /* ================= 3D SCENE ================= */
+  var canvas3d = document.getElementById("scene3d");
+  var renderer = new THREE.WebGLRenderer({ canvas:canvas3d, antialias:true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
+  var scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x101018);
+  var camera = new THREE.PerspectiveCamera(42, 1, 0.05, 500);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.65));
+  var dirLight = new THREE.DirectionalLight(0xffffff, 0.75); dirLight.position.set(4,8,6); scene.add(dirLight);
+  var dirLight2 = new THREE.DirectionalLight(0x88aaff, 0.3); dirLight2.position.set(-5,3,-4); scene.add(dirLight2);
+
+  var surfaceGroup = new THREE.Group(); scene.add(surfaceGroup);
+  var floorGroup = new THREE.Group(); scene.add(floorGroup);
+  var cutGroup = new THREE.Group(); scene.add(cutGroup);
+  var axesGroup = new THREE.Group(); scene.add(axesGroup);
+
+  var surfaceMesh = null, surfaceWire = null, floorMesh = null;
+  var planeMesh = null, curveTop = null, curveFloor = null, connectors = null;
+
+  var orbit = { target:new THREE.Vector3(0,0,0), radius:10, theta:Math.PI*0.28, phi:Math.PI*0.36 };
+  function clampPhi(p){ return Math.max(0.12, Math.min(Math.PI*0.49, p)); }
+  function updateCameraFromOrbit(){
+    var phi = clampPhi(orbit.phi);
+    var x = orbit.radius*Math.sin(phi)*Math.sin(orbit.theta);
+    var z = orbit.radius*Math.sin(phi)*Math.cos(orbit.theta);
+    var y = orbit.radius*Math.cos(phi);
+    camera.position.set(orbit.target.x+x, orbit.target.y+y, orbit.target.z+z);
+    camera.lookAt(orbit.target);
+  }
+  var dragging3d=false,lastX=0,lastY=0;
+  canvas3d.addEventListener("pointerdown", function(e){ dragging3d=true; lastX=e.clientX; lastY=e.clientY; canvas3d.setPointerCapture(e.pointerId); });
+  canvas3d.addEventListener("pointerup", function(){ dragging3d=false; });
+  canvas3d.addEventListener("pointercancel", function(){ dragging3d=false; });
+  canvas3d.addEventListener("pointermove", function(e){
+    if(dragging3d){
+      var dx=e.clientX-lastX, dy=e.clientY-lastY; lastX=e.clientX; lastY=e.clientY;
+      orbit.theta -= dx*0.0065; orbit.phi = clampPhi(orbit.phi - dy*0.0065);
+      updateCameraFromOrbit();
+    } else { handleHover3D(e); }
+  });
+  canvas3d.addEventListener("wheel", function(e){
+    e.preventDefault();
+    orbit.radius = Math.max(1.5, Math.min(200, orbit.radius*Math.pow(1.0012, e.deltaY)));
+    updateCameraFromOrbit();
+  }, { passive:false });
+  canvas3d.addEventListener("mouseleave", function(){ hideTooltip3D(); });
+
+  function makeLabelSprite(text){
+    var c = document.createElement("canvas");
+    var scale = 64; c.width=256; c.height=64;
+    var ctx = c.getContext("2d");
+    ctx.font = "500 34px 'IBM Plex Mono', monospace";
+    ctx.fillStyle = "#e7e6f5"; ctx.textBaseline = "middle";
+    ctx.fillText(text, 4, c.height/2);
+    var tex = new THREE.CanvasTexture(c); tex.minFilter = THREE.LinearFilter;
+    var mat = new THREE.SpriteMaterial({ map:tex, transparent:true, depthTest:false });
+    var sprite = new THREE.Sprite(mat);
+    var w = ctx.measureText(text).width + 8;
+    sprite.scale.set(w/scale, c.height/scale, 1);
+    return sprite;
+  }
+
+  function disposeObj(obj){
+    if(!obj) return;
+    if(obj.geometry) obj.geometry.dispose();
+    if(obj.material){
+      if(obj.material.map) obj.material.map.dispose();
+      obj.material.dispose();
+    }
+  }
+
+  function buildFlatGrid(zRaw, count, n, a, b, colormap, heightFn){
+    var span = b-a;
+    var positions = new Float32Array(count*count*3);
+    var colors = new Float32Array(count*count*3);
+    for(var j=0;j<count;j++){
+      var yv = a + span*j/n;
+      for(var i=0;i<count;i++){
+        var xv = a + span*i/n;
+        var idx = j*count+i, p = idx*3;
+        var zv = zRaw[idx];
+        var h = heightFn(zv);
+        positions[p]=xv; positions[p+1]=h; positions[p+2]=yv;
+        var rgb = isFinite(zv) ? colormap.rgb(zv) : [69,69,79];
+        colors[p]=rgb[0]/255; colors[p+1]=rgb[1]/255; colors[p+2]=rgb[2]/255;
+      }
+    }
+    var indices = [];
+    for(var j2=0;j2<n;j2++){
+      for(var i2=0;i2<n;i2++){
+        var a0=j2*count+i2, a1=a0+1, a2=a0+count, a3=a2+1;
+        indices.push(a0,a2,a1, a1,a2,a3);
+      }
+    }
+    var geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(positions,3));
+    geo.setAttribute("color", new THREE.BufferAttribute(colors,3));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    return geo;
+  }
+
+  function rebuildScene(){
+    var a=state.a, b=state.b, n=state.n, span=b-a, count=n+1;
+    var zRaw = new Float32Array(count*count);
+    var zmin=Infinity, zmax=-Infinity;
+    for(var j=0;j<count;j++){
+      var yv = a+span*j/n;
+      for(var i=0;i<count;i++){
+        var xv = a+span*i/n, idx=j*count+i, zv;
+        try{ zv = state.fn(xv,yv); }catch(e){ zv=NaN; }
+        if(typeof zv!=="number" || !isFinite(zv)){ zv=NaN; } else { if(zv<zmin) zmin=zv; if(zv>zmax) zmax=zv; }
+        zRaw[idx]=zv;
+      }
+    }
+    if(!isFinite(zmin)||!isFinite(zmax)){ zmin=-1; zmax=1; }
+    if(Math.abs(zmax-zmin)<1e-9){ zmax+=0.5; zmin-=0.5; }
+    var zScale = (span*0.55)/(zmax-zmin);
+    var colormap = makeColormap(zmin, zmax);
+
+    state.zRaw=zRaw; state.count=count; state.zmin=zmin; state.zmax=zmax; state.zScale=zScale; state.colormap=colormap;
+
+    // surface (true height)
+    disposeObj(surfaceMesh); disposeObj(surfaceWire);
+    var surfGeo = buildFlatGrid(zRaw, count, n, a, b, colormap, function(zv){ return isFinite(zv) ? zv*zScale : 0; });
+    var surfMat = new THREE.MeshStandardMaterial({ vertexColors:true, side:THREE.DoubleSide, roughness:0.65, metalness:0.05 });
+    surfaceMesh = new THREE.Mesh(surfGeo, surfMat); surfaceMesh.frustumCulled=false;
+    var wireMat = new THREE.LineBasicMaterial({ color:0x0b0b12, transparent:true, opacity:0.12 });
+    surfaceWire = new THREE.LineSegments(new THREE.WireframeGeometry(surfGeo), wireMat); surfaceWire.frustumCulled=false;
+    surfaceGroup.clear(); surfaceGroup.add(surfaceMesh, surfaceWire);
+
+    // floor carpet (context copy, sits below the surface's lowest point)
+    var floorY = zmin*zScale - span*0.55;
+    disposeObj(floorMesh);
+    var floorGeo = buildFlatGrid(zRaw, count, n, a, b, colormap, function(){ return floorY; });
+    var floorMat = new THREE.MeshBasicMaterial({ vertexColors:true, side:THREE.DoubleSide, transparent:true, opacity:0.55 });
+    floorMesh = new THREE.Mesh(floorGeo, floorMat); floorMesh.frustumCulled=false;
+    floorGroup.clear(); floorGroup.add(floorMesh);
+    state.floorY = floorY;
+
+    rebuildAxes(a,b,zmin,zmax,zScale,floorY);
+    setLevelRange();
+
+    var cx=(a+b)/2, cz=(a+b)/2;
+    orbit.target.set(cx, (zmin*zScale+floorY)/2, cz);
+    orbit.radius = Math.max(span*2.1, 3);
+    updateCameraFromOrbit();
+
+    updateContours();
+  }
+
+  function rebuildAxes(a,b,zmin,zmax,zScale,floorY){
+    axesGroup.clear();
+    var lineMat = new THREE.LineBasicMaterial({ color:0x8a8d99, transparent:true, opacity:0.5 });
+    var pts = [ new THREE.Vector3(a,floorY,a), new THREE.Vector3(b,floorY,a), new THREE.Vector3(b,floorY,b),
+      new THREE.Vector3(a,floorY,b), new THREE.Vector3(a,floorY,a) ];
+    axesGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lineMat));
+    var vGeo = new THREE.BufferGeometry().setFromPoints([ new THREE.Vector3(a,floorY,a), new THREE.Vector3(a, zmax*zScale, a) ]);
+    axesGroup.add(new THREE.Line(vGeo, lineMat));
+
+    var l1 = makeLabelSprite("(" + fmt(a) + ", " + fmt(a) + ")"); l1.position.set(a, floorY-0.05*(b-a), a); axesGroup.add(l1);
+    var l2 = makeLabelSprite("(" + fmt(b) + ", " + fmt(a) + ")"); l2.position.set(b, floorY-0.05*(b-a), a); axesGroup.add(l2);
+    var l3 = makeLabelSprite("(" + fmt(a) + ", " + fmt(b) + ")"); l3.position.set(a, floorY-0.05*(b-a), b); axesGroup.add(l3);
+    var l4 = makeLabelSprite("z máx " + fmt(zmax)); l4.position.set(a, zmax*zScale+0.05*(b-a), a); axesGroup.add(l4);
+    var l5 = makeLabelSprite("z mín " + fmt(zmin)); l5.position.set(a, zmin*zScale-0.05*(b-a), a); axesGroup.add(l5);
+  }
+
+  function setLevelRange(){
+    var slider = document.getElementById("c-slider");
+    var zmin = state.zmin, zmax = state.zmax;
+    var margin = (zmax-zmin)*0.02;
+    slider.min = (zmin-margin).toFixed(4);
+    slider.max = (zmax+margin).toFixed(4);
+    slider.step = Math.max((zmax-zmin)/200, 1e-4);
+    if(!isFinite(state.c) || state.c < zmin-margin || state.c > zmax+margin || state._neverSet){
+      state.c = (zmin+zmax)/2;
+      state._neverSet = false;
+    }
+    slider.value = state.c;
+    document.getElementById("c-input").value = fmt(state.c);
+  }
+
+  function updateContours(){
+    var c = state.c;
+    var segs = computeContourSegments(state.zRaw, state.count, state.a, state.b, state.n, c);
+
+    // 3D: curve on the surface at true height
+    disposeObj(curveTop); disposeObj(curveFloor); disposeObj(connectors); disposeObj(planeMesh);
+    var pts3 = [], ptsFloor = [];
+    var hTop = c*state.zScale, hFloor = state.floorY;
+    for(var s=0;s<segs.length;s++){
+      pts3.push(new THREE.Vector3(segs[s][0].x, hTop, segs[s][0].y), new THREE.Vector3(segs[s][1].x, hTop, segs[s][1].y));
+      ptsFloor.push(new THREE.Vector3(segs[s][0].x, hFloor, segs[s][0].y), new THREE.Vector3(segs[s][1].x, hFloor, segs[s][1].y));
+    }
+    var accentHex = 0xffd23f;
+    cutGroup.clear();
+    if(pts3.length){
+      var geoTop = new THREE.BufferGeometry().setFromPoints(pts3);
+      curveTop = new THREE.LineSegments(geoTop, new THREE.LineBasicMaterial({ color:accentHex }));
+      curveTop.frustumCulled=false;
+      var geoFloor = new THREE.BufferGeometry().setFromPoints(ptsFloor);
+      curveFloor = new THREE.LineSegments(geoFloor, new THREE.LineBasicMaterial({ color:accentHex }));
+      curveFloor.frustumCulled=false;
+      cutGroup.add(curveTop, curveFloor);
+
+      // sparse vertical connectors
+      var connPts = [];
+      var step = Math.max(1, Math.floor(segs.length/24));
+      for(var k=0;k<segs.length;k+=step){
+        var mx=(segs[k][0].x+segs[k][1].x)/2, my=(segs[k][0].y+segs[k][1].y)/2;
+        connPts.push(new THREE.Vector3(mx,hFloor,my), new THREE.Vector3(mx,hTop,my));
+      }
+      if(connPts.length){
+        var connGeo = new THREE.BufferGeometry().setFromPoints(connPts);
+        connectors = new THREE.LineSegments(connGeo, new THREE.LineBasicMaterial({ color:accentHex, transparent:true, opacity:0.28 }));
+        connectors.frustumCulled=false;
+        cutGroup.add(connectors);
+      }
+    }
+
+    // cutting plane
+    if(document.getElementById("plane-check").checked){
+      var span = state.b-state.a, cx=(state.a+state.b)/2;
+      var planeGeo = new THREE.PlaneGeometry(span*1.04, span*1.04);
+      var planeMat = new THREE.MeshBasicMaterial({ color:0x2dd4b0, transparent:true, opacity:0.16, side:THREE.DoubleSide, depthWrite:false });
+      planeMesh = new THREE.Mesh(planeGeo, planeMat);
+      planeMesh.rotation.x = -Math.PI/2;
+      planeMesh.position.set(cx, hTop, cx);
+      planeMesh.frustumCulled=false;
+      cutGroup.add(planeMesh);
+    }
+
+    // readout
+    var readout = document.getElementById("level-readout");
+    var out = "curva de nivel: f(x, y) = <b>" + fmt(c) + "</b>";
+    if(c < state.zmin || c > state.zmax){
+      out += "<br><span class='warn'>fuera del rango de f — no hay curva</span>";
+    } else if(segs.length === 0){
+      out += "<br><span class='warn'>no se encontraron puntos con esta resolución</span>";
+    }
+    readout.innerHTML = out;
+    document.getElementById("legend2d-text").textContent = "f(x,y) = " + fmt(c);
+
+    draw2D();
+  }
+
+  /* hover tooltip on 3D surface */
+  var raycaster = new THREE.Raycaster(), mouseNdc = new THREE.Vector2();
+  var tooltip3d = document.getElementById("tooltip3d");
+  function handleHover3D(e){
+    if(!surfaceMesh) return;
+    var rect = canvas3d.getBoundingClientRect();
+    mouseNdc.x = ((e.clientX-rect.left)/rect.width)*2-1;
+    mouseNdc.y = -((e.clientY-rect.top)/rect.height)*2+1;
+    raycaster.setFromCamera(mouseNdc, camera);
+    var hits = raycaster.intersectObject(surfaceMesh, false);
+    if(hits.length){
+      var p = hits[0].point, xv=p.x, yv=p.z, zv;
+      try{ zv = state.fn(xv,yv); }catch(err){ zv=NaN; }
+      tooltip3d.hidden=false;
+      tooltip3d.style.left = (e.clientX-rect.left)+"px";
+      tooltip3d.style.top = (e.clientY-rect.top)+"px";
+      tooltip3d.textContent = "x=" + xv.toFixed(2) + "  y=" + yv.toFixed(2) + "  f=" + (isFinite(zv)?zv.toFixed(3):"—");
+    } else { hideTooltip3D(); }
+  }
+  function hideTooltip3D(){ tooltip3d.hidden = true; }
+
+  function resize3D(){
+    var stage = document.getElementById("stage3d");
+    var w = stage.clientWidth, h = stage.clientHeight;
+    renderer.setSize(w,h,false);
+    camera.aspect = w/Math.max(h,1);
+    camera.updateProjectionMatrix();
+  }
+
+  /* ================= 2D CONTOUR MAP ================= */
+  var canvas2d = document.getElementById("scene2d");
+  var ctx2d = canvas2d.getContext("2d");
+  var tooltip2d = document.getElementById("tooltip2d");
+  var hover2d = null;
+
+  function domainToPx(x,y,map){ return { px: map.ox + (x-map.a)/map.span*map.size, py: map.oy + map.size - (y-map.a)/map.span*map.size }; }
+  function pxToDomain(px,py,map){ return { x: map.a + (px-map.ox)/map.size*map.span, y: map.a + (map.size-(py-map.oy))/map.size*map.span }; }
+
+  function getMap2D(){
+    var cssW = canvas2d.clientWidth, cssH = canvas2d.clientHeight;
+    var mTop = 30, mSide = 22, mBottom = 24;
+    var availW = cssW - mSide*2, availH = cssH - mTop - mBottom;
+    var size = Math.max(10, Math.min(availW, availH));
+    var ox = mSide + (availW-size)/2;
+    var oy = mTop + (availH-size)/2;
+    return { cssW:cssW, cssH:cssH, ox:ox, oy:oy, size:size, a:state.a, span:state.b-state.a };
+  }
+
+  function strokeSegs(ctx, segs, map){
+    ctx.beginPath();
+    for(var i=0;i<segs.length;i++){
+      var p0 = domainToPx(segs[i][0].x, segs[i][0].y, map);
+      var p1 = domainToPx(segs[i][1].x, segs[i][1].y, map);
+      ctx.moveTo(p0.px, p0.py); ctx.lineTo(p1.px, p1.py);
+    }
+    ctx.stroke();
+  }
+
+  function draw2D(){
+    if(!state.zRaw) return;
+    var dpr = Math.min(window.devicePixelRatio||1, 2);
+    var cssW = canvas2d.clientWidth, cssH = canvas2d.clientHeight;
+    canvas2d.width = Math.max(1,cssW*dpr); canvas2d.height = Math.max(1,cssH*dpr);
+    ctx2d.setTransform(dpr,0,0,dpr,0,0);
+    ctx2d.clearRect(0,0,cssW,cssH);
+
+    var map = getMap2D();
+    var count = state.count, n = count-1;
+    var cell = map.size/n;
+
+    // background heatmap (low opacity)
+    for(var j=0;j<n;j++){
+      for(var i=0;i<n;i++){
+        var zv = state.zRaw[j*count+i];
+        if(!isFinite(zv)){ ctx2d.fillStyle = "rgba(69,69,79,0.35)"; }
+        else { ctx2d.fillStyle = rgbCss(state.colormap.rgb(zv), 0.42); }
+        var px = map.ox + i*cell, py = map.oy + map.size - (j+1)*cell;
+        ctx2d.fillRect(px, py, cell+0.6, cell+0.6);
+      }
+    }
+
+    // auxiliary contours
+    if(document.getElementById("aux-check").checked){
+      ctx2d.strokeStyle = "rgba(255,255,255,0.22)";
+      ctx2d.lineWidth = 1;
+      var steps = 7;
+      for(var k=1;k<=steps;k++){
+        if(k===Math.round(steps/2)) continue;
+        var lvl = state.zmin + (state.zmax-state.zmin)*k/(steps+1);
+        var s = computeContourSegments(state.zRaw, state.count, state.a, state.b, state.n, lvl);
+        strokeSegs(ctx2d, s, map);
+      }
+    }
+
+    // selected contour
+    var selSegs = computeContourSegments(state.zRaw, state.count, state.a, state.b, state.n, state.c);
+    ctx2d.strokeStyle = "#ffd23f";
+    ctx2d.lineWidth = 2.6;
+    ctx2d.lineCap = "round";
+    strokeSegs(ctx2d, selSegs, map);
+
+    // frame + tick labels
+    ctx2d.strokeStyle = "rgba(255,255,255,0.35)";
+    ctx2d.lineWidth = 1;
+    ctx2d.strokeRect(map.ox+0.5, map.oy+0.5, map.size, map.size);
+    ctx2d.fillStyle = "#9a9cab";
+    ctx2d.font = "500 11px 'IBM Plex Mono', monospace";
+    ctx2d.textBaseline = "top";
+    ctx2d.fillText("(" + fmt(state.a) + ", " + fmt(state.a) + ")", map.ox, map.oy+map.size+6);
+    ctx2d.textAlign = "right";
+    ctx2d.fillText("(" + fmt(state.b) + ", " + fmt(state.a) + ")", map.ox+map.size, map.oy+map.size+6);
+    ctx2d.textBaseline = "top";
+    ctx2d.fillText("(" + fmt(state.b) + ", " + fmt(state.b) + ")", map.ox+map.size, map.oy+5);
+    ctx2d.textAlign = "left";
+    ctx2d.fillText("(" + fmt(state.a) + ", " + fmt(state.b) + ")", map.ox, map.oy+5);
+    ctx2d.textAlign = "left"; ctx2d.textBaseline = "alphabetic";
+
+    // hover crosshair
+    if(hover2d){
+      var hp = domainToPx(hover2d.x, hover2d.y, map);
+      ctx2d.strokeStyle = "rgba(255,255,255,0.55)";
+      ctx2d.lineWidth = 1;
+      ctx2d.beginPath();
+      ctx2d.moveTo(hp.px, map.oy); ctx2d.lineTo(hp.px, map.oy+map.size);
+      ctx2d.moveTo(map.ox, hp.py); ctx2d.lineTo(map.ox+map.size, hp.py);
+      ctx2d.stroke();
+      ctx2d.fillStyle = "#ffffff";
+      ctx2d.beginPath(); ctx2d.arc(hp.px, hp.py, 3, 0, Math.PI*2); ctx2d.fill();
+    }
+  }
+
+  canvas2d.addEventListener("mousemove", function(e){
+    var rect = canvas2d.getBoundingClientRect();
+    var map = getMap2D();
+    var px = e.clientX-rect.left, py = e.clientY-rect.top;
+    if(px<map.ox || px>map.ox+map.size || py<map.oy || py>map.oy+map.size){
+      hover2d = null; tooltip2d.hidden = true; draw2D(); return;
+    }
+    var d = pxToDomain(px, py, map);
+    var zv; try{ zv = state.fn(d.x, d.y); }catch(err){ zv = NaN; }
+    hover2d = d;
+    tooltip2d.hidden = false;
+    tooltip2d.style.left = px + "px";
+    tooltip2d.style.top = py + "px";
+    tooltip2d.textContent = "x=" + d.x.toFixed(2) + "  y=" + d.y.toFixed(2) + "  f=" + (isFinite(zv)?zv.toFixed(3):"—");
+    draw2D();
+  });
+  canvas2d.addEventListener("mouseleave", function(){ hover2d=null; tooltip2d.hidden=true; draw2D(); });
+  canvas2d.addEventListener("click", function(e){
+    var rect = canvas2d.getBoundingClientRect();
+    var map = getMap2D();
+    var px = e.clientX-rect.left, py = e.clientY-rect.top;
+    if(px<map.ox || px>map.ox+map.size || py<map.oy || py>map.oy+map.size) return;
+    var d = pxToDomain(px, py, map);
+    var zv; try{ zv = state.fn(d.x, d.y); }catch(err){ zv = NaN; }
+    if(isFinite(zv)){
+      state.c = zv;
+      document.getElementById("c-slider").value = zv;
+      document.getElementById("c-input").value = fmt(zv);
+      updateContours();
+    }
+  });
+
+  /* ---------- 5. UI wiring ---------- */
+  var fnInput = document.getElementById("fn-input");
+  var fnPreview = document.getElementById("fn-preview");
+  var fnError = document.getElementById("fn-error");
+  var aInput = document.getElementById("a-input");
+  var bInput = document.getElementById("b-input");
+  var resInput = document.getElementById("res-input");
+  var resValue = document.getElementById("res-value");
+  var presetSelect = document.getElementById("preset-select");
+  var cInput = document.getElementById("c-input");
+  var cSlider = document.getElementById("c-slider");
+  var auxCheck = document.getElementById("aux-check");
+  var planeCheck = document.getElementById("plane-check");
+
+  function tryCompileAndRebuild(){
+    var exprStr = fnInput.value;
+    fnPreview.textContent = "f(x, y) = " + prettify(exprStr);
+    try{
+      state.fn = compileFunction(exprStr);
+      fnError.textContent = "";
+    }catch(err){
+      fnError.textContent = err.message;
+      if(!state.fn) return;
+    }
+    var a = parseFloat(aInput.value), b = parseFloat(bInput.value);
+    if(!isFinite(a) || !isFinite(b) || b<=a){
+      fnError.textContent = "El límite superior debe ser mayor que el inferior.";
+      return;
+    }
+    state.a=a; state.b=b; state.n = parseInt(resInput.value,10);
+    rebuildScene();
+  }
+
+  fnInput.addEventListener("input", function(){ presetSelect.value="custom"; state._neverSet = true; tryCompileAndRebuild(); });
+  aInput.addEventListener("change", tryCompileAndRebuild);
+  bInput.addEventListener("change", tryCompileAndRebuild);
+  resInput.addEventListener("input", function(){
+    resValue.textContent = resInput.value + " × " + resInput.value;
+    tryCompileAndRebuild();
+  });
+  presetSelect.addEventListener("change", function(){
+    if(presetSelect.value==="custom") return;
+    var p = PRESETS[parseInt(presetSelect.value,10)];
+    fnInput.value = p.fn; aInput.value = p.a; bInput.value = p.b;
+    state._neverSet = true;
+    tryCompileAndRebuild();
+  });
+  cInput.addEventListener("input", function(){
+    var v = parseFloat(cInput.value);
+    if(isFinite(v)){ state.c=v; cSlider.value=v; updateContours(); }
+  });
+  cSlider.addEventListener("input", function(){
+    state.c = parseFloat(cSlider.value);
+    cInput.value = fmt(state.c);
+    updateContours();
+  });
+  document.getElementById("center-btn").addEventListener("click", function(){
+    state.c = (state.zmin+state.zmax)/2;
+    cSlider.value = state.c; cInput.value = fmt(state.c);
+    updateContours();
+  });
+  auxCheck.addEventListener("change", draw2D);
+  planeCheck.addEventListener("change", updateContours);
+
+  window.addEventListener("resize", function(){ resize3D(); draw2D(); });
+
+  var clock = new THREE.Clock();
+  function animate(){
+    requestAnimationFrame(animate);
+    clock.getDelta();
+    renderer.render(scene, camera);
+  }
+
+  state._neverSet = true;
+  resize3D();
+  tryCompileAndRebuild();
+  updateCameraFromOrbit();
+  requestAnimationFrame(animate);
+})();
+</script>
