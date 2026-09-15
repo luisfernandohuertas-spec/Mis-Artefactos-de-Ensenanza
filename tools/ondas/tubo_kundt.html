@@ -1,0 +1,633 @@
+<title>Tubo de Kundt</title>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#f3f2ef;
+    --surface:#ffffff;
+    --ink:#17161a;
+    --ink-2:#5c5a5e;
+    --ink-3:#8f8c92;
+    --hair:#e0ddd6;
+    --accent:#c1560f;
+    --accent-ink:#ffffff;
+    --danger:#c23b3b;
+    --good:#1a8a4a;
+    --warn:#b8860b;
+    --stage-bg:#121014;
+    --stage-hair:rgba(255,255,255,0.14);
+    --stage-hair-strong:rgba(255,255,255,0.32);
+    --stage-ink:#f2f0ee;
+    --stage-ink-2:#a6a2a0;
+    --focus:#c1560f;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#121113; --surface:#1c1a1c; --ink:#f4f2ee; --ink-2:#bdb9b8; --ink-3:#8a8688;
+      --hair:#332f30; --accent:#f08b3f; --accent-ink:#1a1108;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#121113; --surface:#1c1a1c; --ink:#f4f2ee; --ink-2:#bdb9b8; --ink-3:#8a8688;
+    --hair:#332f30; --accent:#f08b3f; --accent-ink:#1a1108;
+  }
+
+  *{box-sizing:border-box;}
+  html, body{ height:100%; }
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .app{ display:flex; flex-direction:column; height:100vh; overflow:hidden; padding:16px; gap:14px; }
+  @media (max-width: 880px){ .app{ height:auto; min-height:100vh; overflow:visible; } }
+
+  .topbar{ display:flex; flex-direction:column; gap:2px; }
+  .topbar h1{ margin:0; font-size:1.26rem; font-weight:700; letter-spacing:-0.01em; text-wrap:balance; }
+  .topbar p{ margin:0; color:var(--ink-2); font-size:0.87rem; max-width:70ch; }
+
+  .layout{ display:flex; gap:14px; flex:1; min-height:0; align-items:stretch; }
+  @media (max-width: 880px){ .layout{ flex-direction:column; } }
+
+  .panel{
+    width:310px; flex:0 0 auto; background:var(--surface); border:1px solid var(--hair); border-radius:14px;
+    padding:16px; display:flex; flex-direction:column; gap:15px; overflow-y:auto;
+  }
+  @media (max-width: 880px){ .panel{ width:auto; order:2; } }
+
+  .stage{
+    flex:1; position:relative; border-radius:14px; overflow:hidden; border:1px solid var(--hair);
+    background:var(--stage-bg); min-height:420px; display:flex; flex-direction:column;
+  }
+  @media (max-width: 880px){ .stage{ order:1; min-height:440px; } }
+  #kundt-canvas{ display:block; width:100%; height:100%; touch-action:none; }
+
+  .field{ display:flex; flex-direction:column; gap:6px; }
+  .field-row{ display:flex; gap:10px; }
+  .field-row > .field{ flex:1; min-width:0; }
+  label{ font-size:0.71rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-3); }
+  .group-title{
+    font-size:0.71rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-3);
+    margin:0 0 -4px 0; border-top:1px solid var(--hair); padding-top:12px;
+  }
+  .panel > .group-title:first-child{ border-top:none; padding-top:0; }
+
+  input[type="text"], input[type="number"]{
+    font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:0.9rem; color:var(--ink);
+    background:var(--bg); border:1px solid var(--hair); border-radius:8px; padding:7px 9px; width:100%;
+  }
+  input:focus-visible, button:focus-visible, input[type="range"]:focus-visible{ outline:2px solid var(--focus); outline-offset:1px; }
+  input[type="range"]{ width:100%; accent-color:var(--accent); }
+  .range-value{ font-family:"IBM Plex Mono", monospace; font-size:0.76rem; color:var(--ink-2); font-variant-numeric:tabular-nums; }
+
+  .btn{
+    font-family:inherit; font-size:0.84rem; font-weight:600; border-radius:8px; border:1px solid var(--hair);
+    background:var(--bg); color:var(--ink); padding:8px 11px; cursor:pointer;
+  }
+  .btn:hover{ border-color:var(--ink-3); }
+  .btn-primary{ background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+  .btn-row{ display:flex; gap:8px; }
+  .btn-row .btn{ flex:1; }
+
+  .readout{
+    font-family:"IBM Plex Mono", monospace; font-size:0.82rem; color:var(--ink-2); line-height:1.6;
+    background:var(--bg); border:1px solid var(--hair); border-radius:10px; padding:10px 11px;
+  }
+  .readout b{ color:var(--ink); }
+  .readout .accent{ color:var(--accent); font-weight:600; }
+  .readout .ok{ color:var(--good); font-weight:600; }
+
+  .meter{ height:7px; border-radius:4px; background:var(--hair); overflow:hidden; margin-top:6px; }
+  .meter-fill{ height:100%; background:var(--accent); width:0%; transition:width 0.12s linear; }
+
+  .result-box{
+    border-radius:10px; padding:10px 11px; font-size:0.82rem; line-height:1.55; font-family:"IBM Plex Mono",monospace;
+    border:1px solid var(--hair); background:var(--bg); color:var(--ink-2);
+  }
+  .result-box.good{ border-color:var(--good); color:var(--good); }
+  .result-box.warn{ border-color:var(--warn); color:var(--warn); }
+  .result-box.bad{ border-color:var(--danger); color:var(--danger); }
+
+  ::-webkit-scrollbar{ width:9px; height:9px; }
+  ::-webkit-scrollbar-thumb{ background:var(--hair); border-radius:6px; }
+</style>
+
+<div class="app">
+  <div class="topbar">
+    <h1>Tubo de Kundt — medir la longitud de onda del sonido</h1>
+    <p>Un altavoz hace vibrar el aire dentro del tubo a una frecuencia f. Desliza el pistón hasta encontrar la resonancia: el polvo se acumula en montoncitos sobre los nodos de la onda estacionaria, separados λ/2. Mide esa distancia para obtener λ.</p>
+  </div>
+
+  <div class="layout">
+    <aside class="panel" id="panel">
+      <div class="group-title">Fuente de sonido</div>
+      <div class="field">
+        <label for="f-input">Frecuencia f — <span class="range-value" id="f-value">900 Hz</span></label>
+        <input type="range" id="f-input" min="150" max="3000" value="900" step="5">
+      </div>
+      <div class="field">
+        <label for="t-input">Temperatura del aire — <span class="range-value" id="t-value">20 °C</span></label>
+        <input type="range" id="t-input" min="-20" max="40" value="20" step="1">
+      </div>
+
+      <div class="group-title">Pistón (longitud del tubo)</div>
+      <div class="field">
+        <label for="l-input">Posición del pistón L — <span class="range-value" id="l-value">— cm</span></label>
+        <input type="range" id="l-input" min="15" max="120" value="76" step="0.1">
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="resonance-btn">Buscar resonancia</button>
+        <button class="btn" id="scatter-btn">Redistribuir polvo</button>
+      </div>
+      <div class="readout" id="status-readout"></div>
+      <div class="meter"><div class="meter-fill" id="resonance-meter"></div></div>
+
+      <div class="btn-row">
+        <button class="btn" id="play-btn">⏸ Pausar</button>
+      </div>
+
+      <div class="group-title">Medición de λ</div>
+      <div class="readout" id="caliper-readout">Arrastra los dos marcadores triangulares sobre la regla para medir la distancia entre montones de polvo.</div>
+      <div class="field">
+        <label for="intervals-input">Intervalos (λ/2) contados entre marcadores</label>
+        <input type="number" id="intervals-input" value="1" min="1" step="1">
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="calc-btn">Calcular λ medida</button>
+      </div>
+      <div class="result-box" id="result-box">Ingresa cuántos espacios entre montones abarcan tus marcadores y presiona «Calcular».</div>
+
+      <div class="group-title">Cómo funciona</div>
+      <p style="font-size:0.77rem; color:var(--ink-2); line-height:1.5; margin:0;">
+        Se modela el tubo como cerrado en ambos extremos (altavoz y pistón rígido), así que en resonancia caben n semilongitudes de onda: L = n·(λ/2). En los <b style="color:var(--ink)">nodos</b> el aire casi no se mueve y el polvo se asienta; en los <b style="color:var(--ink)">antinodos</b> el aire vibra con fuerza y lo dispersa. Por eso el polvo migra y se apila justo sobre los nodos.
+      </p>
+    </aside>
+
+    <main class="stage" id="stage">
+      <canvas id="kundt-canvas"></canvas>
+    </main>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var state = {
+    f: 900,          // Hz
+    T: 20,            // °C
+    v: 343.5,         // m/s
+    pistonL: 0.76,    // m
+    maxL: 1.20,       // m
+    minL: 0.15,       // m
+    n: 4,
+    Lres: 0.76,
+    closeness: 1,
+    playing: true,
+    t: 0
+  };
+
+  function computeDerived(){
+    state.v = 331.3 + 0.606*state.T;
+    var halfLambda = state.v/(2*state.f);
+    var n = Math.max(1, Math.round(state.pistonL/halfLambda));
+    var Lres = n*halfLambda;
+    var tol = halfLambda*0.05;
+    var closeness = Math.exp(-Math.pow((state.pistonL-Lres)/tol, 2));
+    state.halfLambda = halfLambda;
+    state.n = n;
+    state.Lres = Lres;
+    state.closeness = closeness;
+  }
+
+  /* ---------- particles (powder) ---------- */
+  var N_PARTICLES = 170;
+  var particles = [];
+  function scatterParticles(){
+    particles = [];
+    for(var i=0;i<N_PARTICLES;i++){
+      var heapOff = (Math.random()-0.5)*8.5;
+      particles.push({ x: Math.random()*state.pistonL, jSeed: Math.random()*1000, heapOff: heapOff, heapPeak: 1-Math.min(1,Math.abs(heapOff)/4.3) });
+    }
+  }
+
+  function stepParticles(dt){
+    var k = state.n*Math.PI/state.pistonL;
+    var closeness = state.closeness;
+    var driftGain = 0.0022;
+    var jitterGain = 0.028;
+    for(var i=0;i<particles.length;i++){
+      var p = particles[i];
+      if(p.x > state.pistonL) p.x = state.pistonL - 0.002;
+      var grad = closeness*k*Math.sin(2*k*p.x);
+      var drift = -driftGain*grad;
+      var agitation = closeness*Math.abs(Math.sin(k*p.x));
+      var jitter = (Math.random()-0.5)*(jitterGain*agitation + 0.00035);
+      p.x += (drift + jitter)*dt;
+      if(p.x < 0.001) p.x = 0.001;
+      if(p.x > state.pistonL-0.001) p.x = state.pistonL-0.001;
+    }
+  }
+
+  /* ---------- canvas + geometry ---------- */
+  var canvas = document.getElementById("kundt-canvas");
+  var ctx = canvas.getContext("2d");
+  var geom = null; // recomputed each draw: pxPerM, tubeX0, tubeY, tubeH, rulerY
+
+  function computeGeom(){
+    var cssW = canvas.clientWidth, cssH = canvas.clientHeight;
+    var padL = 34, padR = 34;
+    var tubeX0 = padL, tubeX1 = cssW - padR;
+    var pxPerM = (tubeX1-tubeX0)/state.maxL;
+    var waveAmpMax = 26;
+    var topMargin = 46;
+    var waveTopY = topMargin + waveAmpMax + 4;
+    var tubeH = Math.max(40, Math.min(70, cssH*0.16));
+    var tubeY = waveTopY + waveAmpMax + 22;
+    var rulerY = tubeY + tubeH + 34;
+    // if the stage is short, compress gaps proportionally rather than overflow
+    var needed = rulerY + 26;
+    if(needed > cssH && cssH > 0){
+      var scale = Math.max(0.55, cssH/needed);
+      waveTopY *= scale; tubeY = waveTopY + waveAmpMax*scale + 22*scale;
+      tubeH = Math.max(34, tubeH*scale);
+      rulerY = tubeY + tubeH + 34*scale;
+    }
+    geom = { cssW:cssW, cssH:cssH, tubeX0:tubeX0, tubeX1:tubeX1, pxPerM:pxPerM, tubeH:tubeH, tubeY:tubeY, waveTopY:waveTopY, rulerY:rulerY };
+  }
+  function mToPx(xm){ return geom.tubeX0 + xm*geom.pxPerM; }
+  function pxToM(px){ return (px-geom.tubeX0)/geom.pxPerM; }
+
+  function fmt(v, d){ d = d===undefined?1:d; return v.toFixed(d); }
+
+  function draw(){
+    var dpr = Math.min(window.devicePixelRatio||1, 2);
+    var cssW = canvas.clientWidth, cssH = canvas.clientHeight;
+    canvas.width = Math.max(1,cssW*dpr); canvas.height = Math.max(1,cssH*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    computeGeom();
+    ctx.clearRect(0,0,cssW,cssH);
+
+    var g = geom;
+    var pistonPx = mToPx(state.pistonL);
+    var maxPx = mToPx(state.maxL);
+    var k = state.n*Math.PI/state.pistonL;
+    var waveAmpPx = 24*state.closeness;
+
+    // faint full-range tube outline (adjustable range)
+    ctx.strokeStyle = "rgba(255,255,255,0.14)";
+    ctx.setLineDash([4,4]);
+    ctx.lineWidth = 1.5;
+    roundRectPath(ctx, g.tubeX0, g.tubeY, maxPx-g.tubeX0, g.tubeH, 6);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // active tube body
+    var grad = ctx.createLinearGradient(0, g.tubeY, 0, g.tubeY+g.tubeH);
+    grad.addColorStop(0, "#4a4e58"); grad.addColorStop(0.5, "#2a2d34"); grad.addColorStop(1, "#3d404a");
+    ctx.fillStyle = grad;
+    roundRectPath(ctx, g.tubeX0, g.tubeY, pistonPx-g.tubeX0, g.tubeH, 6);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.28)";
+    ctx.lineWidth = 1.5;
+    roundRectPath(ctx, g.tubeX0, g.tubeY, pistonPx-g.tubeX0, g.tubeH, 6);
+    ctx.stroke();
+
+    // interior floor line (where powder sits)
+    var floorY = g.tubeY + g.tubeH - 10;
+    ctx.strokeStyle = "rgba(0,0,0,0.35)";
+    ctx.lineWidth = 8;
+    ctx.beginPath(); ctx.moveTo(g.tubeX0+3, floorY); ctx.lineTo(pistonPx-3, floorY); ctx.stroke();
+
+    // speaker at x=0
+    drawSpeaker(g.tubeX0, g.tubeY + g.tubeH/2, g.tubeH);
+
+    // piston at x=pistonL
+    drawPiston(pistonPx, g.tubeY, g.tubeH);
+
+    // envelope guide curves
+    ctx.strokeStyle = "rgba(240,139,63,0.35)";
+    ctx.lineWidth = 1.3;
+    ctx.setLineDash([3,3]);
+    ctx.beginPath();
+    for(var i=0;i<=120;i++){
+      var xm = state.pistonL*i/120;
+      var yEnv = waveAmpPx*Math.abs(Math.sin(k*xm));
+      var px = mToPx(xm);
+      var py = g.waveTopY - yEnv;
+      if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+    }
+    for(var i2=120;i2>=0;i2--){
+      var xm2 = state.pistonL*i2/120;
+      var yEnv2 = waveAmpPx*Math.abs(Math.sin(k*xm2));
+      var px2 = mToPx(xm2);
+      var py2 = g.waveTopY + yEnv2;
+      ctx.lineTo(px2,py2);
+    }
+    ctx.closePath();
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // instantaneous wave (bright)
+    ctx.strokeStyle = "#f08b3f";
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    for(var j=0;j<=160;j++){
+      var xj = state.pistonL*j/160;
+      var y = waveAmpPx*Math.sin(k*xj)*Math.sin(2*Math.PI*state.f*state.t*0.12);
+      var pxj = mToPx(xj);
+      var pyj = g.waveTopY - y;
+      if(j===0) ctx.moveTo(pxj,pyj); else ctx.lineTo(pxj,pyj);
+    }
+    ctx.stroke();
+
+    // baseline for wave
+    ctx.strokeStyle = "rgba(255,255,255,0.18)";
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(g.tubeX0, g.waveTopY); ctx.lineTo(pistonPx, g.waveTopY); ctx.stroke();
+
+    // node guide lines (subtle, cool tone, upper 2/3 of tube — leaves the floor clear for the powder)
+    ctx.strokeStyle = "rgba(130,160,210,0.4)";
+    ctx.setLineDash([2,3]);
+    ctx.lineWidth = 1;
+    for(var m=0;m<=state.n;m++){
+      var xn = m*state.pistonL/state.n;
+      var pxn = mToPx(xn);
+      ctx.beginPath(); ctx.moveTo(pxn, g.tubeY+6); ctx.lineTo(pxn, g.tubeY+g.tubeH*0.58); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+
+    // powder particles (cork dust) — the real indicator of where the nodes are
+    for(var p2=0;p2<particles.length;p2++){
+      var particle = particles[p2];
+      var spread = particle.heapOff*(0.3+0.7*state.closeness);
+      var ppx = mToPx(particle.x) + spread;
+      var wob = Math.sin(particle.jSeed + state.t*8)*0.7*state.closeness;
+      var py = floorY - 2.1 - particle.heapPeak*2.6*state.closeness - Math.abs(wob);
+      ctx.beginPath();
+      ctx.arc(ppx, py, 1.9, 0, Math.PI*2);
+      ctx.fillStyle = "#fff7ea";
+      ctx.fill();
+      ctx.lineWidth = 0.6;
+      ctx.strokeStyle = "rgba(30,20,10,0.45)";
+      ctx.stroke();
+    }
+
+    // ruler
+    drawRuler(g);
+
+    // calipers
+    drawCalipers(g);
+
+    // status text over stage (top-left)
+    ctx.fillStyle = "#a6a2a0";
+    ctx.font = "500 11px 'IBM Plex Mono', monospace";
+    ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+    ctx.fillText("λ teórica = " + fmt(state.v/state.f*100,1) + " cm    n = " + state.n + "    L = " + fmt(state.pistonL*100,1) + " cm", g.tubeX0, 20);
+  }
+
+  function roundRectPath(ctx, x, y, w, h, r){
+    if(w<0) w=0;
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);
+    ctx.arcTo(x,y,x+w,y,r);
+    ctx.closePath();
+  }
+
+  function drawSpeaker(x, cy, h){
+    var pulse = 0.5 + 0.5*Math.sin(2*Math.PI*state.f*state.t*0.12);
+    ctx.fillStyle = "#1a1a1d";
+    ctx.fillRect(x-16, cy-h/2-4, 14, h+8);
+    ctx.fillStyle = "#3a3a40";
+    ctx.beginPath(); ctx.arc(x-9, cy, h*0.32, 0, Math.PI*2); ctx.fill();
+    if(state.playing){
+      ctx.strokeStyle = "rgba(240,139,63," + (0.15+0.35*state.closeness*pulse) + ")";
+      ctx.lineWidth = 2;
+      for(var r=1;r<=3;r++){
+        ctx.beginPath();
+        ctx.arc(x-9, cy, h*0.32 + r*7 + pulse*3, -0.6, 0.6);
+        ctx.stroke();
+      }
+    }
+  }
+  function drawPiston(px, tubeY, tubeH){
+    ctx.fillStyle = "#c9c6c0";
+    ctx.fillRect(px-4, tubeY-6, 8, tubeH+12);
+    ctx.fillStyle = "#8a8781";
+    ctx.fillRect(px-4, tubeY-6, 3, tubeH+12);
+    ctx.fillStyle = "#5c5a5e";
+    ctx.font = "600 10px 'IBM Plex Sans', sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("pistón", px, tubeY-12);
+  }
+
+  /* ---------- ruler & calipers ---------- */
+  var caliperA = 20, caliperB = 40; // in cm
+  var dragTarget = null; // 'piston' | 'A' | 'B'
+
+  function drawRuler(g){
+    var y = g.rulerY;
+    ctx.strokeStyle = "rgba(255,255,255,0.4)";
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(g.tubeX0, y); ctx.lineTo(mToPx(state.maxL), y); ctx.stroke();
+    ctx.fillStyle = "#a6a2a0";
+    ctx.font = "500 10px 'IBM Plex Mono', monospace";
+    ctx.textAlign = "center";
+    var maxCm = state.maxL*100;
+    for(var cm=0; cm<=maxCm; cm+=2){
+      var px = mToPx(cm/100);
+      var major = (cm % 10 === 0);
+      ctx.beginPath();
+      ctx.moveTo(px, y);
+      ctx.lineTo(px, y + (major?9:5));
+      ctx.strokeStyle = major ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.28)";
+      ctx.stroke();
+      if(major){ ctx.fillText(String(cm), px, y+21); }
+    }
+    ctx.textAlign = "left";
+    ctx.fillText("cm", mToPx(state.maxL)+6, y+4);
+  }
+
+  function drawCalipers(g){
+    var y = g.rulerY;
+    [ ["A", caliperA, "#f08b3f"], ["B", caliperB, "#7fd4c1"] ].forEach(function(item){
+      var label = item[0], cm = item[1], color = item[2];
+      var px = mToPx(cm/100);
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(px, y-2); ctx.lineTo(px-7, y-14); ctx.lineTo(px+7, y-14); ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,0.4)"; ctx.lineWidth=1; ctx.stroke();
+      ctx.fillStyle = "#0e0d0f";
+      ctx.font = "700 9px 'IBM Plex Mono', monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(label, px, y-6);
+    });
+    // bracket between calipers
+    var pxA = mToPx(caliperA/100), pxB = mToPx(caliperB/100);
+    var lo = Math.min(pxA,pxB), hi = Math.max(pxA,pxB);
+    var by = y - 26;
+    ctx.strokeStyle = "rgba(255,255,255,0.6)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(lo, by+5); ctx.lineTo(lo, by); ctx.lineTo(hi, by); ctx.lineTo(hi, by+5);
+    ctx.stroke();
+    ctx.fillStyle = "#f2f0ee";
+    ctx.font = "600 11px 'IBM Plex Mono', monospace";
+    ctx.textAlign = "center";
+    ctx.fillText(fmt(Math.abs(caliperB-caliperA),1)+" cm", (lo+hi)/2, by-5);
+  }
+
+  function updateCaliperReadout(){
+    var d = Math.abs(caliperB-caliperA);
+    document.getElementById("caliper-readout").innerHTML =
+      "distancia A↔B: <b>" + fmt(d,1) + " cm</b>";
+  }
+
+  /* ---------- pointer interaction ---------- */
+  function pxFromEvent(e, rect){ return e.clientX - rect.left; }
+
+  canvas.addEventListener("pointerdown", function(e){
+    var rect = canvas.getBoundingClientRect();
+    var px = pxFromEvent(e, rect);
+    computeGeom();
+    var pistonPx = mToPx(state.pistonL);
+    var pxA = mToPx(caliperA/100), pxB = mToPx(caliperB/100);
+    var y = e.clientY - rect.top;
+
+    if(Math.abs(px-pistonPx) < 14 && y < geom.rulerY-20){
+      dragTarget = "piston";
+    } else if(Math.abs(px-pxA) < 12 && y > geom.rulerY-30 && y < geom.rulerY+10){
+      dragTarget = "A";
+    } else if(Math.abs(px-pxB) < 12 && y > geom.rulerY-30 && y < geom.rulerY+10){
+      dragTarget = "B";
+    } else {
+      dragTarget = null;
+    }
+    if(dragTarget) canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener("pointermove", function(e){
+    if(!dragTarget) return;
+    var rect = canvas.getBoundingClientRect();
+    var px = pxFromEvent(e, rect);
+    computeGeom();
+    if(dragTarget === "piston"){
+      var Lm = Math.max(state.minL, Math.min(state.maxL, pxToM(px)));
+      state.pistonL = Lm;
+      document.getElementById("l-input").value = (Lm*100).toFixed(1);
+      document.getElementById("l-value").textContent = (Lm*100).toFixed(1) + " cm";
+      caliperA = Math.min(caliperA, Lm*100-1);
+      caliperB = Math.min(caliperB, Lm*100-1);
+      computeDerived();
+      refreshStatus();
+    } else if(dragTarget === "A"){
+      caliperA = Math.max(0, Math.min(state.pistonL*100, pxToM(px)*100));
+      updateCaliperReadout();
+    } else if(dragTarget === "B"){
+      caliperB = Math.max(0, Math.min(state.pistonL*100, pxToM(px)*100));
+      updateCaliperReadout();
+    }
+  });
+  window.addEventListener("pointerup", function(){ dragTarget = null; });
+
+  /* ---------- UI wiring ---------- */
+  var fInput = document.getElementById("f-input");
+  var fValue = document.getElementById("f-value");
+  var tInput = document.getElementById("t-input");
+  var tValue = document.getElementById("t-value");
+  var lInput = document.getElementById("l-input");
+  var lValue = document.getElementById("l-value");
+  var playBtn = document.getElementById("play-btn");
+
+  function refreshStatus(){
+    computeDerived();
+    var pctFill = Math.round(state.closeness*100);
+    document.getElementById("resonance-meter").style.width = pctFill + "%";
+    var estado = state.closeness > 0.75
+      ? "<span class='ok'>en resonancia ✓</span>"
+      : (state.closeness > 0.3 ? "acercándose…" : "fuera de resonancia");
+    document.getElementById("status-readout").innerHTML =
+      "v = <b>" + fmt(state.v,1) + " m/s</b><br>" +
+      "λ teórica = v/f = <b class='accent'>" + fmt(state.v/state.f*100,2) + " cm</b><br>" +
+      "modo n = <b>" + state.n + "</b> (L≈n·λ/2 = " + fmt(state.Lres*100,1) + " cm)<br>" +
+      "estado: " + estado;
+  }
+
+  fInput.addEventListener("input", function(){
+    state.f = parseFloat(fInput.value);
+    fValue.textContent = state.f + " Hz";
+    computeDerived(); refreshStatus();
+  });
+  tInput.addEventListener("input", function(){
+    state.T = parseFloat(tInput.value);
+    tValue.textContent = state.T + " °C";
+    computeDerived(); refreshStatus();
+  });
+  lInput.addEventListener("input", function(){
+    state.pistonL = parseFloat(lInput.value)/100;
+    lValue.textContent = fmt(state.pistonL*100,1) + " cm";
+    caliperA = Math.min(caliperA, state.pistonL*100-1);
+    caliperB = Math.min(caliperB, state.pistonL*100-1);
+    computeDerived(); refreshStatus();
+  });
+  document.getElementById("resonance-btn").addEventListener("click", function(){
+    computeDerived();
+    state.pistonL = state.Lres;
+    lInput.value = (state.pistonL*100).toFixed(1);
+    lValue.textContent = fmt(state.pistonL*100,1) + " cm";
+    computeDerived(); refreshStatus();
+  });
+  document.getElementById("scatter-btn").addEventListener("click", scatterParticles);
+  playBtn.addEventListener("click", function(){
+    state.playing = !state.playing;
+    playBtn.textContent = state.playing ? "⏸ Pausar" : "▶ Reproducir";
+  });
+  document.getElementById("calc-btn").addEventListener("click", function(){
+    var d = Math.abs(caliperB-caliperA); // cm
+    var intervals = Math.max(1, parseInt(document.getElementById("intervals-input").value,10) || 1);
+    var lambdaMedida = 2*d/intervals;
+    var lambdaTeo = state.v/state.f*100;
+    var err = Math.abs(lambdaMedida-lambdaTeo)/lambdaTeo*100;
+    var box = document.getElementById("result-box");
+    var msg = "λ medida = 2 × (" + fmt(d,1) + " cm) / " + intervals + " = <b>" + fmt(lambdaMedida,2) + " cm</b><br>" +
+      "λ teórica = <b>" + fmt(lambdaTeo,2) + " cm</b><br>error relativo = " + fmt(err,1) + "%";
+    box.className = "result-box " + (err<5?"good":(err<15?"warn":"bad"));
+    box.innerHTML = msg + "<br>" + (err<5 ? "¡Buena medición!" : (err<15 ? "Cerca — ajusta mejor los marcadores sobre los montones." : "Revisa: ¿los marcadores están sobre montones reales y contaste bien los intervalos?"));
+  });
+
+  window.addEventListener("resize", function(){ /* geometry recomputed each draw() */ });
+
+  var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if(reduceMotion){ state.playing = false; playBtn.textContent = "▶ Reproducir"; }
+
+  var lastTs = null;
+  function loop(ts){
+    requestAnimationFrame(loop);
+    if(lastTs===null) lastTs = ts;
+    var dt = Math.min(0.05, (ts-lastTs)/1000);
+    lastTs = ts;
+    if(state.playing){
+      state.t += dt;
+      stepParticles(dt);
+    }
+    draw();
+  }
+
+  /* ---------- init ---------- */
+  computeDerived();
+  state.pistonL = state.Lres;
+  lInput.min = (state.minL*100).toFixed(0);
+  lInput.max = (state.maxL*100).toFixed(0);
+  lInput.value = (state.pistonL*100).toFixed(1);
+  lValue.textContent = fmt(state.pistonL*100,1) + " cm";
+  caliperA = Math.max(0, state.Lres*100/state.n*0.5);
+  caliperB = Math.min(state.pistonL*100-1, caliperA + state.Lres*100/state.n);
+  scatterParticles();
+  refreshStatus();
+  updateCaliperReadout();
+  requestAnimationFrame(loop);
+})();
+</script>
