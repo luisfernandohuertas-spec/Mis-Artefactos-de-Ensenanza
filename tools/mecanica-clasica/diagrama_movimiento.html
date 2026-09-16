@@ -1,0 +1,464 @@
+<title>Diagrama de Movimiento Rectilíneo</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+  :root{
+    --chassis: #14181d;
+    --chassis-2: #1b2027;
+    --chassis-3: #20262e;
+    --screen: #060a08;
+    --grid-line: rgba(150,255,210,0.07);
+    --wave-pos: #ffb454;
+    --wave-neg: #6df0c2;
+    --text-primary: #e8ecef;
+    --text-secondary: #97a3ac;
+    --text-muted: #5b6670;
+    --border: #2a313a;
+    --accent: #6df0c2;
+    --accent-ink: #04241a;
+    --font-ui: 'IBM Plex Sans', system-ui, sans-serif;
+    --font-mono: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+  }
+  *{ box-sizing: border-box; }
+  body{
+    background: #0a0d10;
+    color: var(--text-primary);
+    font-family: var(--font-ui);
+    padding-inline: 16px;
+    padding-block: 28px;
+    display: flex;
+    justify-content: center;
+  }
+  .device{ width:100%; max-width: 920px; display:flex; flex-direction:column; gap:18px; }
+
+  header.masthead{ display:flex; flex-direction:column; gap:4px; }
+  .eyebrow{ font-family: var(--font-mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color: var(--wave-pos); }
+  h1{ margin:0; font-size: clamp(22px,4vw,30px); font-weight:600; letter-spacing:-.01em; text-wrap:balance; }
+  .subtitle{ margin:0; color: var(--text-secondary); font-size:14px; max-width:64ch; line-height:1.5; }
+
+  .tabs{ display:flex; gap:6px; flex-wrap:wrap; }
+  .tab{
+    font-family: var(--font-ui); font-size:13.5px; font-weight:600; padding:9px 16px;
+    border-radius:8px 8px 0 0; border:1px solid var(--border); border-bottom:none;
+    background: var(--chassis-2); color: var(--text-secondary); cursor:pointer;
+  }
+  .tab.active{ background: var(--chassis); color: var(--accent); }
+  .tab:hover:not(.active){ color: var(--text-primary); }
+
+  .panel{
+    background: linear-gradient(180deg, var(--chassis-2), var(--chassis));
+    border: 1px solid var(--border); border-radius: 0 12px 12px 12px;
+    padding: 16px; display:flex; flex-direction:column; gap:16px;
+  }
+  .panel.standalone{ border-radius:14px; }
+
+  .screen-wrap{ background: var(--screen); border:1px solid var(--border); border-radius:10px; padding: 6px 8px 2px; }
+  .diagram-box{ width:100%; aspect-ratio: 900/230; }
+  svg#diagram{ width:100%; height:100%; display:block; }
+
+  .readouts{ display:grid; grid-template-columns: repeat(4,1fr); gap:10px; }
+  @media (max-width:640px){ .readouts{ grid-template-columns: repeat(2,1fr); } }
+  .readout{ background: var(--chassis-3); border:1px solid var(--border); border-radius:8px; padding:8px 10px; display:flex; flex-direction:column; gap:2px; }
+  .readout .label{ font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--text-muted); font-family:var(--font-mono); }
+  .readout .value{ font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size:16px; font-weight:600; color: var(--wave-pos); }
+  .readout .value small{ font-size:11px; font-weight:500; color: var(--text-secondary); margin-left:3px; }
+
+  .controls{ display:grid; grid-template-columns: repeat(4,1fr); gap:12px; }
+  @media (max-width:640px){ .controls{ grid-template-columns: repeat(2,1fr); } }
+  .field{ background: var(--chassis-3); border:1px solid var(--border); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:6px; }
+  .field label{ font-size:11px; font-family: var(--font-mono); color: var(--text-muted); letter-spacing:.04em; }
+  .field input[type="number"]{
+    background: var(--screen); border:1px solid var(--border); border-radius:6px;
+    color: var(--wave-pos); font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+    font-size:15px; padding:6px 8px; width:100%;
+  }
+  .field input:focus-visible{ outline:2px solid var(--wave-pos); outline-offset:1px; }
+  .field.hidden{ display:none; }
+
+  .toggle-row{ display:flex; gap:10px; flex-wrap:wrap; }
+  .toggle{
+    display:flex; align-items:center; gap:8px; background: var(--chassis-3); border:1px solid var(--border);
+    border-radius:9px; padding:9px 12px; cursor:pointer; font-size:13px; color: var(--text-secondary);
+  }
+  .toggle input{ accent-color: var(--accent); width:15px; height:15px; }
+  .toggle.on{ color: var(--text-primary); border-color: var(--accent); }
+
+  .transport{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .btn{
+    display:inline-flex; align-items:center; gap:7px; padding:10px 18px; border-radius:9px;
+    border:1px solid var(--accent); background: var(--accent); color: var(--accent-ink);
+    font-family: var(--font-ui); font-weight:600; font-size:13px; cursor:pointer;
+  }
+  .btn:disabled{ opacity:.5; cursor:default; }
+  .btn.ghost{ background:transparent; color: var(--text-primary); border-color: var(--border); }
+
+  .caption{ font-size:12.5px; color: var(--text-secondary); line-height:1.55; border-left:2px solid var(--border); padding-left:10px; }
+  .caption b{ color: var(--text-primary); }
+  .caption .formula{ color: var(--wave-pos); font-family: var(--font-mono); }
+
+  table{ width:100%; border-collapse: collapse; font-family: var(--font-mono); font-size:13px; }
+  thead th{
+    text-align:right; font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color: var(--text-muted);
+    padding: 6px 10px; border-bottom:1px solid var(--border);
+  }
+  thead th:first-child, tbody td:first-child{ text-align:left; }
+  tbody td{ text-align:right; padding:6px 10px; font-variant-numeric: tabular-nums; color: var(--text-primary); border-bottom:1px solid rgba(255,255,255,0.04); }
+  tbody tr:last-child td{ color: var(--wave-pos); font-weight:600; }
+  .table-wrap{ overflow-x:auto; }
+
+  [hidden]{ display:none !important; }
+</style>
+
+<div class="device">
+  <header class="masthead">
+    <span class="eyebrow">Instrumento didáctico · Cinemática</span>
+    <h1>Diagrama de Movimiento Rectilíneo</h1>
+    <p class="subtitle">Una partícula se mueve sobre una recta entre una posición inicial y una posición final, dejando una marca cada segundo. Compara el movimiento uniforme (MRU) con el acelerado (MRUA).</p>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button class="tab active" data-mode="mru" role="tab" aria-selected="true">Movimiento uniforme</button>
+    <button class="tab" data-mode="mrua" role="tab" aria-selected="false">Movimiento acelerado</button>
+  </div>
+
+  <div class="panel">
+    <div class="screen-wrap">
+      <div class="diagram-box">
+        <svg id="diagram" viewBox="0 0 900 230" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <marker id="arrowhead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 Z" class="arrowfill"></path>
+            </marker>
+          </defs>
+          <g id="axisGroup"></g>
+          <g id="traceGroup"></g>
+          <g id="vectorGroup"></g>
+          <g id="particleGroup"></g>
+        </svg>
+      </div>
+    </div>
+
+    <div class="readouts" id="readouts"></div>
+
+    <div class="controls">
+      <div class="field">
+        <label for="x0Input">Posición inicial x₀ (m)</label>
+        <input type="number" id="x0Input" value="-3" step="0.5">
+      </div>
+      <div class="field">
+        <label for="xfInput">Posición final x_f (m)</label>
+        <input type="number" id="xfInput" value="7" step="0.5">
+      </div>
+      <div class="field">
+        <label for="tInput">Duración total (s)</label>
+        <input type="number" id="tInput" value="5" step="1" min="1" max="15">
+      </div>
+      <div class="field mode-ctl" data-mode="mrua" hidden>
+        <label for="v0Input">Velocidad inicial v₀ (m/s)</label>
+        <input type="number" id="v0Input" value="0" step="0.5">
+      </div>
+    </div>
+
+    <div class="toggle-row">
+      <label class="toggle on" id="tableToggleWrap">
+        <input type="checkbox" id="tableToggle" checked>
+        Mostrar tabla de posición
+      </label>
+      <label class="toggle on" id="vectorToggleWrap">
+        <input type="checkbox" id="vectorToggle" checked>
+        Mostrar vector de velocidad
+      </label>
+    </div>
+
+    <div class="transport">
+      <button class="btn" id="playBtn">▶ Reproducir animación</button>
+      <button class="btn ghost" id="resetBtn">Ver diagrama completo</button>
+    </div>
+
+    <p class="caption" id="caption"></p>
+  </div>
+
+  <div class="panel standalone" id="tablePanel">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>t (s)</th><th>x(t) (m)</th><th>v(t) (m/s)</th></tr></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<style>
+  .arrowfill{ fill: var(--wave-pos); }
+</style>
+
+<script>
+(function(){
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const el = (tag, attrs) => {
+    const e = document.createElementNS(svgNS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  };
+  const clamp = (v,lo,hi) => Math.min(hi, Math.max(lo, v));
+
+  const VB_W = 900, VB_H = 230, LINE_Y = 118, PAD = 70;
+
+  const state = {
+    mode: 'mru',
+    x0: -3, xf: 7, T: 5, v0: 0,
+    v: 0, a: 0,
+    trackMin: -5, trackMax: 5,
+    showTable: true, showVector: true,
+    playing: false, currentT: 0, recorded: [0],
+    playStart: 0
+  };
+
+  // ---------------- kinematics ----------------
+  function computeParams(){
+    if (state.mode === 'mru'){
+      state.v = (state.xf - state.x0) / state.T;
+      state.a = 0; state.v0 = 0;
+    } else {
+      state.a = 2 * ((state.xf - state.x0) - state.v0 * state.T) / (state.T * state.T);
+    }
+  }
+  function xAt(t){
+    return state.mode === 'mru'
+      ? state.x0 + state.v * t
+      : state.x0 + state.v0 * t + 0.5 * state.a * t * t;
+  }
+  function vAt(t){
+    return state.mode === 'mru' ? state.v : state.v0 + state.a * t;
+  }
+
+  function computeBounds(){
+    let lo = Math.min(state.x0, state.xf), hi = Math.max(state.x0, state.xf);
+    const steps = 120;
+    for (let i = 0; i <= steps; i++){
+      const t = state.T * i / steps;
+      const x = xAt(t);
+      if (x < lo) lo = x;
+      if (x > hi) hi = x;
+    }
+    let range = hi - lo;
+    if (range < 1) range = 1;
+    const margin = Math.max(0.6, range * 0.15);
+    state.trackMin = lo - margin;
+    state.trackMax = hi + margin;
+  }
+
+  function niceStep(range, targetTicks){
+    const rough = range / targetTicks;
+    const mag = Math.pow(10, Math.floor(Math.log10(rough)));
+    const norm = rough / mag;
+    let step;
+    if (norm < 1.5) step = 1; else if (norm < 3) step = 2; else if (norm < 7) step = 5; else step = 10;
+    return step * mag;
+  }
+
+  function xToPx(x){
+    const span = state.trackMax - state.trackMin || 1;
+    return PAD + (x - state.trackMin) / span * (VB_W - 2*PAD);
+  }
+
+  // ---------------- drawing: axis (static per bounds) ----------------
+  function drawAxis(){
+    const g = $('axisGroup');
+    g.innerHTML = '';
+    g.appendChild(el('line', { x1: PAD-14, y1: LINE_Y, x2: VB_W-PAD+14, y2: LINE_Y, stroke: 'var(--border)', 'stroke-width': 2 }));
+
+    const step = niceStep(state.trackMax - state.trackMin, 7);
+    const start = Math.ceil(state.trackMin/step)*step;
+    const ticks = [];
+    for (let v = start; v <= state.trackMax + 1e-9; v += step) ticks.push(+v.toFixed(6));
+    if (state.trackMin <= 0 && state.trackMax >= 0 && !ticks.some(t => Math.abs(t) < step*0.01)) ticks.push(0);
+
+    ticks.forEach(v => {
+      const px = xToPx(v);
+      const isZero = Math.abs(v) < step*0.01;
+      g.appendChild(el('line', { x1: px, y1: LINE_Y-6, x2: px, y2: LINE_Y+6, stroke: isZero ? 'var(--text-secondary)' : 'var(--text-muted)', 'stroke-width': isZero ? 2 : 1.2 }));
+      const t = el('text', { x: px, y: LINE_Y+22, 'text-anchor':'middle', 'font-family':'IBM Plex Mono, monospace', 'font-size':'11', fill: 'var(--text-muted)' });
+      t.textContent = (Math.abs(v) < 1e-9 ? '0' : v);
+      g.appendChild(t);
+    });
+
+  }
+
+  // ---------------- drawing: trace + particle + vector (per frame) ----------------
+  function drawTrace(){
+    const g = $('traceGroup');
+    g.innerHTML = '';
+    state.recorded.forEach((t, i) => {
+      const x = xAt(t);
+      const px = xToPx(x);
+      const above = i % 2 === 0;
+      const ly = above ? LINE_Y - 26 : LINE_Y + 46;
+      g.appendChild(el('circle', { cx: px, cy: LINE_Y, r: 5, fill: 'var(--accent)', stroke: 'var(--screen)', 'stroke-width': 1.5 }));
+      const lbl = el('text', { x: px, y: ly, 'text-anchor':'middle', 'font-family':'IBM Plex Mono, monospace', 'font-size':'11', fill:'var(--text-secondary)' });
+      lbl.textContent = 't=' + t + 's';
+      g.appendChild(lbl);
+    });
+  }
+
+  function drawParticle(){
+    const g = $('particleGroup');
+    g.innerHTML = '';
+    const px = xToPx(xAt(state.currentT));
+    g.appendChild(el('circle', { cx: px, cy: LINE_Y, r: 9, fill: 'none', stroke: 'var(--accent)', 'stroke-width': 1.6, opacity: 0.55 }));
+    g.appendChild(el('circle', { cx: px, cy: LINE_Y, r: 6, fill: 'var(--accent)' }));
+  }
+
+  function drawVector(){
+    const g = $('vectorGroup');
+    g.innerHTML = '';
+    if (!state.showVector) return;
+    const vMax = Math.max(Math.abs(vAt(0)), Math.abs(vAt(state.T)), 1e-6);
+    const scale = 60 / vMax;
+    const v = vAt(state.currentT);
+    const px = xToPx(xAt(state.currentT));
+    const y = LINE_Y - 46;
+    const len = v * scale;
+    if (Math.abs(len) > 1){
+      g.appendChild(el('line', { x1: px, y1: y, x2: px+len, y2: y, stroke: 'var(--wave-pos)', 'stroke-width': 2.4, 'marker-end':'url(#arrowhead)' }));
+      const lbl = el('text', { x: px+len/2, y: y-8, 'text-anchor':'middle', 'font-family':'IBM Plex Mono, monospace', 'font-size':'11', fill:'var(--wave-pos)' });
+      lbl.textContent = 'v = ' + v.toFixed(2) + ' m/s';
+      g.appendChild(lbl);
+    }
+  }
+
+  function renderFrame(){
+    drawTrace();
+    drawParticle();
+    drawVector();
+    updateTable();
+  }
+
+  // ---------------- readouts & table & caption ----------------
+  function updateReadouts(){
+    const box = $('readouts');
+    if (state.mode === 'mru'){
+      box.innerHTML =
+        '<div class="readout"><span class="label">x₀ → x_f</span><span class="value">' + state.x0 + ' → ' + state.xf + '<small>m</small></span></div>' +
+        '<div class="readout"><span class="label">Duración T</span><span class="value">' + state.T + '<small>s</small></span></div>' +
+        '<div class="readout"><span class="label">Velocidad</span><span class="value">' + state.v.toFixed(2) + '<small>m/s</small></span></div>' +
+        '<div class="readout"><span class="label">Aceleración</span><span class="value">0.00<small>m/s²</small></span></div>';
+    } else {
+      box.innerHTML =
+        '<div class="readout"><span class="label">x₀ → x_f</span><span class="value">' + state.x0 + ' → ' + state.xf + '<small>m</small></span></div>' +
+        '<div class="readout"><span class="label">Duración T</span><span class="value">' + state.T + '<small>s</small></span></div>' +
+        '<div class="readout"><span class="label">Velocidad inicial</span><span class="value">' + state.v0.toFixed(2) + '<small>m/s</small></span></div>' +
+        '<div class="readout"><span class="label">Aceleración</span><span class="value">' + state.a.toFixed(2) + '<small>m/s²</small></span></div>';
+    }
+  }
+
+  function updateTable(){
+    const body = $('tableBody');
+    body.innerHTML = '';
+    state.recorded.forEach(t => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + t + '</td><td>' + xAt(t).toFixed(2) + '</td><td>' + vAt(t).toFixed(2) + '</td>';
+      body.appendChild(tr);
+    });
+  }
+
+  const captions = {
+    mru: 'Movimiento rectilíneo uniforme (MRU): la velocidad es constante, así que la partícula avanza la misma distancia cada segundo. En el diagrama, las marcas quedan <b>igualmente espaciadas</b>: <b class="formula">x(t) = x₀ + v·t</b>.',
+    mrua: 'Movimiento rectilíneo uniformemente acelerado (MRUA): la aceleración es constante, así que la velocidad cambia a ritmo constante y la separación entre marcas <b>crece o decrece</b> con el tiempo: <b class="formula">x(t) = x₀ + v₀·t + ½·a·t²</b>, con <b class="formula">v(t) = v₀ + a·t</b>.'
+  };
+  function updateCaption(){ $('caption').innerHTML = captions[state.mode]; }
+
+  // ---------------- setup / lifecycle ----------------
+  function fullSeconds(){
+    const arr = [];
+    for (let t = 0; t <= state.T; t++) arr.push(t);
+    return arr;
+  }
+
+  function jumpToEnd(){
+    state.playing = false;
+    state.currentT = state.T;
+    state.recorded = fullSeconds();
+    $('playBtn').disabled = false;
+    $('playBtn').textContent = '▶ Reproducir animación';
+    renderFrame();
+  }
+
+  function setup(){
+    state.x0 = +$('x0Input').value;
+    state.xf = +$('xfInput').value;
+    state.T = clamp(Math.round(+$('tInput').value) || 1, 1, 30);
+    $('tInput').value = state.T;
+    state.v0 = state.mode === 'mrua' ? (+$('v0Input').value || 0) : 0;
+    computeParams();
+    computeBounds();
+    drawAxis();
+    updateReadouts();
+    updateCaption();
+    jumpToEnd();
+  }
+
+  function play(){
+    state.playing = true;
+    state.currentT = 0;
+    state.recorded = [0];
+    $('playBtn').disabled = true;
+    $('playBtn').textContent = 'Reproduciendo…';
+    renderFrame();
+    state.playStart = performance.now();
+    requestAnimationFrame(tick);
+  }
+
+  function tick(now){
+    if (!state.playing) return;
+    const elapsed = (now - state.playStart) / 1000;
+    state.currentT = Math.min(elapsed, state.T);
+    const flo = Math.floor(state.currentT + 1e-9);
+    let last = state.recorded[state.recorded.length-1];
+    while (last < flo){ last++; state.recorded.push(last); }
+    renderFrame();
+    if (state.currentT >= state.T){
+      state.playing = false;
+      state.recorded = fullSeconds();
+      $('playBtn').disabled = false;
+      $('playBtn').textContent = '▶ Reproducir animación';
+      renderFrame();
+      return;
+    }
+    requestAnimationFrame(tick);
+  }
+
+  // ---------------- UI wiring ----------------
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected','false'); });
+      tab.classList.add('active'); tab.setAttribute('aria-selected','true');
+      state.mode = tab.dataset.mode;
+      document.querySelectorAll('.mode-ctl').forEach(c => { c.hidden = c.dataset.mode !== state.mode; });
+      setup();
+    });
+  });
+
+  ['x0Input','xfInput','tInput','v0Input'].forEach(id => {
+    $(id).addEventListener('change', setup);
+  });
+
+  $('tableToggle').addEventListener('change', (e) => {
+    state.showTable = e.target.checked;
+    $('tableToggleWrap').classList.toggle('on', state.showTable);
+    $('tablePanel').hidden = !state.showTable;
+  });
+  $('vectorToggle').addEventListener('change', (e) => {
+    state.showVector = e.target.checked;
+    $('vectorToggleWrap').classList.toggle('on', state.showVector);
+    renderFrame();
+  });
+
+  $('playBtn').addEventListener('click', play);
+  $('resetBtn').addEventListener('click', jumpToEnd);
+
+  setup();
+})();
+</script>
