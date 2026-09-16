@@ -1,0 +1,609 @@
+<title>Caída Libre y Tiro Parabólico</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+  :root{
+    --chassis: #14181d; --chassis-2: #1b2027; --chassis-3: #20262e; --screen: #060a08;
+    --wave-pos: #ffb454; --wave-neg: #6df0c2;
+    --text-primary: #e8ecef; --text-secondary: #97a3ac; --text-muted: #5b6670;
+    --border: #2a313a; --accent: #6df0c2; --accent-ink: #04241a;
+    --font-ui: 'IBM Plex Sans', system-ui, sans-serif;
+    --font-mono: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+  }
+  *{ box-sizing: border-box; }
+  body{ background:#0a0d10; color:var(--text-primary); font-family:var(--font-ui); padding-inline:16px; padding-block:28px; display:flex; justify-content:center; }
+  .device{ width:100%; max-width:960px; display:flex; flex-direction:column; gap:18px; }
+
+  header.masthead{ display:flex; flex-direction:column; gap:4px; }
+  .eyebrow{ font-family:var(--font-mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--wave-pos); }
+  h1{ margin:0; font-size:clamp(22px,4vw,30px); font-weight:600; letter-spacing:-.01em; text-wrap:balance; }
+  .subtitle{ margin:0; color:var(--text-secondary); font-size:14px; max-width:66ch; line-height:1.5; }
+
+  .tabs{ display:flex; gap:6px; flex-wrap:wrap; }
+  .tab{ font-family:var(--font-ui); font-size:13.5px; font-weight:600; padding:9px 16px; border-radius:8px 8px 0 0; border:1px solid var(--border); border-bottom:none; background:var(--chassis-2); color:var(--text-secondary); cursor:pointer; }
+  .tab.active{ background:var(--chassis); color:var(--accent); }
+  .tab:hover:not(.active){ color:var(--text-primary); }
+
+  .panel{ background:linear-gradient(180deg,var(--chassis-2),var(--chassis)); border:1px solid var(--border); border-radius:0 12px 12px 12px; padding:16px; display:flex; flex-direction:column; gap:16px; }
+  .panel.standalone{ border-radius:14px; }
+
+  .shared-controls{ display:flex; flex-wrap:wrap; gap:12px; }
+  .field{ background:var(--chassis-3); border:1px solid var(--border); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:6px; flex:1; min-width:150px; }
+  .field label{ font-size:11px; font-family:var(--font-mono); color:var(--text-muted); letter-spacing:.04em; }
+  .field input[type="number"]{ background:var(--screen); border:1px solid var(--border); border-radius:6px; color:var(--wave-pos); font-family:var(--font-mono); font-variant-numeric:tabular-nums; font-size:15px; padding:6px 8px; width:100%; }
+  .field input[type="range"]{ width:100%; }
+  .field input:focus-visible{ outline:2px solid var(--wave-pos); outline-offset:1px; }
+  .field .hintline{ display:flex; justify-content:space-between; font-size:11px; color:var(--text-secondary); }
+
+  .chips{ display:flex; flex-wrap:wrap; gap:6px; margin-top:2px; }
+  .chip{ font-family:var(--font-mono); font-size:11px; padding:4px 9px; border-radius:999px; border:1px solid var(--border); background:transparent; color:var(--text-secondary); cursor:pointer; }
+  .chip:hover{ border-color:var(--accent); color:var(--text-primary); }
+  .chip.active{ background:rgba(109,240,194,.12); border-color:var(--accent); color:var(--wave-neg); }
+
+  .seg{ display:flex; gap:6px; }
+  .seg button{ flex:1; font-family:var(--font-mono); font-size:12px; padding:6px 8px; border-radius:6px; border:1px solid var(--border); background:transparent; color:var(--text-secondary); cursor:pointer; }
+  .seg button.active{ background:rgba(109,240,194,.12); border-color:var(--accent); color:var(--accent); }
+  .seg button:hover:not(.active){ color:var(--text-primary); }
+
+  .controls{ display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
+  @media (max-width:640px){ .controls{ grid-template-columns:1fr; } }
+
+  .screen-wrap{ background:var(--screen); border:1px solid var(--border); border-radius:10px; padding:6px 8px 2px; }
+  .diagram-box{ width:100%; }
+  .diagram-box.ff{ aspect-ratio: 460/460; max-width:420px; margin:0 auto; }
+  .diagram-box.pj{ aspect-ratio: 900/460; }
+  .diagram-box svg{ width:100%; height:100%; display:block; }
+
+  .readouts{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+  @media (max-width:640px){ .readouts{ grid-template-columns:repeat(2,1fr); } }
+  .readout{ background:var(--chassis-3); border:1px solid var(--border); border-radius:8px; padding:8px 10px; display:flex; flex-direction:column; gap:2px; }
+  .readout .label{ font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--text-muted); font-family:var(--font-mono); }
+  .readout .value{ font-family:var(--font-mono); font-variant-numeric:tabular-nums; font-size:15px; font-weight:600; color:var(--wave-pos); }
+  .readout .value small{ font-size:11px; font-weight:500; color:var(--text-secondary); margin-left:3px; }
+
+  .toggle-row{ display:flex; gap:10px; flex-wrap:wrap; }
+  .toggle{ display:flex; align-items:center; gap:8px; background:var(--chassis-3); border:1px solid var(--border); border-radius:9px; padding:9px 12px; cursor:pointer; font-size:13px; color:var(--text-secondary); }
+  .toggle input{ accent-color:var(--accent); width:15px; height:15px; }
+  .toggle.on{ color:var(--text-primary); border-color:var(--accent); }
+
+  .transport{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .btn{ display:inline-flex; align-items:center; gap:7px; padding:10px 18px; border-radius:9px; border:1px solid var(--accent); background:var(--accent); color:var(--accent-ink); font-family:var(--font-ui); font-weight:600; font-size:13px; cursor:pointer; }
+  .btn:disabled{ opacity:.5; cursor:default; }
+  .btn.ghost{ background:transparent; color:var(--text-primary); border-color:var(--border); }
+
+  .caption{ font-size:12.5px; color:var(--text-secondary); line-height:1.55; border-left:2px solid var(--border); padding-left:10px; }
+  .caption b{ color:var(--text-primary); }
+  .caption .formula{ color:var(--wave-pos); font-family:var(--font-mono); }
+
+  table{ width:100%; border-collapse:collapse; font-family:var(--font-mono); font-size:13px; }
+  thead th{ text-align:right; font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--text-muted); padding:6px 10px; border-bottom:1px solid var(--border); }
+  thead th:first-child, tbody td:first-child{ text-align:left; }
+  tbody td{ text-align:right; padding:6px 10px; font-variant-numeric:tabular-nums; color:var(--text-primary); border-bottom:1px solid rgba(255,255,255,0.04); }
+  tbody tr:last-child td{ color:var(--wave-pos); font-weight:600; }
+  .table-wrap{ overflow-x:auto; }
+
+  .arrowfill{ fill: var(--wave-pos); }
+  [hidden]{ display:none !important; }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <marker id="arrowhead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 Z" class="arrowfill"></path>
+    </marker>
+  </defs>
+</svg>
+
+<div class="device">
+  <header class="masthead">
+    <span class="eyebrow">Instrumento didáctico · Cinemática 2D</span>
+    <h1>Caída Libre y Tiro Parabólico</h1>
+    <p class="subtitle">Deja caer o lanza una partícula y observa las marcas que va dejando en cada intervalo de tiempo, con la tabla de posición y el vector de velocidad como opciones.</p>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button class="tab active" data-mode="freefall" role="tab" aria-selected="true">Caída libre</button>
+    <button class="tab" data-mode="projectile" role="tab" aria-selected="false">Tiro parabólico</button>
+  </div>
+
+  <div class="panel">
+    <div class="shared-controls">
+      <div class="field">
+        <label for="gInput">Gravedad g (m/s²)</label>
+        <input type="number" id="gInput" value="9.8" step="0.01" min="0.1">
+        <div class="chips" id="gChips">
+          <button class="chip active" data-g="9.8">Tierra</button>
+          <button class="chip" data-g="1.62">Luna</button>
+          <button class="chip" data-g="3.71">Marte</button>
+          <button class="chip" data-g="24.79">Júpiter</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- FREE FALL -->
+    <div class="tab-panel" data-mode="freefall">
+      <div class="screen-wrap">
+        <div class="diagram-box ff">
+          <svg id="ffDiagram" viewBox="0 0 460 460" preserveAspectRatio="xMidYMid meet">
+            <g id="ffAxis"></g>
+            <g id="ffTrace"></g>
+            <g id="ffVector"></g>
+            <g id="ffParticle"></g>
+          </svg>
+        </div>
+      </div>
+      <div class="readouts" id="ffReadouts"></div>
+      <div class="controls">
+        <div class="field">
+          <label for="ffH0">Altura inicial h₀ (m)</label>
+          <input type="number" id="ffH0" value="20" step="1" min="0.5">
+        </div>
+        <div class="field">
+          <label>Intervalo de marcado Δt (s)</label>
+          <div class="seg" id="ffDtSeg">
+            <button data-val="0.1">0.1s</button>
+            <button data-val="0.2">0.2s</button>
+            <button class="active" data-val="0.5">0.5s</button>
+            <button data-val="1">1s</button>
+          </div>
+        </div>
+      </div>
+      <p class="caption" id="ffCaption"></p>
+    </div>
+
+    <!-- PROJECTILE -->
+    <div class="tab-panel" data-mode="projectile" hidden>
+      <div class="screen-wrap">
+        <div class="diagram-box pj">
+          <svg id="pjDiagram" viewBox="0 0 900 460" preserveAspectRatio="xMidYMid meet">
+            <g id="pjAxis"></g>
+            <g id="pjPath"></g>
+            <g id="pjTrace"></g>
+            <g id="pjVector"></g>
+            <g id="pjParticle"></g>
+          </svg>
+        </div>
+      </div>
+      <div class="readouts" id="pjReadouts"></div>
+      <div class="controls">
+        <div class="field">
+          <label for="pjV0">Rapidez inicial v₀ (m/s)</label>
+          <input type="number" id="pjV0" value="20" step="1" min="0.5">
+        </div>
+        <div class="field">
+          <label for="pjAngle">Ángulo de lanzamiento θ (°)</label>
+          <input type="range" id="pjAngle" value="45" min="1" max="89" step="1">
+          <div class="hintline"><span>1°</span><span id="pjAngleVal">45°</span><span>89°</span></div>
+        </div>
+        <div class="field">
+          <label for="pjH0">Altura inicial h₀ (m)</label>
+          <input type="number" id="pjH0" value="0" step="1" min="0">
+        </div>
+        <div class="field">
+          <label>Intervalo de marcado Δt (s)</label>
+          <div class="seg" id="pjDtSeg">
+            <button data-val="0.1">0.1s</button>
+            <button data-val="0.2">0.2s</button>
+            <button class="active" data-val="0.5">0.5s</button>
+            <button data-val="1">1s</button>
+          </div>
+        </div>
+      </div>
+      <p class="caption" id="pjCaption"></p>
+    </div>
+
+    <div class="toggle-row">
+      <label class="toggle on" id="tableToggleWrap"><input type="checkbox" id="tableToggle" checked>Mostrar tabla de posición</label>
+      <label class="toggle on" id="vectorToggleWrap"><input type="checkbox" id="vectorToggle" checked>Mostrar vector de velocidad</label>
+    </div>
+    <div class="transport">
+      <button class="btn" id="playBtn">▶ Reproducir animación</button>
+      <button class="btn ghost" id="resetBtn">Ver diagrama completo</button>
+    </div>
+  </div>
+
+  <div class="panel standalone" id="tablePanel">
+    <div class="table-wrap">
+      <table>
+        <thead id="tableHead"></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const el = (tag, attrs) => { const e = document.createElementNS(svgNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; };
+  const clamp = (v,lo,hi) => Math.min(hi, Math.max(lo, v));
+  const toRad = (d) => d * Math.PI / 180;
+
+  const state = {
+    mode: 'freefall',
+    g: 9.8,
+    showTable: true, showVector: true,
+    playing: false,
+    ff: { h0: 20, dt: 0.5, tTotal: 0, marks: [0], recorded: [0], markIdx: 1, currentT: 0 },
+    pj: { v0: 20, angle: 45, h0: 0, dt: 0.5, v0x:0, v0y:0, tFlight: 0, range: 0, maxHeight: 0, marks: [0], recorded: [0], markIdx: 1, currentT: 0 }
+  };
+
+  function traceMarks(dt, tMax){
+    if (tMax <= 1e-9) return [0];
+    const arr = [0];
+    let t = dt;
+    while (t < tMax - dt*0.15){ arr.push(t); t += dt; }
+    arr.push(tMax);
+    return arr.map(v => +v.toFixed(3));
+  }
+
+  function niceStep(range, targetTicks){
+    const rough = range / targetTicks;
+    const mag = Math.pow(10, Math.floor(Math.log10(rough || 1)));
+    const norm = rough / mag;
+    let step; if (norm < 1.5) step = 1; else if (norm < 3) step = 2; else if (norm < 7) step = 5; else step = 10;
+    return step * mag;
+  }
+
+  // =================== FREE FALL ===================
+  const FF = { W: 460, H: 460, top: 40, ground: 400, trackX: 210 };
+
+  function computeFreefall(){
+    const s = state.ff;
+    s.tTotal = Math.sqrt(2 * Math.max(s.h0,0) / state.g);
+    s.marks = traceMarks(s.dt, s.tTotal);
+  }
+  function ffY(t){ return state.ff.h0 - 0.5*state.g*t*t; }
+  function ffV(t){ return -state.g*t; }
+  function ffYToPx(y){
+    const s = state.ff;
+    const scale = (FF.ground - FF.top) / Math.max(s.h0, 0.001);
+    return FF.ground - y*scale;
+  }
+
+  function drawFFAxis(){
+    const g = $('ffAxis'); g.innerHTML = '';
+    const s = state.ff;
+    g.appendChild(el('line', { x1: FF.trackX, y1: FF.top-10, x2: FF.trackX, y2: FF.ground, stroke:'var(--border)', 'stroke-width':2 }));
+    const step = niceStep(s.h0, 5);
+    for (let v = 0; v <= s.h0 + 1e-9; v += step){
+      const py = ffYToPx(v);
+      g.appendChild(el('line', { x1: FF.trackX-8, y1: py, x2: FF.trackX+8, y2: py, stroke:'var(--text-muted)', 'stroke-width':1.2 }));
+      const t = el('text', { x: FF.trackX-14, y: py+4, 'text-anchor':'end', 'font-family':'IBM Plex Mono, monospace', 'font-size':'10.5', fill:'var(--text-muted)' });
+      t.textContent = (+v.toFixed(2)) + 'm'; g.appendChild(t);
+    }
+    // ground hatching
+    g.appendChild(el('line', { x1: FF.trackX-60, y1: FF.ground, x2: FF.trackX+60, y2: FF.ground, stroke:'var(--text-secondary)', 'stroke-width':2 }));
+    for (let i=-5;i<=5;i++){
+      const x0 = FF.trackX + i*11;
+      g.appendChild(el('line', { x1:x0, y1:FF.ground, x2:x0-7, y2:FF.ground+12, stroke:'var(--text-muted)', 'stroke-width':1 }));
+    }
+  }
+
+  function drawFFTrace(){
+    const g = $('ffTrace'); g.innerHTML = '';
+    state.ff.recorded.forEach((t,i) => {
+      const py = ffYToPx(ffY(t));
+      const right = FF.trackX + 22;
+      g.appendChild(el('circle', { cx: FF.trackX, cy: py, r:5, fill:'var(--accent)', stroke:'var(--screen)', 'stroke-width':1.5 }));
+      const lbl = el('text', { x: right, y: py+4, 'font-family':'IBM Plex Mono, monospace', 'font-size':'11', fill:'var(--text-secondary)' });
+      lbl.textContent = 't=' + (+t.toFixed(2)) + 's'; g.appendChild(lbl);
+    });
+  }
+
+  function drawFFParticle(){
+    const g = $('ffParticle'); g.innerHTML = '';
+    const py = ffYToPx(ffY(state.ff.currentT));
+    g.appendChild(el('circle', { cx: FF.trackX, cy: py, r:9, fill:'none', stroke:'var(--accent)', 'stroke-width':1.6, opacity:.55 }));
+    g.appendChild(el('circle', { cx: FF.trackX, cy: py, r:6, fill:'var(--accent)' }));
+  }
+
+  function drawFFVector(){
+    const g = $('ffVector'); g.innerHTML = '';
+    if (!state.showVector) return;
+    const s = state.ff;
+    const vMax = Math.max(Math.abs(ffV(s.tTotal)), 1e-6);
+    const scale = 90 / vMax;
+    const v = ffV(s.currentT);
+    const py = ffYToPx(ffY(s.currentT));
+    const vx = FF.trackX + 90;
+    const len = Math.abs(v) * scale;
+    if (len > 2){
+      g.appendChild(el('line', { x1: vx, y1: py, x2: vx, y2: py+len, stroke:'var(--wave-pos)', 'stroke-width':2.4, 'marker-end':'url(#arrowhead)' }));
+      const lbl = el('text', { x: vx+10, y: py+len/2, 'font-family':'IBM Plex Mono, monospace', 'font-size':'11', fill:'var(--wave-pos)' });
+      lbl.textContent = 'v=' + v.toFixed(1) + ' m/s'; g.appendChild(lbl);
+    }
+  }
+
+  function renderFF(){ drawFFTrace(); drawFFParticle(); drawFFVector(); }
+
+  function ffReadouts(){
+    const s = state.ff;
+    $('ffReadouts').innerHTML =
+      '<div class="readout"><span class="label">Altura h₀</span><span class="value">'+s.h0+'<small>m</small></span></div>'+
+      '<div class="readout"><span class="label">Tiempo de caída</span><span class="value">'+s.tTotal.toFixed(2)+'<small>s</small></span></div>'+
+      '<div class="readout"><span class="label">Velocidad de impacto</span><span class="value">'+ffV(s.tTotal).toFixed(2)+'<small>m/s</small></span></div>'+
+      '<div class="readout"><span class="label">Gravedad</span><span class="value">'+state.g+'<small>m/s²</small></span></div>';
+  }
+  function ffCaption(){
+    $('ffCaption').innerHTML = 'Se suelta el objeto desde el reposo a una altura h₀. La posición y la velocidad en cada instante son <b class="formula">y(t) = h₀ − ½·g·t²</b> y <b class="formula">v(t) = −g·t</b> (el signo negativo indica que cae). Las marcas quedan cada vez más separadas: la aceleración es constante, pero la distancia recorrida por intervalo crece.';
+  }
+
+  // =================== PROJECTILE ===================
+  const PJ = { W: 900, H: 460, padX: 60, padTop: 30, ground: 400 };
+  let pjScale = 1;
+
+  function computeProjectile(){
+    const s = state.pj;
+    s.v0x = s.v0 * Math.cos(toRad(s.angle));
+    s.v0y = s.v0 * Math.sin(toRad(s.angle));
+    const disc = Math.max(0, s.v0y*s.v0y + 2*state.g*Math.max(s.h0,0));
+    s.tFlight = (s.v0y + Math.sqrt(disc)) / state.g;
+    s.range = s.v0x * s.tFlight;
+    const tApex = s.v0y / state.g;
+    s.maxHeight = s.h0 + s.v0y*tApex - 0.5*state.g*tApex*tApex;
+    s.marks = traceMarks(s.dt, s.tFlight);
+    const xSpan = Math.max(s.range, 1);
+    const ySpan = Math.max(s.maxHeight, s.h0, 1);
+    const availW = PJ.W - 2*PJ.padX, availH = PJ.ground - PJ.padTop;
+    pjScale = Math.min(availW/xSpan, availH/ySpan);
+  }
+  function pjX(t){ return state.pj.v0x * t; }
+  function pjY(t){ return state.pj.h0 + state.pj.v0y*t - 0.5*state.g*t*t; }
+  function pjVy(t){ return state.pj.v0y - state.g*t; }
+  function pjXToPx(x){ return PJ.padX + x*pjScale; }
+  function pjYToPx(y){ return PJ.ground - y*pjScale; }
+
+  function drawPJAxis(){
+    const g = $('pjAxis'); g.innerHTML = '';
+    const s = state.pj;
+    g.appendChild(el('line', { x1: PJ.padX-14, y1: PJ.ground, x2: PJ.W-20, y2: PJ.ground, stroke:'var(--text-secondary)', 'stroke-width':2 }));
+    g.appendChild(el('line', { x1: PJ.padX, y1: PJ.ground+10, x2: PJ.padX, y2: PJ.padTop-10, stroke:'var(--border)', 'stroke-width':2 }));
+
+    const xStep = niceStep(s.range, 7);
+    for (let v = 0; v <= s.range + 1e-9; v += xStep){
+      const px = pjXToPx(v);
+      g.appendChild(el('line', { x1:px, y1:PJ.ground-5, x2:px, y2:PJ.ground+5, stroke:'var(--text-muted)', 'stroke-width':1 }));
+      const t = el('text', { x:px, y:PJ.ground+20, 'text-anchor':'middle', 'font-family':'IBM Plex Mono, monospace', 'font-size':'10.5', fill:'var(--text-muted)' });
+      t.textContent = (+v.toFixed(1)); g.appendChild(t);
+    }
+    const yStep = niceStep(Math.max(s.maxHeight, s.h0), 5);
+    for (let v = 0; v <= Math.max(s.maxHeight,s.h0) + 1e-9; v += yStep){
+      const py = pjYToPx(v);
+      g.appendChild(el('line', { x1:PJ.padX-5, y1:py, x2:PJ.padX+5, y2:py, stroke:'var(--text-muted)', 'stroke-width':1 }));
+      const t = el('text', { x:PJ.padX-10, y:py+4, 'text-anchor':'end', 'font-family':'IBM Plex Mono, monospace', 'font-size':'10.5', fill:'var(--text-muted)' });
+      t.textContent = (+v.toFixed(1)); g.appendChild(t);
+    }
+    // ground hatching
+    for (let i=0;i<26;i++){
+      const x0 = PJ.padX-14 + i*(PJ.W-20-(PJ.padX-14))/26;
+      g.appendChild(el('line', { x1:x0, y1:PJ.ground, x2:x0-7, y2:PJ.ground+10, stroke:'var(--text-muted)', 'stroke-width':1 }));
+    }
+    // launch pedestal if h0>0
+    if (s.h0 > 0){
+      const x0 = pjXToPx(0);
+      g.appendChild(el('line', { x1:x0, y1:PJ.ground, x2:x0, y2:pjYToPx(s.h0), stroke:'var(--text-secondary)', 'stroke-width':3 }));
+      const lbl = el('text', { x:x0-8, y:pjYToPx(s.h0)+4, 'text-anchor':'end', 'font-family':'IBM Plex Mono, monospace', 'font-size':'10.5', fill:'var(--text-secondary)' });
+      lbl.textContent = 'h₀'; g.appendChild(lbl);
+    }
+  }
+
+  function drawPJPath(){
+    const g = $('pjPath'); g.innerHTML = '';
+    const s = state.pj;
+    const N = 60;
+    let d = '';
+    for (let i=0;i<=N;i++){
+      const t = s.tFlight * i / N;
+      const px = pjXToPx(pjX(t)), py = pjYToPx(pjY(t));
+      d += (i===0 ? 'M' : 'L') + px.toFixed(1) + ',' + py.toFixed(1) + ' ';
+    }
+    g.appendChild(el('path', { d, fill:'none', stroke:'var(--accent)', 'stroke-width':1.4, opacity:.4, 'stroke-dasharray':'4,3' }));
+  }
+
+  function drawPJTrace(){
+    const g = $('pjTrace'); g.innerHTML = '';
+    state.pj.recorded.forEach((t,i) => {
+      const px = pjXToPx(pjX(t)), py = pjYToPx(pjY(t));
+      const above = i % 2 === 0;
+      const ly = above ? py - 14 : py + 20;
+      g.appendChild(el('circle', { cx:px, cy:py, r:5, fill:'var(--accent)', stroke:'var(--screen)', 'stroke-width':1.5 }));
+      const lbl = el('text', { x:px, y:ly, 'text-anchor':'middle', 'font-family':'IBM Plex Mono, monospace', 'font-size':'10.5', fill:'var(--text-secondary)' });
+      lbl.textContent = 't=' + (+t.toFixed(2)) + 's'; g.appendChild(lbl);
+    });
+  }
+
+  function drawPJParticle(){
+    const g = $('pjParticle'); g.innerHTML = '';
+    const s = state.pj;
+    const px = pjXToPx(pjX(s.currentT)), py = pjYToPx(pjY(s.currentT));
+    g.appendChild(el('circle', { cx:px, cy:py, r:9, fill:'none', stroke:'var(--accent)', 'stroke-width':1.6, opacity:.55 }));
+    g.appendChild(el('circle', { cx:px, cy:py, r:6, fill:'var(--accent)' }));
+  }
+
+  function drawPJVector(){
+    const g = $('pjVector'); g.innerHTML = '';
+    if (!state.showVector) return;
+    const s = state.pj;
+    const speedAt0 = s.v0;
+    const speedAtEnd = Math.hypot(s.v0x, pjVy(s.tFlight));
+    const vMax = Math.max(speedAt0, speedAtEnd, 1e-6);
+    const scale = 55 / vMax;
+    const px = pjXToPx(pjX(s.currentT)), py = pjYToPx(pjY(s.currentT));
+    const vy = pjVy(s.currentT);
+    const ex = px + s.v0x*scale, ey = py - vy*scale;
+    g.appendChild(el('line', { x1:px, y1:py, x2:ex, y2:ey, stroke:'var(--wave-pos)', 'stroke-width':2.4, 'marker-end':'url(#arrowhead)' }));
+    const speed = Math.hypot(s.v0x, vy);
+    const lbl = el('text', { x: ex+8, y: ey, 'font-family':'IBM Plex Mono, monospace', 'font-size':'11', fill:'var(--wave-pos)' });
+    lbl.textContent = 'v=' + speed.toFixed(1) + ' m/s'; g.appendChild(lbl);
+  }
+
+  function renderPJ(){ drawPJPath(); drawPJTrace(); drawPJParticle(); drawPJVector(); }
+
+  function pjReadouts(){
+    const s = state.pj;
+    $('pjReadouts').innerHTML =
+      '<div class="readout"><span class="label">v₀ₓ / v₀ᵧ</span><span class="value">'+s.v0x.toFixed(1)+' / '+s.v0y.toFixed(1)+'<small>m/s</small></span></div>'+
+      '<div class="readout"><span class="label">Tiempo de vuelo</span><span class="value">'+s.tFlight.toFixed(2)+'<small>s</small></span></div>'+
+      '<div class="readout"><span class="label">Alcance máximo</span><span class="value">'+s.range.toFixed(2)+'<small>m</small></span></div>'+
+      '<div class="readout"><span class="label">Altura máxima</span><span class="value">'+s.maxHeight.toFixed(2)+'<small>m</small></span></div>';
+  }
+  function pjCaption(){
+    $('pjCaption').innerHTML = 'La componente horizontal de la velocidad es constante (<b class="formula">v₀ₓ = v₀·cos θ</b>) mientras la vertical cambia por la gravedad (<b class="formula">v_y(t) = v₀·sin θ − g·t</b>). La trayectoria resultante es una parábola: <b class="formula">x(t)=v₀ₓ·t</b>, <b class="formula">y(t)=h₀+v₀ᵧ·t−½·g·t²</b>.';
+  }
+
+  // =================== shared table ===================
+  function setTableHead(){
+    const head = $('tableHead');
+    head.innerHTML = state.mode === 'freefall'
+      ? '<tr><th>t (s)</th><th>y(t) (m)</th><th>v(t) (m/s)</th></tr>'
+      : '<tr><th>t (s)</th><th>x(t) (m)</th><th>y(t) (m)</th><th>vₓ (m/s)</th><th>v_y (m/s)</th></tr>';
+  }
+  function updateTable(){
+    const body = $('tableBody'); body.innerHTML = '';
+    if (state.mode === 'freefall'){
+      state.ff.recorded.forEach(t => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td>'+(+t.toFixed(2))+'</td><td>'+ffY(t).toFixed(2)+'</td><td>'+ffV(t).toFixed(2)+'</td>';
+        body.appendChild(tr);
+      });
+    } else {
+      state.pj.recorded.forEach(t => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td>'+(+t.toFixed(2))+'</td><td>'+pjX(t).toFixed(2)+'</td><td>'+pjY(t).toFixed(2)+'</td><td>'+state.pj.v0x.toFixed(2)+'</td><td>'+pjVy(t).toFixed(2)+'</td>';
+        body.appendChild(tr);
+      });
+    }
+  }
+
+  // =================== lifecycle ===================
+  function renderActive(){
+    if (state.mode === 'freefall') renderFF(); else renderPJ();
+    updateTable();
+  }
+
+  function jumpToEnd(){
+    state.playing = false;
+    if (state.mode === 'freefall'){ state.ff.currentT = state.ff.tTotal; state.ff.recorded = state.ff.marks.slice(); }
+    else { state.pj.currentT = state.pj.tFlight; state.pj.recorded = state.pj.marks.slice(); }
+    $('playBtn').disabled = false; $('playBtn').textContent = '▶ Reproducir animación';
+    renderActive();
+  }
+
+  function setupFreefall(){
+    state.ff.h0 = Math.max(0.5, +$('ffH0').value || 20);
+    $('ffH0').value = state.ff.h0;
+    computeFreefall();
+    drawFFAxis();
+    ffReadouts(); ffCaption();
+  }
+  function setupProjectile(){
+    state.pj.v0 = Math.max(0.5, +$('pjV0').value || 20);
+    state.pj.angle = +$('pjAngle').value;
+    state.pj.h0 = Math.max(0, +$('pjH0').value || 0);
+    $('pjV0').value = state.pj.v0; $('pjH0').value = state.pj.h0;
+    $('pjAngleVal').textContent = state.pj.angle + '°';
+    computeProjectile();
+    drawPJAxis();
+    pjReadouts(); pjCaption();
+  }
+
+  function setupActive(){
+    if (state.mode === 'freefall') setupFreefall(); else setupProjectile();
+    setTableHead();
+    jumpToEnd();
+  }
+
+  function play(){
+    const sim = state.mode === 'freefall' ? state.ff : state.pj;
+    const tMax = state.mode === 'freefall' ? sim.tTotal : sim.tFlight;
+    state.playing = true;
+    sim.currentT = 0; sim.recorded = [0]; sim.markIdx = 1;
+    $('playBtn').disabled = true; $('playBtn').textContent = 'Reproduciendo…';
+    renderActive();
+    const startTime = performance.now();
+    function tick(now){
+      if (!state.playing) return;
+      const elapsed = (now - startTime) / 1000;
+      sim.currentT = Math.min(elapsed, tMax);
+      while (sim.markIdx < sim.marks.length && sim.marks[sim.markIdx] <= sim.currentT + 1e-9){
+        sim.recorded.push(sim.marks[sim.markIdx]); sim.markIdx++;
+      }
+      renderActive();
+      if (sim.currentT >= tMax){
+        state.playing = false;
+        sim.recorded = sim.marks.slice();
+        $('playBtn').disabled = false; $('playBtn').textContent = '▶ Reproducir animación';
+        renderActive();
+        return;
+      }
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+
+  // =================== UI wiring ===================
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected','false'); });
+      tab.classList.add('active'); tab.setAttribute('aria-selected','true');
+      state.mode = tab.dataset.mode;
+      document.querySelectorAll('.tab-panel').forEach(p => { p.hidden = p.dataset.mode !== state.mode; });
+      setupActive();
+    });
+  });
+
+  $('gInput').addEventListener('change', (e) => {
+    state.g = Math.max(0.01, +e.target.value || 9.8);
+    e.target.value = state.g;
+    document.querySelectorAll('#gChips .chip').forEach(c => c.classList.toggle('active', Math.abs(+c.dataset.g - state.g) < 1e-6));
+    computeFreefall(); computeProjectile();
+    setupActive();
+  });
+  document.querySelectorAll('#gChips .chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      state.g = +chip.dataset.g; $('gInput').value = state.g;
+      document.querySelectorAll('#gChips .chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      computeFreefall(); computeProjectile();
+      setupActive();
+    });
+  });
+
+  ['ffH0'].forEach(id => $(id).addEventListener('change', setupActive));
+  ['pjV0','pjH0'].forEach(id => $(id).addEventListener('change', setupActive));
+  $('pjAngle').addEventListener('input', setupActive);
+
+  document.querySelectorAll('#ffDtSeg button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#ffDtSeg button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active'); state.ff.dt = +btn.dataset.val; setupActive();
+    });
+  });
+  document.querySelectorAll('#pjDtSeg button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#pjDtSeg button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active'); state.pj.dt = +btn.dataset.val; setupActive();
+    });
+  });
+
+  $('tableToggle').addEventListener('change', (e) => {
+    state.showTable = e.target.checked;
+    $('tableToggleWrap').classList.toggle('on', state.showTable);
+    $('tablePanel').hidden = !state.showTable;
+  });
+  $('vectorToggle').addEventListener('change', (e) => {
+    state.showVector = e.target.checked;
+    $('vectorToggleWrap').classList.toggle('on', state.showVector);
+    renderActive();
+  });
+
+  $('playBtn').addEventListener('click', play);
+  $('resetBtn').addEventListener('click', jumpToEnd);
+
+  computeFreefall(); computeProjectile();
+  setupActive();
+})();
+</script>
