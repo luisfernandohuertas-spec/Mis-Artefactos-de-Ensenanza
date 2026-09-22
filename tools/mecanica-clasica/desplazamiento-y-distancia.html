@@ -1,0 +1,1024 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{color-scheme:light dark}body{margin:0}[hidden]{display:none!important}</style>
+<title>Desplazamiento y distancia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #EEF2F5;
+    --panel: #FFFFFF;
+    --canvas: #FAFCFD;
+    --ink: #132330;
+    --muted: #5B6F7E;
+    --line: #D3DDE4;
+    --grid: #E3EAEF;
+    --axis: #8CA0AE;
+    --floor: rgba(11, 122, 140, 0.05);
+    --path: #A9DEE6;
+    --path-ink: #0B7A8C;
+    --vec: #C4234F;
+    --comp: #6F8698;
+    --font-display: "Bricolage Grotesque", "IBM Plex Sans", system-ui, sans-serif;
+    --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0E1820;
+      --panel: #15222C;
+      --canvas: #101C25;
+      --ink: #E8F0F5;
+      --muted: #8FA5B4;
+      --line: #263846;
+      --grid: #1A2A35;
+      --axis: #4E6677;
+      --floor: rgba(60, 196, 214, 0.06);
+      --path: #C4EEF4;
+      --path-ink: #3CC4D6;
+      --vec: #FF6F91;
+      --comp: #7F95A6;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0E1820;
+    --panel: #15222C;
+    --canvas: #101C25;
+    --ink: #E8F0F5;
+    --muted: #8FA5B4;
+    --line: #263846;
+    --grid: #1A2A35;
+    --axis: #4E6677;
+    --floor: rgba(60, 196, 214, 0.06);
+    --path: #C4EEF4;
+    --path-ink: #3CC4D6;
+    --vec: #FF6F91;
+    --comp: #7F95A6;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.5;
+    padding-inline: 16px;
+    padding-block: 28px 56px;
+  }
+  .app { max-width: 1180px; margin-inline: auto; }
+
+  /* Encabezado */
+  .head { max-width: 62ch; margin-bottom: 24px; }
+  .eyebrow {
+    margin: 0 0 6px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  h1 {
+    margin: 0 0 10px;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(30px, 5vw, 46px);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+  .lede { margin: 0; color: var(--muted); font-size: 16px; }
+  .lede b { color: var(--ink); font-weight: 600; }
+
+  /* Distribución */
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(320px, 1fr);
+    gap: 24px;
+    align-items: start;
+  }
+  @media (max-width: 960px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+  .stage { position: sticky; top: 16px; }
+  @media (max-width: 960px) { .stage { position: static; } }
+
+  /* Escenario */
+  .modebar {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    gap: 10px 16px; margin-bottom: 10px;
+  }
+  .seg {
+    display: inline-flex; padding: 3px; gap: 2px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  }
+  .seg button {
+    font: inherit; font-size: 13px; font-weight: 500;
+    padding: 6px 14px; border: 0; border-radius: 6px;
+    background: transparent; color: var(--muted); cursor: pointer;
+  }
+  .seg button[aria-pressed="true"] { background: var(--ink); color: var(--panel); }
+  .hint { margin: 0; font-size: 13px; color: var(--muted); }
+  .canvaswrap {
+    background: var(--canvas); border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+  }
+  canvas { display: block; width: 100%; aspect-ratio: 5 / 4; touch-action: none; }
+  .toggles { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 12px; }
+  .tg { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; cursor: pointer; }
+  .tg input { accent-color: var(--ink); margin: 0; width: 15px; height: 15px; }
+  .sw { display: inline-block; width: 22px; height: 0; border-top: 3px solid; border-radius: 2px; }
+  .sw-path { border-color: var(--path); }
+  .sw-vec { border-color: var(--vec); }
+  .sw-comp { border-top: 2px dashed var(--comp); }
+
+  /* Panel */
+  .panel {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding-inline: 20px;
+  }
+  .sec { padding-block: 18px; border-top: 1px solid var(--line); }
+  .sec:first-child { border-top: 0; }
+  .sec-h {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+    margin: 0 0 12px;
+  }
+  h2 {
+    margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--muted);
+  }
+
+  /* Puntos */
+  .pt { display: grid; grid-template-columns: 28px repeat(var(--dims, 2), minmax(0, 1fr)); gap: 8px; align-items: center; margin-bottom: 8px; }
+  .pt:last-of-type { margin-bottom: 0; }
+  .pt .name { font-family: var(--font-display); font-weight: 700; font-size: 20px; }
+  .fld { display: flex; align-items: center; gap: 6px; background: var(--canvas); border: 1px solid var(--line); border-radius: 6px; padding-inline: 8px; }
+  .fld:focus-within { border-color: var(--ink); }
+  .fld span { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+  .fld input {
+    width: 100%; min-width: 0; padding-block: 7px; border: 0; background: transparent; color: var(--ink);
+    font-family: var(--font-mono); font-size: 14px; outline: none;
+  }
+  select {
+    font: inherit; font-size: 13px; color: var(--ink); background: var(--canvas);
+    border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px;
+  }
+
+  /* Controles de trayectoria */
+  .row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .btn {
+    font: inherit; font-size: 13.5px; font-weight: 500; padding: 8px 14px; border-radius: 7px;
+    border: 1px solid var(--line); background: var(--canvas); color: var(--ink); cursor: pointer;
+  }
+  .btn:hover { border-color: var(--ink); }
+  .btn.primary { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+  .slider { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; margin-bottom: 14px; font-size: 13.5px; }
+  .slider output { font-family: var(--font-mono); font-size: 13px; color: var(--muted); min-width: 3ch; text-align: right; }
+  input[type="range"] { width: 100%; accent-color: var(--path-ink); }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--vec); outline-offset: 2px; }
+
+  /* Comparación */
+  .cmp { display: grid; gap: 12px; }
+  .cmp-row .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 13.5px; }
+  .cmp-row .val { font-family: var(--font-mono); font-size: 18px; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .track { height: 10px; margin-top: 6px; background: var(--grid); border-radius: 3px; overflow: hidden; }
+  .fill { height: 100%; border-radius: 3px; transition: width 0.25s ease; }
+  .fill.d { background: var(--vec); }
+  .fill.s { background: var(--path-ink); }
+  .verdict { margin: 14px 0 0; font-size: 14px; color: var(--muted); }
+  .verdict b { color: var(--ink); font-weight: 600; }
+  .keys { display: flex; flex-wrap: wrap; gap: 6px 20px; margin-top: 10px; font-family: var(--font-mono); font-size: 13px; color: var(--muted); }
+  .keys b { color: var(--ink); font-weight: 500; }
+
+  /* Cálculo */
+  .calc { font-family: var(--font-mono); font-size: 13.5px; line-height: 1.9; overflow-x: auto; font-variant-numeric: tabular-nums; }
+  .calc div { white-space: nowrap; }
+  .calc .res { color: var(--vec); font-weight: 500; }
+  .calc .sub { color: var(--muted); }
+  .calc + .calc { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); }
+  .calc sub { font-size: 0.75em; line-height: 0; }
+  .calc sup { font-size: 0.75em; line-height: 0; }
+  .note { margin: 10px 0 0; font-size: 13.5px; color: var(--muted); }
+  .vec { position: relative; display: inline-block; font-style: italic; }
+  .vec::before { content: ""; position: absolute; left: 0.05em; right: 0; top: 0.02em; height: 1px; background: currentColor; }
+  .vec::after {
+    content: ""; position: absolute; right: -0.02em; top: calc(0.02em - 2.5px);
+    border-left: 4px solid currentColor; border-top: 3px solid transparent; border-bottom: 3px solid transparent;
+  }
+
+  /* Conceptos */
+  .concept { margin-top: 28px; }
+  .concept h2 { margin-bottom: 12px; }
+  .tablewrap { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+  table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 14px; }
+  th, td { text-align: left; vertical-align: top; padding: 12px 16px; border-top: 1px solid var(--line); }
+  thead th { border-top: 0; font-family: var(--font-display); font-size: 17px; font-weight: 600; padding-block: 14px; }
+  thead th:nth-child(2) { color: var(--vec); }
+  thead th:nth-child(3) { color: var(--path-ink); }
+  tbody th { font-weight: 500; color: var(--muted); width: 20%; }
+  td.live { font-family: var(--font-mono); font-size: 14px; font-variant-numeric: tabular-nums; }
+
+  @media (prefers-reduced-motion: reduce) { .fill { transition: none; } }
+</style>
+</head>
+<body>
+
+
+<main class="app">
+  <header class="head">
+    <p class="eyebrow">Cinemática · Vectores</p>
+    <h1>Desplazamiento y distancia</h1>
+    <p class="lede">Ubica dos puntos <b>P</b> y <b>Q</b> en el plano o en el espacio. El vector desplazamiento solo depende de dónde empiezas y dónde terminas; la distancia recorrida depende de todo el camino.</p>
+  </header>
+
+  <div class="layout">
+    <section class="stage" aria-label="Gráfica de la trayectoria">
+      <div class="modebar">
+        <div class="seg" role="group" aria-label="Dimensión">
+          <button type="button" id="m2" aria-pressed="true">Plano · 2D</button>
+          <button type="button" id="m3" aria-pressed="false">Espacio · 3D</button>
+        </div>
+        <p class="hint" id="hint">Arrastra P o Q para moverlos</p>
+      </div>
+      <div class="canvaswrap"><canvas id="cv" role="img" aria-label="Gráfica"></canvas></div>
+      <div class="toggles">
+        <label class="tg"><input type="checkbox" id="tVec" checked><span class="sw sw-vec"></span>Vector desplazamiento</label>
+        <label class="tg"><input type="checkbox" id="tPath" checked><span class="sw sw-path"></span>Trayectoria</label>
+        <label class="tg"><input type="checkbox" id="tComp" checked><span class="sw sw-comp"></span>Componentes</label>
+      </div>
+    </section>
+
+    <aside class="panel" aria-label="Datos y resultados">
+      <div class="sec">
+        <div class="sec-h">
+          <h2>Puntos</h2>
+          <label style="font-size:13px;color:var(--muted)">Unidad
+            <select id="unit">
+              <option value="m" selected>m</option>
+              <option value="km">km</option>
+              <option value="cm">cm</option>
+              <option value="">sin unidad</option>
+            </select>
+          </label>
+        </div>
+        <div class="pt">
+          <span class="name">P</span>
+          <label class="fld"><span>x</span><input id="px" type="number" step="0.5" inputmode="decimal" aria-label="x de P"></label>
+          <label class="fld"><span>y</span><input id="py" type="number" step="0.5" inputmode="decimal" aria-label="y de P"></label>
+          <label class="fld" data-z><span>z</span><input id="pz" type="number" step="0.5" inputmode="decimal" aria-label="z de P"></label>
+        </div>
+        <div class="pt">
+          <span class="name">Q</span>
+          <label class="fld"><span>x</span><input id="qx" type="number" step="0.5" inputmode="decimal" aria-label="x de Q"></label>
+          <label class="fld"><span>y</span><input id="qy" type="number" step="0.5" inputmode="decimal" aria-label="y de Q"></label>
+          <label class="fld" data-z><span>z</span><input id="qz" type="number" step="0.5" inputmode="decimal" aria-label="z de Q"></label>
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-h"><h2>Trayectoria aleatoria</h2></div>
+        <div class="slider">
+          <label for="irr">Irregularidad</label>
+          <input id="irr" type="range" min="0" max="100" value="60">
+          <output id="irrOut" for="irr">60</output>
+        </div>
+        <div class="row">
+          <button type="button" class="btn primary" id="bNew">Nueva trayectoria</button>
+          <button type="button" class="btn" id="bPlay">Recorrer</button>
+          <button type="button" class="btn" id="bSwap">Intercambiar P ↔ Q</button>
+        </div>
+        <p class="note" id="simpleNote"></p>
+      </div>
+
+      <div class="sec">
+        <div class="sec-h"><h2>Desplazamiento frente a distancia</h2></div>
+        <div class="cmp">
+          <div class="cmp-row">
+            <div class="top"><span>Magnitud del desplazamiento <span class="vec">|Δr|</span></span><span class="val" id="vD" style="color:var(--vec)"></span></div>
+            <div class="track"><div class="fill d" id="fD"></div></div>
+          </div>
+          <div class="cmp-row">
+            <div class="top"><span>Distancia recorrida <i>s</i></span><span class="val" id="vS" style="color:var(--path-ink)"></span></div>
+            <div class="track"><div class="fill s" id="fS"></div></div>
+          </div>
+        </div>
+        <div class="keys" id="keys"></div>
+        <p class="verdict" id="verdict"></p>
+      </div>
+
+      <div class="sec">
+        <div class="sec-h"><h2>Vector desplazamiento</h2></div>
+        <div class="calc" id="calcVec"></div>
+        <div class="calc" id="calcMag"></div>
+        <div class="calc" id="calcDir"></div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-h"><h2>Distancia recorrida</h2></div>
+        <div class="calc" id="calcS"></div>
+        <p class="note">La curva se divide en tramos muy pequeños; cada tramo mide la raíz de la suma de los cuadrados de sus incrementos, y <i>s</i> es la suma de todos ellos.</p>
+      </div>
+    </aside>
+  </div>
+
+  <section class="concept" aria-label="Comparación conceptual">
+    <h2>Cómo se diferencian</h2>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th></th><th>Desplazamiento <span class="vec">Δr</span></th><th>Distancia recorrida <i>s</i></th></tr>
+        </thead>
+        <tbody>
+          <tr><th>Tipo de magnitud</th><td>Vector: tiene magnitud, dirección y sentido.</td><td>Escalar: solo magnitud.</td></tr>
+          <tr><th>De qué depende</th><td>Solo del punto inicial P y del punto final Q.</td><td>De todo el camino seguido entre P y Q.</td></tr>
+          <tr><th>Puede ser cero</th><td>Sí: si terminas donde empezaste, aunque te hayas movido.</td><td>Solo si no te moviste.</td></tr>
+          <tr><th>Relación</th><td colspan="2">Siempre se cumple |Δr| ≤ s. La igualdad ocurre únicamente si el camino es recto y sin retroceder.</td></tr>
+          <tr><th>Al ir de Q a P</th><td>Cambia de sentido: Δr pasa a ser −Δr.</td><td>No cambia: es la misma longitud de camino.</td></tr>
+          <tr><th>En tu ejemplo</th><td class="live" id="liveD"></td><td class="live" id="liveS"></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- Estado ---------- */
+  const S = {
+    dim: 2,
+    tPath: true, tVec: true, tComp: true,
+    u: 1,
+    unit: 'm',
+    yaw: -2.25,
+    pitch: 0.45
+  };
+  // Cada modo (2D y 3D) guarda sus propios puntos, irregularidad y trayectoria.
+  const ST = {
+    2: { P: [-6, -3, 0], Q: [5, 4, 0], irr: 0.6, seed: 11 },
+    3: { P: [4, -3, 1], Q: [-5, 5, 7], irr: 0.6, seed: 23 }
+  };
+  ['P', 'Q', 'irr', 'seed'].forEach(k => Object.defineProperty(S, k, {
+    get() { return ST[S.dim][k]; },
+    set(v) { ST[S.dim][k] = v; }
+  }));
+  let M = null;        // modelo derivado
+  let V2 = null;       // transformación de la vista 2D
+  let anim = null;
+  let drag = null;
+
+  /* ---------- Utilidades ---------- */
+  const fmt = (n, d = 2) => {
+    if (!isFinite(n)) return '—';
+    let r = +n.toFixed(d);
+    if (r === 0) r = 0;
+    return new Intl.NumberFormat('es-CO', { maximumFractionDigits: d, useGrouping: false }).format(r).replace('-', '−');
+  };
+  const par = n => (n < 0 ? '(' + fmt(n) + ')' : fmt(n));
+  const un = () => (S.unit ? ' ' + S.unit : '');
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const norm = a => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return a.map(v => v / l); };
+  const niceMax = v => {
+    const e = Math.pow(10, Math.floor(Math.log10(v)));
+    for (const m of [1, 1.5, 2, 3, 5, 8, 10]) if (m * e >= v) return m * e;
+    return 10 * e;
+  };
+  const niceStep = v => {
+    const e = Math.pow(10, Math.floor(Math.log10(v)));
+    const m = v / e;
+    return (m <= 1.5 ? 1 : m <= 3 ? 2 : m <= 7 ? 5 : 10) * e;
+  };
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function gauss(r) {
+    let u = 0;
+    while (u === 0) u = r();
+    const v = r();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+
+  /* ---------- Trayectoria aleatoria ---------- */
+  function catmull(c, m) {
+    const out = [];
+    for (let i = 0; i < c.length - 1; i++) {
+      const p0 = c[Math.max(i - 1, 0)], p1 = c[i], p2 = c[i + 1], p3 = c[Math.min(i + 2, c.length - 1)];
+      for (let j = 0; j < m; j++) {
+        const t = j / m, t2 = t * t, t3 = t2 * t;
+        out.push([0, 1, 2].map(a => 0.5 * (
+          2 * p1[a] + (-p0[a] + p2[a]) * t +
+          (2 * p0[a] - 5 * p1[a] + 4 * p2[a] - p3[a]) * t2 +
+          (-p0[a] + 3 * p1[a] - 3 * p2[a] + p3[a]) * t3)));
+      }
+    }
+    out.push(c[c.length - 1].slice());
+    return out;
+  }
+  function segX(a, b, c, d) {
+    const o = (p, q, r) => (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]);
+    const d1 = o(a, b, c), d2 = o(a, b, d), d3 = o(c, d, a), d4 = o(c, d, b);
+    return d1 * d2 < 0 && d3 * d4 < 0;
+  }
+  function isSimple(p) {
+    for (let i = 0; i < p.length - 1; i++)
+      for (let j = i + 2; j < p.length - 1; j++)
+        if (segX(p[i], p[i + 1], p[j], p[j + 1])) return false;
+    return true;
+  }
+  function genPath(P, Q, dim, irr, seed) {
+    const d = [Q[0] - P[0], Q[1] - P[1], dim === 3 ? Q[2] - P[2] : 0];
+    const D = Math.hypot(d[0], d[1], d[2]);
+    const e1 = D > 1e-9 ? d.map(v => v / D) : [1, 0, 0];
+    let e2, e3;
+    if (dim === 2) { e2 = [-e1[1], e1[0], 0]; e3 = [0, 0, 0]; }
+    else {
+      const ref = Math.abs(e1[2]) > 0.95 ? [1, 0, 0] : [0, 0, 1];
+      e2 = norm(cross(e1, ref));
+      e3 = cross(e1, e2);
+    }
+    const Ls = Math.max(D, 2);
+    const beta = 0.6 * Math.max(0, Ls - D);
+    const map = (x, y, z) => {
+      const al = x * D + beta * Math.sin(Math.PI * x);
+      return [0, 1, 2].map(a => P[a] + e1[a] * al + e2[a] * Ls * y + e3[a] * Ls * z);
+    };
+    let best = null, simple = dim === 3;
+    for (let k = 0; k < 60; k++) {
+      const rnd = mulberry32(seed * 9973 + k * 7919 + dim * 31);
+      const n = 5 + Math.floor(rnd() * 3);
+      const ctrl = [P.slice()];
+      for (let i = 1; i <= n; i++) {
+        const x = i / (n + 1) + (rnd() - 0.5) * (irr * 1.1) / (n + 1);
+        const amp = dim === 3 ? 0.3 : 0.42;
+        const y = gauss(rnd) * amp * irr;
+        const z = dim === 3 ? gauss(rnd) * amp * irr : 0;
+        ctrl.push(map(x, y, z));
+      }
+      ctrl.push(Q.slice());
+      best = catmull(ctrl, 26);
+      if (dim === 3 || isSimple(best)) { simple = true; break; }
+    }
+    return { pts: best, simple };
+  }
+
+  /* ---------- Modelo derivado ---------- */
+  function derive() {
+    const n = S.dim;
+    const P = [S.P[0], S.P[1], n === 3 ? S.P[2] : 0];
+    const Q = [S.Q[0], S.Q[1], n === 3 ? S.Q[2] : 0];
+    const dv = [Q[0] - P[0], Q[1] - P[1], Q[2] - P[2]];
+    const D = Math.hypot(dv[0], dv[1], dv[2]);
+    const key = [n, P.join(), Q.join(), S.irr, S.seed].join('|');
+    let path, simple, cum, len;
+    if (M && M.key === key) { path = M.path; simple = M.simple; cum = M.cum; len = M.len; }
+    else {
+      const g = genPath(P, Q, n, S.irr, S.seed);
+      path = g.pts; simple = g.simple;
+      cum = [0];
+      for (let i = 1; i < path.length; i++)
+        cum.push(cum[i - 1] + Math.hypot(path[i][0] - path[i - 1][0], path[i][1] - path[i - 1][1], path[i][2] - path[i - 1][2]));
+      len = cum[cum.length - 1];
+    }
+    let mx = 1;
+    for (let a = 0; a < n; a++) mx = Math.max(mx, Math.abs(P[a]), Math.abs(Q[a]));
+    for (const p of path) for (let a = 0; a < n; a++) mx = Math.max(mx, Math.abs(p[a]));
+    M = { key, n, P, Q, dv, D, path, simple, cum, len, R: niceMax(mx * 1.15) };
+  }
+  function pointAt(s) {
+    const { cum, path } = M;
+    let lo = 0, hi = cum.length - 1;
+    while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (cum[mid] <= s) lo = mid; else hi = mid; }
+    const f = cum[hi] > cum[lo] ? (s - cum[lo]) / (cum[hi] - cum[lo]) : 0;
+    return { i: lo, f, p: [0, 1, 2].map(a => path[lo][a] + (path[hi][a] - path[lo][a]) * f) };
+  }
+
+  /* ---------- Resultados ---------- */
+  function sumTerms(vals, names) {
+    let out = '';
+    vals.forEach((v, i) => {
+      const a = fmt(Math.abs(v));
+      if (i === 0) out += (v < 0 ? '−' : '') + a + ' ' + names[i];
+      else out += (v < 0 ? ' − ' : ' + ') + a + ' ' + names[i];
+    });
+    return out;
+  }
+  function renderResults() {
+    const { n, P, Q, dv, D, len } = M;
+    const ax = ['x', 'y', 'z'].slice(0, n);
+    const d = dv.slice(0, n);
+    const cols = (arr, f) => '(' + arr.map(f).join('; ') + ')';
+
+    $('vD').textContent = fmt(D) + un();
+    $('vS').textContent = fmt(len) + un();
+    const wS = 100, wD = len > 1e-9 ? clamp(D / len * 100, 0, 100) : 0;
+    $('fS').style.width = wS + '%';
+    $('fD').style.width = wD + '%';
+
+    const ratio = D > 1e-9 ? len / D : NaN;
+    $('keys').innerHTML =
+      '<span>s − |Δr| = <b>' + fmt(len - D) + un() + '</b></span>' +
+      '<span>s / |Δr| = <b>' + (isFinite(ratio) ? fmt(ratio) : '—') + '</b></span>';
+    let v;
+    if (D < 1e-6) v = 'El desplazamiento es <b>nulo</b>: terminas donde empezaste, aunque recorriste <b>' + fmt(len) + un() + '</b>.';
+    else if (len / D < 1.005) v = 'La trayectoria es <b>recta</b>: aquí la distancia recorrida coincide con la magnitud del desplazamiento.';
+    else v = 'Recorriste <b>' + fmt(len - D) + un() + ' más</b> de lo que separa a P de Q: la distancia es ' + fmt(len / D) + ' veces la magnitud del desplazamiento.';
+    $('verdict').innerHTML = v;
+
+    // Desplazamiento
+    const unit = ['î', 'ĵ', 'k̂'].slice(0, n);
+    $('calcVec').innerHTML =
+      '<div>Δ<i>r</i> = Q − P = ' + cols(ax, a => a + '<sub>Q</sub> − ' + a + '<sub>P</sub>') + '</div>' +
+      '<div class="sub">&nbsp;&nbsp;&nbsp;= ' + cols(ax, (a, i) => par(Q[i]) + ' − ' + par(P[i])) + '</div>' +
+      '<div class="res">&nbsp;&nbsp;&nbsp;= ' + cols(d, x => fmt(x)) + un() + '</div>' +
+      '<div class="res">&nbsp;&nbsp;&nbsp;= ' + sumTerms(d, unit) + un() + '</div>';
+
+    const sq = ax.map(a => 'Δ' + a + '<sup>2</sup>').join(' + ');
+    const sq2 = d.map(x => par(x) + '<sup>2</sup>').join(' + ');
+    const tot = d.reduce((s, x) => s + x * x, 0);
+    $('calcMag').innerHTML =
+      '<div>|Δ<i>r</i>| = √(' + sq + ')</div>' +
+      '<div class="sub">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= √(' + sq2 + ') = √' + fmt(tot) + '</div>' +
+      '<div class="res">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= ' + fmt(D) + un() + '</div>';
+
+    // Dirección
+    if (D < 1e-9) {
+      $('calcDir').innerHTML = '<div class="sub">Vector nulo: no tiene dirección definida.</div>';
+    } else if (n === 2) {
+      let th = Math.atan2(d[1], d[0]) * 180 / Math.PI;
+      if (th < 0) th += 360;
+      $('calcDir').innerHTML =
+        '<div>θ = atan2(Δy, Δx) <span class="sub">(desde +x, antihorario)</span></div>' +
+        '<div class="res">&nbsp;&nbsp;= ' + fmt(th) + '°</div>' +
+        '<div>û = Δ<i>r</i> / |Δ<i>r</i>| = (' + d.map(x => fmt(x / D, 3)).join('; ') + ')</div>';
+    } else {
+      const ang = d.map(x => Math.acos(clamp(x / D, -1, 1)) * 180 / Math.PI);
+      $('calcDir').innerHTML =
+        '<div>Ángulos con los ejes: cos α = Δx/|Δ<i>r</i>|, …</div>' +
+        '<div class="res">&nbsp;&nbsp;α = ' + fmt(ang[0]) + '°, β = ' + fmt(ang[1]) + '°, γ = ' + fmt(ang[2]) + '°</div>' +
+        '<div>û = Δ<i>r</i> / |Δ<i>r</i>| = (' + d.map(x => fmt(x / D, 3)).join('; ') + ')</div>';
+    }
+
+    // Distancia
+    $('calcS').innerHTML =
+      '<div>s = Σ |tramo<sub>i</sub>|  <span class="sub">(' + (M.path.length - 1) + ' tramos)</span></div>' +
+      '<div class="res">&nbsp;&nbsp;= ' + fmt(len) + un() + '</div>';
+
+    $('simpleNote').textContent = n === 2
+      ? (M.simple ? 'Curva simple: no se corta a sí misma.' : 'No se encontró una curva sin cruces con este nivel de irregularidad.')
+      : 'En el espacio, una curva aleatoria casi nunca se corta a sí misma.';
+
+    $('liveD').textContent = '|Δr| = ' + fmt(D) + un();
+    $('liveS').textContent = 's = ' + fmt(len) + un();
+
+    const coord = p => '(' + p.slice(0, n).map(x => fmt(x)).join('; ') + ')';
+    $('cv').setAttribute('aria-label',
+      'Puntos P' + coord(P) + ' y Q' + coord(Q) + '. Desplazamiento de magnitud ' + fmt(D) + un() +
+      ' y distancia recorrida de ' + fmt(len) + un() + '.');
+  }
+
+  /* ---------- Dibujo ---------- */
+  const cv = $('cv');
+  const ctx = cv.getContext('2d');
+  let W = 0, H = 0;
+
+  function colors() {
+    const cs = getComputedStyle(document.documentElement);
+    const g = n => cs.getPropertyValue(n).trim();
+    return {
+      bg: g('--canvas'), grid: g('--grid'), axis: g('--axis'), ink: g('--ink'), muted: g('--muted'),
+      path: g('--path'), pathInk: g('--path-ink'), vec: g('--vec'), comp: g('--comp'), floor: g('--floor')
+    };
+  }
+  const FONT = s => s + 'px "IBM Plex Mono", ui-monospace, Menlo, monospace';
+  const FONT_B = s => '500 ' + s + 'px "IBM Plex Mono", ui-monospace, Menlo, monospace';
+
+  function text(t, x, y, o) {
+    ctx.font = o.font || FONT(12);
+    ctx.textAlign = o.align || 'center';
+    ctx.textBaseline = o.base || 'middle';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = o.halo;
+    ctx.strokeText(t, x, y);
+    ctx.fillStyle = o.color;
+    ctx.fillText(t, x, y);
+  }
+  function arrow(x1, y1, x2, y2, color, lw, head) {
+    head = head || 11;
+    const a = Math.atan2(y2 - y1, x2 - x1);
+    ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = lw; ctx.lineCap = 'round'; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(x1, y1);
+    ctx.lineTo(x2 - Math.cos(a) * head * 0.7, y2 - Math.sin(a) * head * 0.7); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - head * Math.cos(a - 0.4), y2 - head * Math.sin(a - 0.4));
+    ctx.lineTo(x2 - head * Math.cos(a + 0.4), y2 - head * Math.sin(a + 0.4));
+    ctx.closePath(); ctx.fill();
+  }
+  function vecLabel(x, y, c, sub) {
+    ctx.font = '600 15px "Bricolage Grotesque", "IBM Plex Sans", sans-serif';
+    const w = ctx.measureText('Δr').width;
+    text('Δr', x, y, { font: ctx.font, color: c.vec, halo: c.bg });
+    ctx.strokeStyle = c.vec; ctx.fillStyle = c.vec; ctx.lineWidth = 1.3; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(x - w / 2 + 1, y - 11); ctx.lineTo(x + w / 2, y - 11); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x + w / 2 + 2, y - 11); ctx.lineTo(x + w / 2 - 2, y - 13.5); ctx.lineTo(x + w / 2 - 2, y - 8.5); ctx.closePath(); ctx.fill();
+    if (sub) text(sub, x, y + 15, { font: FONT_B(11.5), color: c.vec, halo: c.bg });
+  }
+  function pointMark(x, y, c) {
+    ctx.setLineDash([]);
+    ctx.fillStyle = c.ink; ctx.strokeStyle = c.bg; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  }
+  function pointLabel(name, coordStr, sp, so, c) {
+    let dx = sp[0] - so[0], dy = sp[1] - so[1];
+    const l = Math.hypot(dx, dy);
+    if (l < 1) { dx = 0; dy = -1; } else { dx /= l; dy /= l; }
+    const t = name + ' ' + coordStr;
+    ctx.font = FONT_B(12.5);
+    const tw = ctx.measureText(t).width;
+    let x = sp[0] + dx * (16 + tw / 2 * Math.abs(dx)), y = sp[1] + dy * 20;
+    x = clamp(x, 6 + tw / 2, W - 6 - tw / 2); y = clamp(y, 12, H - 12);
+    text(t, x, y, { font: FONT_B(12.5), color: c.ink, halo: c.bg });
+  }
+  function polyline(pts, color, lw, dash) {
+    if (pts.length < 2) return;
+    ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    ctx.setLineDash(dash || []);
+    ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+  function traveled(scr, tip) {
+    const s = S.u * M.len;
+    const pa = pointAt(s);
+    const pts = scr.slice(0, pa.i + 1);
+    pts.push(tip(pa.p));
+    return { pts, tipPt: pts[pts.length - 1], s };
+  }
+  function hud(c, s, tipWorld) {
+    const r = Math.hypot(tipWorld[0] - M.P[0], tipWorld[1] - M.P[1], tipWorld[2] - M.P[2]);
+    text('s(t) = ' + fmt(s) + un(), 12, 18, { font: FONT_B(12.5), color: c.pathInk, halo: c.bg, align: 'left' });
+    text('|r(t) − P| = ' + fmt(r) + un(), 12, 36, { font: FONT_B(12.5), color: c.vec, halo: c.bg, align: 'left' });
+  }
+
+  function draw() {
+    if (!M || !W) return;
+    const c = colors();
+    const dpr = window.devicePixelRatio || 1;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = c.bg; ctx.fillRect(0, 0, W, H);
+    if (S.dim === 2) draw2D(c); else draw3D(c);
+  }
+
+  function draw2D(c) {
+    const k = Math.min(W, H) / 2 * 0.9 / M.R;
+    const X = x => W / 2 + x * k, Y = y => H / 2 - y * k;
+    V2 = { k, X, Y };
+    const step = niceStep(M.R / 5);
+    const xm = (W / 2) / k, ym = (H / 2) / k;
+
+    ctx.lineWidth = 1; ctx.strokeStyle = c.grid; ctx.setLineDash([]);
+    ctx.beginPath();
+    for (let i = Math.ceil(-xm / step); i <= Math.floor(xm / step); i++) { const x = Math.round(X(i * step)) + 0.5; ctx.moveTo(x, 0); ctx.lineTo(x, H); }
+    for (let j = Math.ceil(-ym / step); j <= Math.floor(ym / step); j++) { const y = Math.round(Y(j * step)) + 0.5; ctx.moveTo(0, y); ctx.lineTo(W, y); }
+    ctx.stroke();
+
+    // Ejes
+    arrow(6, Y(0), W - 8, Y(0), c.axis, 1.5, 9);
+    arrow(X(0), H - 6, X(0), 8, c.axis, 1.5, 9);
+    text('x', W - 14, Y(0) - 14, { font: FONT_B(13), color: c.muted, halo: c.bg });
+    text('y', X(0) + 14, 16, { font: FONT_B(13), color: c.muted, halo: c.bg });
+    for (let i = Math.ceil(-xm / step); i <= Math.floor(xm / step); i++) {
+      if (!i || X(i * step) > W - 26 || X(i * step) < 14) continue;
+      text(fmt(i * step), X(i * step), Y(0) + 13, { font: FONT(11), color: c.muted, halo: c.bg });
+    }
+    for (let j = Math.ceil(-ym / step); j <= Math.floor(ym / step); j++) {
+      if (!j || Y(j * step) < 24 || Y(j * step) > H - 8) continue;
+      text(fmt(j * step), X(0) - 8, Y(j * step), { font: FONT(11), color: c.muted, halo: c.bg, align: 'right' });
+    }
+    text('O', X(0) - 9, Y(0) + 12, { font: FONT(11), color: c.muted, halo: c.bg, align: 'right' });
+
+    const { P, Q, dv, D } = M;
+    const sp = [X(P[0]), Y(P[1])], sq = [X(Q[0]), Y(Q[1])];
+    const scr = M.path.map(p => [X(p[0]), Y(p[1])]);
+
+    // Trayectoria
+    let tip = null, tipWorld = null, sNow = 0;
+    if (S.tPath) {
+      if (S.u < 1) {
+        polyline(scr, c.path, 2, [3, 5]);
+        const tr = traveled(scr, p => [X(p[0]), Y(p[1])]);
+        polyline(tr.pts, c.pathInk, 3.4);
+        tip = tr.tipPt; sNow = tr.s; tipWorld = pointAt(tr.s).p;
+      } else polyline(scr, c.path, 3.6);
+    }
+
+    // Componentes
+    if (S.tComp && D > 1e-9) {
+      const corner = [X(Q[0]), Y(P[1])];
+      ctx.strokeStyle = c.comp; ctx.lineWidth = 1.6; ctx.setLineDash([6, 5]);
+      ctx.beginPath(); ctx.moveTo(sp[0], sp[1]); ctx.lineTo(corner[0], corner[1]); ctx.lineTo(sq[0], sq[1]); ctx.stroke();
+      ctx.setLineDash([]);
+      const hx = Math.abs(corner[0] - sp[0]), hy = Math.abs(corner[1] - sq[1]);
+      if (hx > 30) text('Δx = ' + fmt(dv[0]), (sp[0] + corner[0]) / 2, corner[1] + (dv[1] >= 0 ? 15 : -15), { font: FONT(11.5), color: c.comp, halo: c.bg });
+      if (hy > 24) text('Δy = ' + fmt(dv[1]), corner[0] + (dv[0] >= 0 ? 8 : -8), (corner[1] + sq[1]) / 2, { font: FONT(11.5), color: c.comp, halo: c.bg, align: dv[0] >= 0 ? 'left' : 'right' });
+      if (hx > 16 && hy > 16) {
+        const sx = dv[0] >= 0 ? -1 : 1, sy = dv[1] >= 0 ? -1 : 1;
+        ctx.strokeStyle = c.comp; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(corner[0] + sx * 8, corner[1]); ctx.lineTo(corner[0] + sx * 8, corner[1] + sy * 8); ctx.lineTo(corner[0], corner[1] + sy * 8); ctx.stroke();
+      }
+    }
+
+    // Ángulo
+    const vl = Math.hypot(sq[0] - sp[0], sq[1] - sp[1]);
+    if (S.tVec && S.tComp && D > 1e-9 && vl > 60) {
+      let th = Math.atan2(dv[1], dv[0]); if (th < 0) th += Math.PI * 2;
+      const r = Math.min(34, vl * 0.35);
+      ctx.strokeStyle = c.muted; ctx.lineWidth = 1.2; ctx.setLineDash([2, 3]);
+      ctx.beginPath(); ctx.moveTo(sp[0], sp[1]); ctx.lineTo(sp[0] + r + 22, sp[1]); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.beginPath(); ctx.arc(sp[0], sp[1], r, 0, -th, true); ctx.stroke();
+      const mid = -th / 2;
+      text('θ', sp[0] + Math.cos(mid) * (r + 11), sp[1] + Math.sin(mid) * (r + 11), { font: FONT_B(12.5), color: c.muted, halo: c.bg });
+    }
+
+    // Vector desplazamiento
+    if (S.tVec && D > 1e-9 && vl > 14) {
+      const ux = (sq[0] - sp[0]) / vl, uy = (sq[1] - sp[1]) / vl;
+      arrow(sp[0], sp[1], sq[0] - ux * 7, sq[1] - uy * 7, c.vec, 3.2, 13);
+      const mx = (sp[0] + sq[0]) / 2, my = (sp[1] + sq[1]) / 2;
+      // normal hacia el lado opuesto de la trayectoria
+      let nx = uy, ny = -ux;
+      const cxm = M.path[Math.floor(M.path.length / 2)];
+      const side = (X(cxm[0]) - mx) * nx + (Y(cxm[1]) - my) * ny;
+      if (side > 0) { nx = -nx; ny = -ny; }
+      vecLabel(mx + nx * 36, my + ny * 36, c, '|Δr| = ' + fmt(D) + un());
+    }
+    if (S.u < 1 && tip && S.tVec) {
+      ctx.strokeStyle = c.vec; ctx.globalAlpha = 0.55; ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.moveTo(sp[0], sp[1]); ctx.lineTo(tip[0], tip[1]); ctx.stroke();
+      ctx.setLineDash([]); ctx.globalAlpha = 1;
+    }
+
+    // Puntos
+    if (tip) { ctx.fillStyle = c.pathInk; ctx.strokeStyle = c.bg; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(tip[0], tip[1], 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+    pointMark(sp[0], sp[1], c); pointMark(sq[0], sq[1], c);
+    pointLabel('P', '(' + fmt(P[0]) + '; ' + fmt(P[1]) + ')', sp, sq, c);
+    pointLabel('Q', '(' + fmt(Q[0]) + '; ' + fmt(Q[1]) + ')', sq, sp, c);
+    if (S.u < 1 && tipWorld) hud(c, sNow, tipWorld);
+  }
+
+  function draw3D(c) {
+    const R = M.R;
+    const k = Math.min(W, H) / 2 * 0.9 / (R * 1.4);
+    const cy = Math.cos(S.yaw), sy = Math.sin(S.yaw), cp = Math.cos(S.pitch), sp_ = Math.sin(S.pitch);
+    const pr = (x, y, z) => {
+      const x1 = x * cy - y * sy, y1 = x * sy + y * cy;
+      return [W / 2 + x1 * k, H / 2 - (z * cp + y1 * sp_) * k + 6];
+    };
+    const step = niceStep(R / 4);
+
+    // Suelo z = 0
+    const corners = [pr(-R, -R, 0), pr(R, -R, 0), pr(R, R, 0), pr(-R, R, 0)];
+    ctx.fillStyle = c.floor; ctx.beginPath(); ctx.moveTo(corners[0][0], corners[0][1]);
+    for (let i = 1; i < 4; i++) ctx.lineTo(corners[i][0], corners[i][1]);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = c.grid; ctx.lineWidth = 1; ctx.setLineDash([]);
+    ctx.beginPath();
+    for (let i = -Math.floor(R / step); i <= Math.floor(R / step); i++) {
+      const a = pr(i * step, -R, 0), b = pr(i * step, R, 0);
+      ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]);
+      const a2 = pr(-R, i * step, 0), b2 = pr(R, i * step, 0);
+      ctx.moveTo(a2[0], a2[1]); ctx.lineTo(b2[0], b2[1]);
+    }
+    ctx.stroke();
+    ctx.strokeStyle = c.axis; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(corners[0][0], corners[0][1]);
+    for (let i = 1; i < 4; i++) ctx.lineTo(corners[i][0], corners[i][1]);
+    ctx.closePath(); ctx.stroke();
+
+    // Ejes
+    const o = pr(0, 0, 0);
+    ctx.strokeStyle = c.axis; ctx.lineWidth = 1.2;
+    const neg = [pr(-R, 0, 0), pr(0, -R, 0), pr(0, 0, -R)];
+    ctx.beginPath(); neg.forEach(n => { ctx.moveTo(o[0], o[1]); ctx.lineTo(n[0], n[1]); }); ctx.stroke();
+    const ex = pr(R * 1.08, 0, 0), ey = pr(0, R * 1.08, 0), ez = pr(0, 0, R * 1.08);
+    arrow(o[0], o[1], ex[0], ex[1], c.axis, 1.6, 9);
+    arrow(o[0], o[1], ey[0], ey[1], c.axis, 1.6, 9);
+    arrow(o[0], o[1], ez[0], ez[1], c.axis, 1.6, 9);
+    const lx = pr(R * 1.2, 0, 0), ly = pr(0, R * 1.2, 0), lz = pr(0, 0, R * 1.2);
+    text('x', lx[0], lx[1], { font: FONT_B(13), color: c.muted, halo: c.bg });
+    text('y', ly[0], ly[1], { font: FONT_B(13), color: c.muted, halo: c.bg });
+    text('z', lz[0], lz[1], { font: FONT_B(13), color: c.muted, halo: c.bg });
+    for (let i = 1; i * step <= R; i++) {
+      const v = i * step;
+      let t = pr(v, 0, 0); text(fmt(v), t[0], t[1] + 11, { font: FONT(10.5), color: c.muted, halo: c.bg });
+      t = pr(0, v, 0); text(fmt(v), t[0], t[1] + 11, { font: FONT(10.5), color: c.muted, halo: c.bg });
+      t = pr(0, 0, v); text(fmt(v), t[0] - 8, t[1], { font: FONT(10.5), color: c.muted, halo: c.bg, align: 'right' });
+    }
+
+    const { P, Q, dv, D } = M;
+    const sP = pr(P[0], P[1], P[2]), sQ = pr(Q[0], Q[1], Q[2]);
+
+    // Proyecciones al suelo
+    ctx.strokeStyle = c.comp; ctx.lineWidth = 1.2; ctx.setLineDash([2, 4]);
+    [[P, sP], [Q, sQ]].forEach(([p, s]) => {
+      const f = pr(p[0], p[1], 0);
+      ctx.beginPath(); ctx.moveTo(s[0], s[1]); ctx.lineTo(f[0], f[1]); ctx.stroke();
+    });
+    ctx.setLineDash([]);
+    [P, Q].forEach(p => {
+      const f = pr(p[0], p[1], 0);
+      ctx.strokeStyle = c.comp; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.ellipse(f[0], f[1], 5, 5 * Math.max(0.35, sp_), 0, 0, Math.PI * 2); ctx.stroke();
+    });
+
+    // Trayectoria
+    const scr = M.path.map(p => pr(p[0], p[1], p[2]));
+    let tip = null, tipWorld = null, sNow = 0;
+    if (S.tPath) {
+      if (S.u < 1) {
+        polyline(scr, c.path, 2, [3, 5]);
+        const tr = traveled(scr, p => pr(p[0], p[1], p[2]));
+        polyline(tr.pts, c.pathInk, 3.4);
+        tip = tr.tipPt; sNow = tr.s; tipWorld = pointAt(tr.s).p;
+      } else polyline(scr, c.path, 3.6);
+    }
+
+    // Componentes (escalera)
+    if (S.tComp && D > 1e-9) {
+      const a = pr(Q[0], P[1], P[2]), b = pr(Q[0], Q[1], P[2]);
+      ctx.strokeStyle = c.comp; ctx.lineWidth = 1.6; ctx.setLineDash([6, 5]);
+      ctx.beginPath(); ctx.moveTo(sP[0], sP[1]); ctx.lineTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.lineTo(sQ[0], sQ[1]); ctx.stroke();
+      ctx.setLineDash([]);
+      const lab = (t, p1, p2, v) => {
+        if (Math.abs(v) < 1e-9) return;
+        const mx = (p1[0] + p2[0]) / 2, my = (p1[1] + p2[1]) / 2;
+        if (Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) < 26) return;
+        text(t + ' = ' + fmt(v), mx, my + 13, { font: FONT(11.5), color: c.comp, halo: c.bg });
+      };
+      lab('Δx', sP, a, dv[0]); lab('Δy', a, b, dv[1]); lab('Δz', b, sQ, dv[2]);
+    }
+
+    // Vector desplazamiento
+    const vl = Math.hypot(sQ[0] - sP[0], sQ[1] - sP[1]);
+    if (S.tVec && D > 1e-9 && vl > 14) {
+      const ux = (sQ[0] - sP[0]) / vl, uy = (sQ[1] - sP[1]) / vl;
+      arrow(sP[0], sP[1], sQ[0] - ux * 7, sQ[1] - uy * 7, c.vec, 3.2, 13);
+      const mx = sP[0] + (sQ[0] - sP[0]) * 0.66, my = sP[1] + (sQ[1] - sP[1]) * 0.66;
+      let nx = uy, ny = -ux;
+      const cm = M.path[Math.floor(M.path.length / 2)], sm = pr(cm[0], cm[1], cm[2]);
+      if ((sm[0] - mx) * nx + (sm[1] - my) * ny > 0) { nx = -nx; ny = -ny; }
+      vecLabel(mx + nx * 32, my + ny * 32, c, '|Δr| = ' + fmt(D) + un());
+    }
+    if (S.u < 1 && tip && S.tVec) {
+      ctx.strokeStyle = c.vec; ctx.globalAlpha = 0.55; ctx.lineWidth = 2; ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.moveTo(sP[0], sP[1]); ctx.lineTo(tip[0], tip[1]); ctx.stroke();
+      ctx.setLineDash([]); ctx.globalAlpha = 1;
+    }
+
+    if (tip) { ctx.fillStyle = c.pathInk; ctx.strokeStyle = c.bg; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(tip[0], tip[1], 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+    pointMark(sP[0], sP[1], c); pointMark(sQ[0], sQ[1], c);
+    pointLabel('P', '(' + fmt(P[0]) + '; ' + fmt(P[1]) + '; ' + fmt(P[2]) + ')', sP, sQ, c);
+    pointLabel('Q', '(' + fmt(Q[0]) + '; ' + fmt(Q[1]) + '; ' + fmt(Q[2]) + ')', sQ, sP, c);
+    if (S.u < 1 && tipWorld) hud(c, sNow, tipWorld);
+  }
+
+  /* ---------- Sincronización de entradas ---------- */
+  const ids = { px: ['P', 0], py: ['P', 1], pz: ['P', 2], qx: ['Q', 0], qy: ['Q', 1], qz: ['Q', 2] };
+  function setInputs() {
+    for (const id in ids) { const [w, i] = ids[id]; $(id).value = S[w][i]; }
+  }
+  function setMode(dim) {
+    S.dim = dim;
+    $('m2').setAttribute('aria-pressed', dim === 2);
+    $('m3').setAttribute('aria-pressed', dim === 3);
+    document.querySelectorAll('[data-z]').forEach(el => { el.hidden = dim === 2; });
+    document.querySelectorAll('.pt').forEach(el => el.style.setProperty('--dims', dim));
+    $('hint').textContent = dim === 2 ? 'Arrastra P o Q para moverlos' : 'Arrastra la gráfica para girar la vista';
+    cv.style.cursor = dim === 3 ? 'grab' : 'default';
+    stopAnim();
+    setInputs();
+    $('irr').value = Math.round(S.irr * 100);
+    $('irrOut').textContent = Math.round(S.irr * 100);
+    update();
+  }
+  function update() {
+    derive();
+    renderResults();
+    draw();
+  }
+
+  /* ---------- Animación ---------- */
+  function stopAnim() { if (anim) { cancelAnimationFrame(anim); anim = null; } S.u = 1; }
+  function play() {
+    stopAnim();
+    if (reduceMotion) { draw(); return; }
+    S.u = 0;
+    const t0 = performance.now();
+    const dur = clamp(M.len * 300, 3500, 9000);
+    const step = t => {
+      S.u = Math.min(1, (t - t0) / dur);
+      draw();
+      anim = S.u < 1 ? requestAnimationFrame(step) : null;
+    };
+    anim = requestAnimationFrame(step);
+  }
+
+  /* ---------- Eventos ---------- */
+  for (const id in ids) {
+    $(id).addEventListener('input', e => {
+      const v = parseFloat(e.target.value);
+      if (!isFinite(v)) return;
+      const [w, i] = ids[id];
+      S[w][i] = clamp(v, -999, 999);
+      stopAnim();
+      update();
+    });
+  }
+  $('m2').addEventListener('click', () => setMode(2));
+  $('m3').addEventListener('click', () => setMode(3));
+  $('tPath').addEventListener('change', e => { S.tPath = e.target.checked; draw(); });
+  $('tVec').addEventListener('change', e => { S.tVec = e.target.checked; draw(); });
+  $('tComp').addEventListener('change', e => { S.tComp = e.target.checked; draw(); });
+  $('unit').addEventListener('change', e => { S.unit = e.target.value; update(); });
+  $('irr').addEventListener('input', e => {
+    S.irr = e.target.value / 100; $('irrOut').textContent = e.target.value; stopAnim(); update();
+  });
+  $('bNew').addEventListener('click', () => { S.seed = (S.seed * 7 + 13 + Math.floor(Math.random() * 1000)) % 100000; stopAnim(); update(); });
+  $('bPlay').addEventListener('click', () => { if (!S.tPath) { S.tPath = true; $('tPath').checked = true; } play(); });
+  $('bSwap').addEventListener('click', () => {
+    const t = S.P; S.P = S.Q; S.Q = t; setInputs(); stopAnim(); update();
+  });
+
+  function hit2D(x, y) {
+    if (!V2) return null;
+    const pts = { P: [V2.X(M.P[0]), V2.Y(M.P[1])], Q: [V2.X(M.Q[0]), V2.Y(M.Q[1])] };
+    let best = null, bd = 22;
+    for (const n of ['Q', 'P']) {
+      const d = Math.hypot(x - pts[n][0], y - pts[n][1]);
+      if (d < bd) { bd = d; best = n; }
+    }
+    return best;
+  }
+  cv.addEventListener('pointerdown', e => {
+    const r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+    if (S.dim === 2) {
+      const h = hit2D(x, y);
+      if (!h) return;
+      stopAnim(); drag = { type: 'pt', which: h };
+    } else { drag = { type: 'rot', x: e.clientX, y: e.clientY }; }
+    cv.setPointerCapture(e.pointerId);
+    cv.style.cursor = 'grabbing';
+  });
+  cv.addEventListener('pointermove', e => {
+    const r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+    if (!drag) {
+      cv.style.cursor = S.dim === 3 ? 'grab' : (hit2D(x, y) ? 'grab' : 'default');
+      return;
+    }
+    if (drag.type === 'pt') {
+      const wx = (x - W / 2) / V2.k, wy = -(y - H / 2) / V2.k;
+      const sn = v => clamp(Math.round(v * 2) / 2, -999, 999);
+      S[drag.which][0] = sn(wx); S[drag.which][1] = sn(wy);
+      setInputs(); update();
+    } else {
+      S.yaw += (e.clientX - drag.x) * 0.008;
+      S.pitch = clamp(S.pitch + (e.clientY - drag.y) * 0.008, 0.02, 1.45);
+      drag.x = e.clientX; drag.y = e.clientY;
+      draw();
+    }
+  });
+  const endDrag = () => { drag = null; cv.style.cursor = S.dim === 3 ? 'grab' : 'default'; };
+  cv.addEventListener('pointerup', endDrag);
+  cv.addEventListener('pointercancel', endDrag);
+
+  function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    W = cv.clientWidth; H = cv.clientHeight;
+    if (!W) return;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    draw();
+  }
+  new ResizeObserver(resize).observe(cv);
+  new MutationObserver(draw).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', draw);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
+
+  setInputs();
+  setMode(2);
+  resize();
+})();
+</script>
+
+</body>
+</html>
