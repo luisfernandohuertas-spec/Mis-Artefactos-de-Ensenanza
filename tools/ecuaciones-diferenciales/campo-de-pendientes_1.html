@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Campo de pendientes y curvas solución</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #EEF2F5; --panel: #FFFFFF; --canvas: #FAFCFD; --ink: #132330; --muted: #5B6F7E;
+    --line: #D3DDE4; --grid: #E3EAEF; --axis: #9FB0BD;
+    --field: #A9BAC6; --iso: #C4841A; --sol: #C4234F; --pt: #2557C6; --ok: #1E8F79;
+    --font-display: "Bricolage Grotesque", "IBM Plex Sans", system-ui, sans-serif;
+    --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0E1820; --panel: #15222C; --canvas: #101C25; --ink: #E8F0F5; --muted: #8FA5B4;
+      --line: #263846; --grid: #1A2A35; --axis: #4A5F70;
+      --field: #4C5F6E; --iso: #F2B04A; --sol: #FF6F91; --pt: #7FA7FF; --ok: #57D9BE;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0E1820; --panel: #15222C; --canvas: #101C25; --ink: #E8F0F5; --muted: #8FA5B4;
+    --line: #263846; --grid: #1A2A35; --axis: #4A5F70;
+    --field: #4C5F6E; --iso: #F2B04A; --sol: #FF6F91; --pt: #7FA7FF; --ok: #57D9BE;
+  }
+
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5; padding-inline: 16px; padding-block: 28px 56px; }
+  .app { max-width: 1180px; margin-inline: auto; }
+
+  .head { max-width: 68ch; margin-bottom: 24px; }
+  .eyebrow { margin: 0 0 6px; font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  h1 { margin: 0 0 10px; font-family: var(--font-display); font-weight: 700; font-size: clamp(28px, 4.6vw, 44px); line-height: 1.05; letter-spacing: -0.02em; text-wrap: balance; }
+  .lede { margin: 0; color: var(--muted); font-size: 16px; }
+  .lede b { color: var(--ink); font-weight: 600; }
+
+  .layout { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(330px, 1fr); gap: 24px; align-items: start; }
+  @media (max-width: 980px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+  .stage { position: sticky; top: 16px; }
+  @media (max-width: 980px) { .stage { position: static; } }
+
+  .hint { margin: 0 0 10px; font-size: 13px; color: var(--muted); }
+  .canvaswrap { background: var(--canvas); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  canvas { display: block; width: 100%; touch-action: none; cursor: crosshair; }
+  #cv { aspect-ratio: 1 / 1; }
+
+  .toggles { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 12px; }
+  .tg { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; cursor: pointer; }
+  .tg input { accent-color: var(--ink); margin: 0; width: 15px; height: 15px; }
+  .sw { display: inline-block; width: 20px; height: 0; border-top: 3px solid; border-radius: 2px; }
+  .sw-field { border-top-style: solid; border-color: var(--field); }
+  .sw-iso { border-top-style: dashed; border-color: var(--iso); border-top-width: 2px; }
+  .sw-sol { border-color: var(--sol); }
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding-inline: 20px; }
+  .sec { padding-block: 18px; border-top: 1px solid var(--line); }
+  .sec:first-child { border-top: 0; }
+  .sec-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 0 0 12px; }
+  h2 { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .chip { font: inherit; font-size: 12.5px; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--canvas); color: var(--muted); cursor: pointer; font-family: var(--font-mono); }
+  .chip:hover { border-color: var(--ink); color: var(--ink); }
+  .chip.active { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+
+  .fld { display: flex; align-items: center; gap: 6px; background: var(--canvas); border: 1px solid var(--line); border-radius: 6px; padding-inline: 8px; }
+  .fld:focus-within { border-color: var(--ink); }
+  .fld span { font-family: var(--font-mono); font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .fld input { width: 100%; min-width: 0; padding-block: 7px; border: 0; background: transparent; color: var(--ink); font-family: var(--font-mono); font-size: 14px; outline: none; }
+  .fnrow { display: flex; gap: 8px; }
+  .fnrow .fld { flex: 1; }
+  .err { margin: 8px 0 0; font-size: 12.5px; color: var(--sol); min-height: 1.4em; }
+
+  .fields2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+
+  .slider { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; margin-bottom: 4px; font-size: 13.5px; }
+  .slider output { font-family: var(--font-mono); font-size: 13px; color: var(--muted); min-width: 4.5ch; text-align: right; }
+  input[type="range"] { width: 100%; accent-color: var(--ink); }
+
+  .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .btn { font: inherit; font-size: 13.5px; font-weight: 500; padding: 8px 14px; border-radius: 7px; border: 1px solid var(--line); background: var(--canvas); color: var(--ink); cursor: pointer; }
+  .btn:hover { border-color: var(--ink); }
+  .btn.primary { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--sol); outline-offset: 2px; }
+
+  .results { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .res { padding: 10px 12px; border-radius: 8px; background: var(--canvas); border: 1px solid var(--line); }
+  .res .lab { font-size: 12px; color: var(--muted); }
+  .res .val { font-family: var(--font-mono); font-size: 15.5px; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--sol); }
+
+  .note { margin: 10px 0 0; font-size: 13.5px; color: var(--muted); }
+  .note b { color: var(--ink); }
+
+  .tg-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .switch { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; cursor: pointer; }
+  .switch input { accent-color: var(--iso); width: 15px; height: 15px; }
+  #isoWrap[hidden] { display: none; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+
+</head>
+<body>
+<main class="app">
+  <header class="head">
+    <p class="eyebrow">Ecuaciones diferenciales · Métodos gráficos</p>
+    <h1>Campo de pendientes y curvas solución</h1>
+    <p class="lede">Para una ecuación <b>dy/dx = f(x, y)</b>, cada punto del plano tiene asociada una pendiente: la de la curva solución que pasa por ahí. El <b>campo de pendientes</b> dibuja esa dirección en una malla de puntos; las <b>isoclinas</b> son las curvas donde esa pendiente vale una constante c. Fija un punto (x₀, y₀) para trazar, por integración numérica, la curva solución que pasa exactamente por ahí.</p>
+  </header>
+
+  <div class="layout">
+    <section class="stage" aria-label="Campo de pendientes">
+      <p class="hint" id="hint">Haz clic en el plano para fijar el punto (x₀, y₀) de la condición inicial</p>
+      <div class="canvaswrap"><canvas id="cv" role="img" aria-label="Campo de pendientes con curva solución"></canvas></div>
+      <div class="toggles">
+        <label class="tg"><input type="checkbox" id="tField" checked><span class="sw sw-field"></span>Campo de pendientes</label>
+        <label class="tg"><input type="checkbox" id="tIso"><span class="sw sw-iso"></span>Isoclinas</label>
+        <label class="tg"><input type="checkbox" id="tSol" checked><span class="sw sw-sol"></span>Curva solución</label>
+      </div>
+    </section>
+
+    <aside class="panel" aria-label="Controles y resultados">
+      <div class="sec">
+        <div class="sec-h"><h2>Ecuación dy/dx = f(x, y)</h2></div>
+        <div class="chips" id="chips"></div>
+        <div class="fnrow">
+          <label class="fld"><span>f(x,y) =</span><input id="fnIn" type="text" inputmode="text" spellcheck="false" placeholder="x - y"></label>
+          <button type="button" class="btn" id="bApply">Aplicar</button>
+        </div>
+        <p class="err" id="fnErr"></p>
+      </div>
+
+      <div class="sec">
+        <div class="sec-h"><h2>Condición inicial</h2></div>
+        <div class="fields2">
+          <label class="fld"><span>x₀</span><input id="x0In" type="number" step="0.1" value="0" inputmode="decimal"></label>
+          <label class="fld"><span>y₀</span><input id="y0In" type="number" step="0.1" value="1" inputmode="decimal"></label>
+        </div>
+        <div class="results" style="margin-top:12px">
+          <div class="res"><div class="lab">pendiente en (x₀, y₀): f(x₀, y₀)</div><div class="val" id="vSlope"></div></div>
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-h"><h2>Vista</h2></div>
+        <div class="slider">
+          <label for="scaleIn">rango</label>
+          <input id="scaleIn" type="range" min="2" max="10" value="5" step="0.5">
+          <output id="scaleOut" for="scaleIn">±5</output>
+        </div>
+        <div class="row">
+          <button type="button" class="btn" id="bReset">Reiniciar vista</button>
+        </div>
+      </div>
+
+      <div class="sec" id="isoSec">
+        <div class="sec-h"><h2>Valores de c para las isoclinas</h2></div>
+        <div class="fld"><span>c =</span><input id="isoIn" type="text" value="-2, -1, 0, 1, 2" inputmode="text"></div>
+        <p class="note">Cada isoclina es el conjunto de puntos (x, y) donde f(x, y) = c: ahí, todo el campo de pendientes tiene exactamente esa inclinación.</p>
+      </div>
+
+      <div class="sec">
+        <div class="sec-h"><h2>Método</h2></div>
+        <p class="note">La curva solución se traza integrando numéricamente con <b>Runge–Kutta de 4º orden</b> (RK4) a partir de (x₀, y₀), hacia adelante y hacia atrás en x. La curva se corta si f(x, y) deja de estar definida (por ejemplo, una división por cero).</p>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+  const fmt = (n, d = 3) => {
+    if (!isFinite(n)) return '—';
+    let r = +n.toFixed(d); if (r === 0) r = 0;
+    return new Intl.NumberFormat('es-CO', { maximumFractionDigits: d, minimumFractionDigits: 0, useGrouping: false }).format(r).replace('-', '−');
+  };
+
+  /* ---------- Parser seguro de expresiones f(x,y) ---------- */
+  const FN1 = { sin: Math.sin, cos: Math.cos, tan: Math.tan, asin: Math.asin, acos: Math.acos, atan: Math.atan,
+    sinh: Math.sinh, cosh: Math.cosh, tanh: Math.tanh, exp: Math.exp, sqrt: Math.sqrt, abs: Math.abs,
+    ln: Math.log, log: Math.log10, log10: Math.log10 };
+  const FN2 = { pow: Math.pow, min: Math.min, max: Math.max, atan2: Math.atan2 };
+  const CONST = { pi: Math.PI, e: Math.E };
+
+  function tokenize(src) {
+    const toks = []; let i = 0;
+    while (i < src.length) {
+      const ch = src[i];
+      if (/\s/.test(ch)) { i++; continue; }
+      if (/[0-9.]/.test(ch)) {
+        let j = i; while (j < src.length && /[0-9.]/.test(src[j])) j++;
+        const numStr = src.slice(i, j);
+        if (!/^\d*\.?\d+$|^\d+\.?\d*$/.test(numStr)) throw new Error('número inválido: ' + numStr);
+        toks.push({ type: 'num', value: parseFloat(numStr) }); i = j; continue;
+      }
+      if (/[a-zA-Z_]/.test(ch)) {
+        let j = i; while (j < src.length && /[a-zA-Z_0-9]/.test(src[j])) j++;
+        toks.push({ type: 'id', value: src.slice(i, j) }); i = j; continue;
+      }
+      if ('+-*/^(),'.includes(ch)) { toks.push({ type: 'op', value: ch }); i++; continue; }
+      throw new Error('carácter no reconocido: "' + ch + '"');
+    }
+    return toks;
+  }
+
+  function makeParser(toks) {
+    let p = 0;
+    const peek = () => toks[p];
+    const next = () => toks[p++];
+    const expect = (v) => { const t = next(); if (!t || t.value !== v) throw new Error('se esperaba "' + v + '"'); };
+    const canStartFactor = (t) => !!t && (t.type === 'num' || t.type === 'id' || (t.type === 'op' && t.value === '('));
+
+    function pExpr() {
+      let node = pTerm();
+      while (peek() && peek().type === 'op' && (peek().value === '+' || peek().value === '-')) {
+        const op = next().value; const rhs = pTerm();
+        node = { type: 'bin', op, left: node, right: rhs };
+      }
+      return node;
+    }
+    function pTerm() {
+      let node = pUnary();
+      while (true) {
+        const t = peek();
+        if (t && t.type === 'op' && (t.value === '*' || t.value === '/')) {
+          const op = next().value; const rhs = pUnary();
+          node = { type: 'bin', op, left: node, right: rhs };
+        } else if (canStartFactor(t)) {
+          const rhs = pUnary();
+          node = { type: 'bin', op: '*', left: node, right: rhs };
+        } else break;
+      }
+      return node;
+    }
+    function pUnary() {
+      const t = peek();
+      if (t && t.type === 'op' && t.value === '-') { next(); return { type: 'neg', arg: pUnary() }; }
+      if (t && t.type === 'op' && t.value === '+') { next(); return pUnary(); }
+      return pPower();
+    }
+    function pPower() {
+      const base = pPrimary();
+      const t = peek();
+      if (t && t.type === 'op' && t.value === '^') { next(); const exp = pUnary(); return { type: 'pow', base, exp }; }
+      return base;
+    }
+    function pPrimary() {
+      const t = peek();
+      if (!t) throw new Error('expresión incompleta');
+      if (t.type === 'num') { next(); return { type: 'num', value: t.value }; }
+      if (t.type === 'op' && t.value === '(') { next(); const node = pExpr(); expect(')'); return node; }
+      if (t.type === 'id') {
+        const name = t.value; next();
+        const isFn = FN1.hasOwnProperty(name) || FN2.hasOwnProperty(name);
+        if (isFn && peek() && peek().type === 'op' && peek().value === '(') {
+          next();
+          const args = [pExpr()];
+          while (peek() && peek().type === 'op' && peek().value === ',') { next(); args.push(pExpr()); }
+          expect(')');
+          if (FN1.hasOwnProperty(name)) { if (args.length !== 1) throw new Error(name + ' espera 1 argumento'); return { type: 'fn1', name, arg: args[0] }; }
+          if (args.length !== 2) throw new Error(name + ' espera 2 argumentos'); return { type: 'fn2', name, a: args[0], b: args[1] };
+        }
+        return { type: 'var', name };
+      }
+      throw new Error('token inesperado: "' + t.value + '"');
+    }
+    const node = pExpr();
+    if (p !== toks.length) throw new Error('carácter sobrante: "' + toks[p].value + '"');
+    return node;
+  }
+  function parseExpr(src) { return makeParser(tokenize(src)); }
+
+  function evalAST(node, x, y) {
+    switch (node.type) {
+      case 'num': return node.value;
+      case 'var':
+        if (node.name === 'x') return x;
+        if (node.name === 'y') return y;
+        if (CONST.hasOwnProperty(node.name)) return CONST[node.name];
+        throw new Error('variable o constante desconocida: ' + node.name);
+      case 'neg': return -evalAST(node.arg, x, y);
+      case 'pow': return Math.pow(evalAST(node.base, x, y), evalAST(node.exp, x, y));
+      case 'bin': {
+        const l = evalAST(node.left, x, y), r = evalAST(node.right, x, y);
+        if (node.op === '+') return l + r;
+        if (node.op === '-') return l - r;
+        if (node.op === '*') return l * r;
+        if (node.op === '/') return l / r;
+        throw new Error('operador desconocido: ' + node.op);
+      }
+      case 'fn1': return FN1[node.name](evalAST(node.arg, x, y));
+      case 'fn2': return FN2[node.name](evalAST(node.a, x, y), evalAST(node.b, x, y));
+      default: throw new Error('nodo desconocido');
+    }
+  }
+
+  function safeEval(fEval, x, y) { try { const v = fEval(x, y); return typeof v === 'number' ? v : NaN; } catch (e) { return NaN; } }
+
+  /* ---------- Presets ---------- */
+  const PRESETS = [
+    { id: 'x', label: 'dy/dx = x', raw: 'x' },
+    { id: 'y', label: 'dy/dx = y', raw: 'y' },
+    { id: 'xy', label: 'dy/dx = x·y', raw: 'x*y' },
+    { id: 'x-y', label: 'dy/dx = x − y', raw: 'x - y' },
+    { id: 'circ', label: 'dy/dx = −x/y', raw: '-x/y' },
+    { id: 'log', label: 'dy/dx = y(1−y)', raw: 'y*(1-y)' },
+    { id: 'sinx', label: 'dy/dx = sen(x)', raw: 'sin(x)' }
+  ];
+
+  /* ---------- Estado ---------- */
+  const S = {
+    fnRaw: 'x - y', x0: 0, y0: 1, R: 5,
+    tField: true, tIso: false, tSol: true,
+    isoRaw: '-2, -1, 0, 1, 2'
+  };
+  let fEval = (x, y) => evalAST(parseExpr(S.fnRaw), x, y);
+  let view = null; // {xMin,xMax,yMin,yMax,k,ox,oy,X,Y}
+
+  function buildFnChips() {
+    const wrap = $('chips'); wrap.innerHTML = '';
+    PRESETS.forEach(p => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'chip'; b.textContent = p.label; b.dataset.id = p.id;
+      b.addEventListener('click', () => { setFn(p.raw); });
+      wrap.appendChild(b);
+    });
+    syncChips();
+  }
+  function syncChips() {
+    const active = PRESETS.find(p => p.raw === S.fnRaw);
+    [...$('chips').children].forEach(b => b.classList.toggle('active', !!(active && b.dataset.id === active.id)));
+    $('fnIn').value = S.fnRaw;
+  }
+  function setFn(raw) {
+    try {
+      const ast = parseExpr(raw);
+      const test = evalAST(ast, 0.31, 0.72);
+      if (typeof test !== 'number') throw new Error('la expresión no da un número');
+    } catch (e) { $('fnErr').textContent = 'No pude interpretarla: ' + e.message; return; }
+    S.fnRaw = raw;
+    fEval = (x, y) => evalAST(parseExpr(S.fnRaw), x, y);
+    $('fnErr').textContent = '';
+    syncChips();
+    update();
+  }
+
+  /* ---------- Campo, isoclinas, integración ---------- */
+  function buildGrid(xMin, xMax, yMin, yMax, cols, rows) {
+    const xs = [], ys = [], values = [];
+    for (let i = 0; i <= cols; i++) xs.push(xMin + i * (xMax - xMin) / cols);
+    for (let j = 0; j <= rows; j++) ys.push(yMin + j * (yMax - yMin) / rows);
+    for (let j = 0; j <= rows; j++) {
+      const row = [];
+      for (let i = 0; i <= cols; i++) row.push(safeEval(fEval, xs[i], ys[j]));
+      values.push(row);
+    }
+    return { xs, ys, values };
+  }
+
+  function marchingSquares(grid, c) {
+    const segs = []; const { xs, ys, values } = grid;
+    const rows = values.length - 1, cols = values[0].length - 1;
+    const interp = (p1, v1, p2, v2) => p1 + (c - v1) / (v2 - v1) * (p2 - p1);
+    for (let j = 0; j < rows; j++) {
+      for (let i = 0; i < cols; i++) {
+        const v00 = values[j][i], v10 = values[j][i + 1], v01 = values[j + 1][i], v11 = values[j + 1][i + 1];
+        if (![v00, v10, v01, v11].every(isFinite)) continue;
+        const x0 = xs[i], x1 = xs[i + 1], y0 = ys[j], y1 = ys[j + 1];
+        const pts = [];
+        if ((v00 - c) * (v10 - c) < 0) pts.push({ x: interp(x0, v00, x1, v10), y: y0 });
+        if ((v01 - c) * (v11 - c) < 0) pts.push({ x: interp(x0, v01, x1, v11), y: y1 });
+        if ((v00 - c) * (v01 - c) < 0) pts.push({ x: x0, y: interp(y0, v00, y1, v01) });
+        if ((v10 - c) * (v11 - c) < 0) pts.push({ x: x1, y: interp(y0, v10, y1, v11) });
+        if (pts.length === 2) segs.push([pts[0], pts[1]]);
+        else if (pts.length === 4) { segs.push([pts[0], pts[1]]); segs.push([pts[2], pts[3]]); }
+      }
+    }
+    return segs;
+  }
+
+  // La curva solución se traza parametrizada por longitud de arco (no por x):
+  // esto la sigue con suavidad incluso donde la tangente se vuelve vertical
+  // (dy/dx → ±∞, como en las circunferencias de dy/dx = -x/y), algo que una
+  // integración ingenua "y en función de x" no puede seguir sin desestabilizarse.
+  function tangentAt(x, y, prevT) {
+    let m; try { m = fEval(x, y); } catch (e) { return null; }
+    if (typeof m !== 'number' || Number.isNaN(m)) return null;
+    let tx, ty;
+    if (!isFinite(m)) { tx = 0; ty = (m > 0 ? 1 : -1); }
+    else { const norm = Math.hypot(1, m); tx = 1 / norm; ty = m / norm; }
+    if (prevT && (tx * prevT.tx + ty * prevT.ty) < 0) { tx = -tx; ty = -ty; } // continuidad de dirección
+    return { tx, ty };
+  }
+
+  function rk4ArcStep(x, y, ds, prevT) {
+    const t1 = tangentAt(x, y, prevT); if (!t1) return null;
+    const t2 = tangentAt(x + ds / 2 * t1.tx, y + ds / 2 * t1.ty, t1); if (!t2) return null;
+    const t3 = tangentAt(x + ds / 2 * t2.tx, y + ds / 2 * t2.ty, t2); if (!t3) return null;
+    const t4 = tangentAt(x + ds * t3.tx, y + ds * t3.ty, t3); if (!t4) return null;
+    const nx = x + ds / 6 * (t1.tx + 2 * t2.tx + 2 * t3.tx + t4.tx);
+    const ny = y + ds / 6 * (t1.ty + 2 * t2.ty + 2 * t3.ty + t4.ty);
+    if (!isFinite(nx) || !isFinite(ny)) return null;
+    const tNew = tangentAt(nx, ny, t4) || t4;
+    return { x: nx, y: ny, t: tNew };
+  }
+
+  function traceSolution(x0, y0, xMin, xMax, yMin, yMax) {
+    const ds = Math.max(xMax - xMin, yMax - yMin) / 500;
+    const maxSteps = 4000;
+    const marginX = (xMax - xMin) * 0.6, marginY = (yMax - yMin) * 0.6;
+    function sweep(dir) {
+      const pts = [{ x: x0, y: y0 }];
+      let x = x0, y = y0;
+      let m0; try { m0 = fEval(x0, y0); } catch (e) { m0 = NaN; }
+      if (typeof m0 !== 'number' || Number.isNaN(m0)) return pts;
+      let t;
+      if (!isFinite(m0)) t = { tx: 0, ty: dir * (m0 > 0 ? 1 : -1) };
+      else { const norm = Math.hypot(1, m0); t = { tx: dir / norm, ty: dir * m0 / norm }; }
+      for (let n = 0; n < maxSteps; n++) {
+        const step = rk4ArcStep(x, y, ds, t);
+        if (!step) break;
+        x = step.x; y = step.y; t = step.t;
+        pts.push({ x, y });
+        if (x < xMin - marginX || x > xMax + marginX || y < yMin - marginY || y > yMax + marginY) break;
+        if (n > 20 && Math.hypot(x - x0, y - y0) < ds * 1.5) break; // curva cerrada: ya volvió al punto inicial
+      }
+      return pts;
+    }
+    const fwd = sweep(1);
+    const bwd = sweep(-1).slice(1).reverse();
+    return bwd.concat(fwd);
+  }
+
+  /* ---------- Texto y resultados ---------- */
+  function renderText() {
+    const s0 = safeEval(fEval, S.x0, S.y0);
+    $('vSlope').textContent = isFinite(s0) ? fmt(s0) : 'no definida en (x₀, y₀)';
+    $('cv').setAttribute('aria-label', 'Campo de pendientes de dy sobre dx igual ' + S.fnRaw + '. Condición inicial x0=' + fmt(S.x0, 2) + ', y0=' + fmt(S.y0, 2) + '.');
+  }
+
+  /* ---------- Dibujo ---------- */
+  const cv = $('cv'), ctx = cv.getContext('2d');
+  function colors() {
+    const cs = getComputedStyle(document.documentElement); const g = n => cs.getPropertyValue(n).trim();
+    return { bg: g('--canvas'), ink: g('--ink'), muted: g('--muted'), grid: g('--grid'), axis: g('--axis'),
+      field: g('--field'), iso: g('--iso'), sol: g('--sol'), pt: g('--pt'), panel: g('--panel') };
+  }
+  const FONT = s => s + 'px "IBM Plex Mono", ui-monospace, Menlo, monospace';
+  function text(cx, t, x, y, o) {
+    cx.font = o.font || FONT(11); cx.textAlign = o.align || 'center'; cx.textBaseline = o.base || 'middle';
+    cx.lineJoin = 'round'; cx.lineWidth = 3; cx.strokeStyle = o.halo; cx.strokeText(t, x, y);
+    cx.fillStyle = o.color; cx.fillText(t, x, y);
+  }
+
+  function draw() {
+    const dpr = window.devicePixelRatio || 1;
+    const w = cv.clientWidth, h = cv.clientHeight;
+    if (!w) return;
+    if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const c = colors();
+    ctx.fillStyle = c.bg; ctx.fillRect(0, 0, w, h);
+
+    const R = S.R;
+    const xMin = -R, xMax = R, yMin = -R, yMax = R;
+    const k = Math.min(w / (xMax - xMin), h / (yMax - yMin));
+    const ox = w / 2, oy = h / 2;
+    const X = x => ox + x * k, Y = y => oy - y * k;
+    view = { xMin, xMax, yMin, yMax, k, ox, oy, X, Y };
+
+    // grilla
+    ctx.strokeStyle = c.grid; ctx.lineWidth = 1;
+    const step = R <= 3 ? 0.5 : (R <= 6 ? 1 : 2);
+    for (let gx = Math.ceil(xMin / step) * step; gx <= xMax; gx += step) {
+      ctx.beginPath(); ctx.moveTo(X(gx), 0); ctx.lineTo(X(gx), h); ctx.stroke();
+    }
+    for (let gy = Math.ceil(yMin / step) * step; gy <= yMax; gy += step) {
+      ctx.beginPath(); ctx.moveTo(0, Y(gy)); ctx.lineTo(w, Y(gy)); ctx.stroke();
+    }
+    // ejes
+    ctx.strokeStyle = c.axis; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(X(xMin), Y(0)); ctx.lineTo(X(xMax), Y(0)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(X(0), Y(yMin)); ctx.lineTo(X(0), Y(yMax)); ctx.stroke();
+    text(ctx, 'x', X(xMax) - 10, Y(0) - 12, { font: FONT(12), color: c.axis, halo: c.bg, align: 'right' });
+    text(ctx, 'y', X(0) + 12, Y(yMax) + 10, { font: FONT(12), color: c.axis, halo: c.bg, align: 'left' });
+
+    // escala: marcas y números sobre los ejes
+    const decimals = Number.isInteger(step) ? 0 : 1;
+    const i0 = Math.ceil(xMin / step), i1 = Math.floor(xMax / step);
+    ctx.lineWidth = 1.4;
+    for (let i = i0; i <= i1; i++) {
+      const gx = Math.round(i * step * 1e6) / 1e6;
+      if (Math.abs(gx) < step / 1000) continue; // el 0 ya está marcado por el origen
+      const px = X(gx);
+      ctx.strokeStyle = c.axis;
+      ctx.beginPath(); ctx.moveTo(px, Y(0) - 4); ctx.lineTo(px, Y(0) + 4); ctx.stroke();
+      text(ctx, fmt(gx, decimals), px, Y(0) + 8, { font: FONT(10), color: c.muted, halo: c.bg, base: 'top' });
+    }
+    const j0 = Math.ceil(yMin / step), j1 = Math.floor(yMax / step);
+    for (let j = j0; j <= j1; j++) {
+      const gy = Math.round(j * step * 1e6) / 1e6;
+      if (Math.abs(gy) < step / 1000) continue;
+      const py = Y(gy);
+      ctx.strokeStyle = c.axis;
+      ctx.beginPath(); ctx.moveTo(X(0) - 4, py); ctx.lineTo(X(0) + 4, py); ctx.stroke();
+      text(ctx, fmt(gy, decimals), X(0) - 7, py, { font: FONT(10), color: c.muted, halo: c.bg, align: 'right' });
+    }
+
+    // campo de pendientes
+    if (S.tField) {
+      const pxSpacing = 32;
+      const cols = Math.max(6, Math.round(w / pxSpacing));
+      const rows = Math.max(6, Math.round(h / pxSpacing));
+      const half = 12; // px
+      ctx.strokeStyle = c.field; ctx.lineWidth = 1.4; ctx.lineCap = 'round';
+      for (let i = 0; i < cols; i++) {
+        const wx = xMin + (i + 0.5) * (xMax - xMin) / cols;
+        for (let j = 0; j < rows; j++) {
+          const wy = yMin + (j + 0.5) * (yMax - yMin) / rows;
+          const m = safeEval(fEval, wx, wy);
+          const px = X(wx), py = Y(wy);
+          let dx, dy;
+          if (!isFinite(m)) continue;
+          if (Math.abs(m) > 1e4) { dx = 0; dy = 1; }
+          else { const len = Math.hypot(1, m); dx = 1 / len; dy = -m / len; }
+          ctx.beginPath();
+          ctx.moveTo(px - dx * half, py - dy * half);
+          ctx.lineTo(px + dx * half, py + dy * half);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // isoclinas
+    if (S.tIso) {
+      const cVals = S.isoRaw.split(',').map(s => parseFloat(s.trim())).filter(v => isFinite(v));
+      if (cVals.length) {
+        const grid = buildGrid(xMin, xMax, yMin, yMax, 90, 90);
+        ctx.setLineDash([5, 4]); ctx.lineWidth = 1.6;
+        cVals.forEach(cVal => {
+          const segs = marchingSquares(grid, cVal);
+          ctx.strokeStyle = c.iso;
+          ctx.beginPath();
+          segs.forEach(([p1, p2]) => { ctx.moveTo(X(p1.x), Y(p1.y)); ctx.lineTo(X(p2.x), Y(p2.y)); });
+          ctx.stroke();
+        });
+        ctx.setLineDash([]);
+        // etiquetas: una por valor de c, cerca del borde derecho, sobre la isoclina más próxima a y=0
+        cVals.forEach(cVal => {
+          const segs = marchingSquares(grid, cVal);
+          if (!segs.length) return;
+          let best = segs[0], bestD = Infinity;
+          segs.forEach(([p1, p2]) => { const my = (p1.y + p2.y) / 2; const d = Math.abs(my); if (d < bestD) { bestD = d; best = [p1, p2]; } });
+          const mx = (best[0].x + best[1].x) / 2, my = (best[0].y + best[1].y) / 2;
+          text(ctx, 'c=' + fmt(cVal, 2), X(mx), Y(my) - 8, { font: FONT(10.5), color: c.iso, halo: c.bg });
+        });
+      }
+    }
+
+    // curva solución
+    if (S.tSol) {
+      const pts = traceSolution(S.x0, S.y0, xMin, xMax, yMin, yMax);
+      ctx.strokeStyle = c.sol; ctx.lineWidth = 2.6; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.beginPath();
+      let started = false;
+      pts.forEach(p => {
+        if (!isFinite(p.x) || !isFinite(p.y)) { started = false; return; }
+        const px = X(p.x), py = Y(p.y);
+        if (!started) { ctx.moveTo(px, py); started = true; } else ctx.lineTo(px, py);
+      });
+      ctx.stroke();
+    }
+
+    // punto (x0,y0)
+    const px0 = X(S.x0), py0 = Y(S.y0);
+    ctx.beginPath(); ctx.arc(px0, py0, 6, 0, Math.PI * 2);
+    ctx.fillStyle = c.pt; ctx.fill(); ctx.strokeStyle = c.bg; ctx.lineWidth = 2; ctx.stroke();
+    text(ctx, '(x₀, y₀)', px0 + 12, py0 - 12, { font: FONT(11.5), color: c.pt, halo: c.bg, align: 'left' });
+  }
+
+  function update() { renderText(); draw(); }
+
+  /* ---------- Interacción con el lienzo ---------- */
+  function pickPoint(clientX, clientY) {
+    if (!view) return;
+    const rect = cv.getBoundingClientRect();
+    const px = clientX - rect.left, py = clientY - rect.top;
+    const wx = (px - view.ox) / view.k, wy = -(py - view.oy) / view.k;
+    S.x0 = clamp(wx, view.xMin, view.xMax);
+    S.y0 = clamp(wy, view.yMin, view.yMax);
+    // los inputs type="number" exigen un guion ASCII normal, no el signo menos
+    // tipográfico que usa fmt(): con ese, el navegador rechaza el valor y lo deja vacío.
+    $('x0In').value = S.x0.toFixed(2); $('y0In').value = S.y0.toFixed(2);
+    update();
+  }
+  cv.addEventListener('pointerdown', e => { pickPoint(e.clientX, e.clientY); });
+
+  /* ---------- Controles ---------- */
+  $('bApply').addEventListener('click', () => setFn($('fnIn').value.trim()));
+  $('fnIn').addEventListener('keydown', e => { if (e.key === 'Enter') setFn($('fnIn').value.trim()); });
+  $('x0In').addEventListener('input', e => { const v = parseFloat(e.target.value); if (isFinite(v)) { S.x0 = v; update(); } });
+  $('y0In').addEventListener('input', e => { const v = parseFloat(e.target.value); if (isFinite(v)) { S.y0 = v; update(); } });
+  $('scaleIn').addEventListener('input', e => { S.R = parseFloat(e.target.value); $('scaleOut').textContent = '±' + fmt(S.R, 1); update(); });
+  $('tField').addEventListener('change', e => { S.tField = e.target.checked; draw(); });
+  $('tIso').addEventListener('change', e => { S.tIso = e.target.checked; draw(); });
+  $('tSol').addEventListener('change', e => { S.tSol = e.target.checked; draw(); });
+  $('isoIn').addEventListener('input', e => { S.isoRaw = e.target.value; if (S.tIso) draw(); });
+  $('bReset').addEventListener('click', () => {
+    S.R = 5; $('scaleIn').value = 5; $('scaleOut').textContent = '±5';
+    S.x0 = 0; S.y0 = 1; $('x0In').value = 0; $('y0In').value = 1;
+    update();
+  });
+
+  new ResizeObserver(draw).observe(cv);
+  new MutationObserver(draw).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', draw);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
+
+  buildFnChips();
+  update();
+})();
+</script>
+
+</body>
+</html>
