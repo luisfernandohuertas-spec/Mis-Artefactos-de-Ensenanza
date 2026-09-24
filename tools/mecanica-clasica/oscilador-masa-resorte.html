@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Oscilador masa-resorte</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:ital,wght@1,500&display=swap">
+<style>
+:root{
+  --bg:#EDF1F3; --panel:#FFFFFF; --ink:#18222C; --muted:#5A6874; --line:#CBD4DA; --grid:#E1E7EB;
+  --xc:#1F63C6; --vc:#C8511B; --ac:#2E8B57; --block:#2A3947; --spring:#6B7A86; --wall:#8795A0;
+  --kec:#C8511B; --pec:#1F63C6; --lost:#9AA6AF;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0F151A; --panel:#172028; --ink:#E4EAEE; --muted:#93A2AE; --line:#2C3944; --grid:#1F2A33;
+    --xc:#6AA5FF; --vc:#FF8C55; --ac:#5BC98C; --block:#B9C7D2; --spring:#8E9EAA; --wall:#5E6E7A;
+    --kec:#FF8C55; --pec:#6AA5FF; --lost:#4A5864;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0F151A; --panel:#172028; --ink:#E4EAEE; --muted:#93A2AE; --line:#2C3944; --grid:#1F2A33;
+  --xc:#6AA5FF; --vc:#FF8C55; --ac:#5BC98C; --block:#B9C7D2; --spring:#8E9EAA; --wall:#5E6E7A;
+  --kec:#FF8C55; --pec:#6AA5FF; --lost:#4A5864;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:14px;padding:20px 16px 32px}
+.wrap{max-width:1180px;margin:0 auto;display:grid;gap:16px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 24px}
+h1{margin:0;font-size:22px;font-weight:600;letter-spacing:-.01em;text-wrap:balance}
+.eq{font-family:"IBM Plex Serif",Georgia,serif;font-style:italic;font-size:17px;color:var(--muted)}
+.eq b{font-weight:500;color:var(--ink)}
+.layout{display:grid;grid-template-columns:300px 1fr;gap:16px;align-items:start}
+@media (max-width:860px){.layout{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px}
+.controls{padding:16px;display:grid;gap:14px}
+.group{display:grid;gap:10px}
+.group h2{margin:0;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.row{display:grid;gap:4px}
+.row label{display:flex;justify-content:space-between;gap:8px;font-size:13px}
+.row output{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;color:var(--ink)}
+input[type=range]{width:100%;accent-color:var(--xc)}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg button{border:0;background:transparent;color:var(--ink);font:inherit;font-size:12.5px;padding:7px 4px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--panel);font-weight:500}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.btn{flex:1;min-width:84px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:inherit;font-weight:500;padding:8px 10px;border-radius:7px;cursor:pointer}
+.btn.primary{background:var(--xc);border-color:var(--xc);color:#fff}
+.btn:focus-visible,.seg button:focus-visible,input:focus-visible{outline:2px solid var(--xc);outline-offset:2px}
+hr{border:0;border-top:1px solid var(--line);margin:0}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px}
+.facts dt{color:var(--muted)}
+.facts dd{margin:0;text-align:right;font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+.regime{display:inline-block;padding:1px 8px;border-radius:99px;font-size:12px;font-family:"IBM Plex Sans",sans-serif;border:1px solid currentColor}
+.stage{display:grid;gap:16px}
+.sim{padding:12px 12px 8px}
+.sim canvas{display:block;width:100%;height:210px;touch-action:none}
+.hint{font-size:12px;color:var(--muted);padding:0 4px}
+.readouts{display:flex;flex-wrap:wrap;gap:6px 20px;padding:4px 4px 0;font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;font-size:13px}
+.readouts span i{font-style:normal;color:var(--muted)}
+.plots{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:640px){.plots{grid-template-columns:1fr}}
+.plot{padding:12px}
+.plot h3{margin:0 0 6px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px}
+.plot h3 .sw{width:14px;height:3px;border-radius:2px}
+.plot canvas{display:block;width:100%;height:220px}
+.energy{padding:12px 14px;display:grid;gap:8px}
+.energy h3{margin:0;font-size:13px;font-weight:500}
+.ebar{display:flex;height:14px;border-radius:4px;overflow:hidden;background:var(--grid)}
+.ebar div{height:100%;transition:width .08s linear}
+.elegend{display:flex;flex-wrap:wrap;gap:4px 18px;font-size:12.5px;color:var(--muted)}
+.elegend b{font-family:"IBM Plex Mono",monospace;font-weight:400;color:var(--ink);font-variant-numeric:tabular-nums}
+.dot{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>Oscilador masa-resorte horizontal</h1>
+    <div class="eq" id="eqn"><b>m</b>ẍ = −<b>k</b>x</div>
+  </header>
+
+  <div class="layout">
+    <aside class="card controls" aria-label="Parámetros">
+      <div class="group">
+        <h2>Sistema</h2>
+        <div class="row"><label for="m">Masa m <output id="mo"></output></label><input id="m" type="range" min="0.1" max="5" step="0.1" value="1"></div>
+        <div class="row"><label for="k">Constante k <output id="ko"></output></label><input id="k" type="range" min="1" max="100" step="1" value="20"></div>
+      </div>
+      <hr>
+      <div class="group">
+        <h2>Condiciones iniciales</h2>
+        <div class="row"><label for="x0">Posición x₀ <output id="x0o"></output></label><input id="x0" type="range" min="-1" max="1" step="0.01" value="0.6"></div>
+        <div class="row"><label for="v0">Velocidad v₀ <output id="v0o"></output></label><input id="v0" type="range" min="-5" max="5" step="0.05" value="0"></div>
+      </div>
+      <hr>
+      <div class="group">
+        <h2>Fricción</h2>
+        <div class="seg" role="group" aria-label="Tipo de fricción">
+          <button type="button" data-f="none" aria-pressed="false">Ninguna</button>
+          <button type="button" data-f="viscous" aria-pressed="true">Viscosa</button>
+          <button type="button" data-f="coulomb" aria-pressed="false">Seca</button>
+        </div>
+        <div class="row" id="brow"><label for="b">Coef. viscoso b <output id="bo"></output></label><input id="b" type="range" min="0" max="15" step="0.05" value="0.6"></div>
+        <div class="row" id="murow" hidden><label for="mu">Coef. cinético μ <output id="muo"></output></label><input id="mu" type="range" min="0" max="0.5" step="0.005" value="0.05"></div>
+      </div>
+      <hr>
+      <div class="group">
+        <div class="row"><label for="speed">Velocidad de reproducción <output id="speedo"></output></label><input id="speed" type="range" min="0.1" max="2" step="0.05" value="1"></div>
+        <div class="btns">
+          <button class="btn primary" id="play" type="button">Pausar</button>
+          <button class="btn" id="reset" type="button">Reiniciar</button>
+        </div>
+      </div>
+      <hr>
+      <dl class="facts" id="facts"></dl>
+    </aside>
+
+    <section class="stage">
+      <div class="card sim">
+        <canvas id="sim" aria-label="Animación del bloque unido al resorte"></canvas>
+        <div class="readouts">
+          <span><i>t</i> = <b id="rt">0.00</b> s</span>
+          <span><i>x</i> = <b id="rx">0.000</b> m</span>
+          <span><i>v</i> = <b id="rv">0.000</b> m/s</span>
+          <span><i>a</i> = <b id="ra">0.000</b> m/s²</span>
+        </div>
+        <div class="hint">Arrastra el bloque para fijar una nueva posición inicial.</div>
+      </div>
+
+      <div class="plots">
+        <div class="card plot"><h3><span class="sw" style="background:var(--xc)"></span>Posición x(t) [m]</h3><canvas id="px"></canvas></div>
+        <div class="card plot"><h3><span class="sw" style="background:var(--vc)"></span>Velocidad v(t) [m/s]</h3><canvas id="pv"></canvas></div>
+      </div>
+
+      <div class="card energy">
+        <h3>Energía mecánica</h3>
+        <div class="ebar"><div id="eK" style="background:var(--kec)"></div><div id="eU" style="background:var(--pec)"></div><div id="eL" style="background:var(--lost)"></div></div>
+        <div class="elegend">
+          <span><span class="dot" style="background:var(--kec)"></span>Cinética ½mv² <b id="lK"></b></span>
+          <span><span class="dot" style="background:var(--pec)"></span>Potencial ½kx² <b id="lU"></b></span>
+          <span><span class="dot" style="background:var(--lost)"></span>Disipada por fricción <b id="lL"></b></span>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+(() => {
+const G = 9.81, H = 0.0005, WIN = 10, LMAX = 1.25;
+const $ = id => document.getElementById(id);
+const P = { m:1, k:20, x0:0.6, v0:0, f:'viscous', b:0.6, mu:0.05, speed:1 };
+let S, hist, running = true, yx = 1, yv = 1, dragging = false, E0 = 0, lost = 0;
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function css(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+
+function reset(){
+  S = { x:P.x0, v:P.v0, t:0, stuck:false };
+  hist = { t:[0], x:[S.x], v:[S.v] };
+  lost = 0; E0 = energy().E;
+  const w = Math.sqrt(P.k/P.m);
+  const A = Math.hypot(P.x0, P.v0/w);
+  yx = Math.max(0.1, A*1.15); yv = Math.max(0.1, A*w*1.15);
+  checkStick();
+}
+function energy(){ const K = .5*P.m*S.v*S.v, U = .5*P.k*S.x*S.x; return {K,U,E:K+U}; }
+
+function fric(x, v, s){
+  if (P.f === 'viscous') return -P.b*v;
+  if (P.f === 'coulomb') return -P.mu*P.m*G*s;
+  return 0;
+}
+function acc(x, v, s){ return (-P.k*x + fric(x,v,s)) / P.m; }
+function checkStick(){
+  if (P.f !== 'coulomb') { S.stuck = false; return; }
+  if (Math.abs(S.v) < 1e-9 && Math.abs(P.k*S.x) <= P.mu*P.m*G) { S.stuck = true; S.v = 0; }
+  else S.stuck = false;
+}
+
+function step(h){
+  if (S.stuck){ checkStick(); if (S.stuck){ S.t += h; return; } }
+  const s = S.v !== 0 ? Math.sign(S.v) : Math.sign(-P.k*S.x);
+  const {x, v} = S;
+  const k1x=v, k1v=acc(x,v,s);
+  const k2x=v+h/2*k1v, k2v=acc(x+h/2*k1x, v+h/2*k1v, s);
+  const k3x=v+h/2*k2v, k3v=acc(x+h/2*k2x, v+h/2*k2v, s);
+  const k4x=v+h*k3v, k4v=acc(x+h*k3x, v+h*k3v, s);
+  let nx = x + h/6*(k1x+2*k2x+2*k3x+k4x);
+  let nv = v + h/6*(k1v+2*k2v+2*k3v+k4v);
+  // Trabajo de la fricción (aprox. trapecio)
+  const vm = (v+nv)/2;
+  lost += -fric(x, vm, s) * vm * h;
+  if (P.f === 'coulomb' && s !== 0 && Math.sign(nv) !== s){ nv = 0; S.x = nx; S.v = 0; S.t += h; checkStick(); return; }
+  S.x = nx; S.v = nv; S.t += h;
+}
+
+let lastRec = 0;
+function record(){
+  if (S.t - lastRec < 0.008) return;
+  lastRec = S.t;
+  hist.t.push(S.t); hist.x.push(S.x); hist.v.push(S.v);
+  while (hist.t.length > 2 && hist.t[1] < S.t - WIN - 0.5){ hist.t.shift(); hist.x.shift(); hist.v.shift(); }
+  yx = Math.max(yx, Math.abs(S.x)*1.1); yv = Math.max(yv, Math.abs(S.v)*1.1);
+}
+
+/* ---------- Canvas helpers ---------- */
+function fit(c){
+  const r = c.getBoundingClientRect(), d = devicePixelRatio || 1;
+  const W = Math.round(r.width*d), Hh = Math.round(r.height*d);
+  if (c.width !== W || c.height !== Hh){ c.width = W; c.height = Hh; }
+  const ctx = c.getContext('2d'); ctx.setTransform(d,0,0,d,0,0);
+  return { ctx, w:r.width, h:r.height };
+}
+
+const simC = $('sim');
+function geom(w){
+  const wall = 26, cx = wall + (w - wall) / 2, ppm = (w - wall - 50) / (2*LMAX);
+  return { wall, cx, ppm, bw: Math.max(44, Math.min(70, w*0.09)) };
+}
+
+function drawSim(){
+  const { ctx, w, h } = fit(simC);
+  const g = geom(w), floor = h - 52, bh = g.bw*0.9;
+  const ink = css('--ink'), muted = css('--muted'), line = css('--line');
+  ctx.clearRect(0,0,w,h);
+
+  // pared
+  ctx.fillStyle = css('--wall'); ctx.fillRect(g.wall-12, floor-130, 12, 130);
+  ctx.strokeStyle = css('--wall'); ctx.lineWidth = 1;
+  for (let y = floor-130; y < floor; y += 10){ ctx.beginPath(); ctx.moveTo(g.wall-12,y+10); ctx.lineTo(g.wall-22,y); ctx.stroke(); }
+
+  // piso
+  ctx.strokeStyle = ink; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(g.wall-12, floor); ctx.lineTo(w-4, floor); ctx.stroke();
+  if (P.f === 'coulomb' && P.mu > 0){
+    ctx.strokeStyle = muted; ctx.lineWidth = 1; ctx.globalAlpha = Math.min(1, .25 + P.mu*2);
+    for (let x = g.wall; x < w; x += 7){ ctx.beginPath(); ctx.moveTo(x, floor+1); ctx.lineTo(x-5, floor+7); ctx.stroke(); }
+    ctx.globalAlpha = 1;
+  }
+
+  // regla
+  ctx.fillStyle = muted; ctx.strokeStyle = muted; ctx.font = '11px "IBM Plex Mono", monospace'; ctx.textAlign = 'center';
+  for (let m = -1; m <= 1.0001; m += 0.25){
+    const X = g.cx + m*g.ppm, major = Math.abs(m*2 - Math.round(m*2)) < 1e-6;
+    ctx.beginPath(); ctx.moveTo(X, floor+10); ctx.lineTo(X, floor + (major?20:15)); ctx.stroke();
+    if (major) ctx.fillText((m>0?'+':'') + m.toFixed(1), X, floor+33);
+  }
+  ctx.fillText('x (m)', w-26, floor+33);
+
+  // equilibrio
+  ctx.setLineDash([4,4]); ctx.strokeStyle = line; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(g.cx, floor-150); ctx.lineTo(g.cx, floor+8); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = muted; ctx.textAlign = 'center'; ctx.font = '11px "IBM Plex Sans", sans-serif';
+  ctx.fillText('x = 0', g.cx, floor-156);
+
+  // bloque
+  const bx = g.cx + S.x*g.ppm, left = bx - g.bw/2, top = floor - bh;
+
+  // resorte
+  const x1 = g.wall, x2 = left, yc = floor - bh/2, n = 16, amp = 11, lead = 10;
+  ctx.strokeStyle = css('--spring'); ctx.lineWidth = 2; ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.moveTo(x1, yc); ctx.lineTo(x1+lead, yc);
+  const L = Math.max(4, x2 - x1 - 2*lead);
+  for (let i = 0; i < n; i++){
+    const xa = x1 + lead + L*(i+0.5)/n;
+    ctx.lineTo(xa, yc + (i%2 ? amp : -amp));
+  }
+  ctx.lineTo(x2-lead, yc); ctx.lineTo(x2, yc); ctx.stroke();
+
+  ctx.fillStyle = css('--block');
+  roundRect(ctx, left, top, g.bw, bh, 5); ctx.fill();
+  ctx.fillStyle = css('--panel'); ctx.textAlign = 'center'; ctx.font = '600 16px "IBM Plex Serif", Georgia, serif';
+  ctx.fillText('m', bx, top + bh/2 + 5);
+
+  // flechas: velocidad (arriba), fuerza del resorte
+  const vs = 26 / Math.max(yv/1.15, 0.2);
+  arrow(ctx, bx, top-16, bx + S.v*vs, top-16, css('--vc'), 'v');
+  const fs = 26 / Math.max(P.k*yx/1.15, 0.2);
+  arrow(ctx, bx, top-38, bx - P.k*S.x*fs, top-38, css('--ac'), 'F');
+
+  // desplazamiento
+  if (Math.abs(S.x) > 0.02){
+    ctx.strokeStyle = css('--xc'); ctx.fillStyle = css('--xc'); ctx.lineWidth = 1.5;
+    const yy = floor + 44;
+    ctx.beginPath(); ctx.moveTo(g.cx, yy); ctx.lineTo(bx, yy); ctx.stroke();
+    ctx.beginPath(); ctx.arc(bx, yy, 3, 0, 7); ctx.fill();
+  }
+}
+function roundRect(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function arrow(ctx,x1,y1,x2,y2,col,lab){
+  const d = x2 - x1; if (Math.abs(d) < 3) return;
+  const dir = Math.sign(d);
+  ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2 - dir*6, y2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x2,y2); ctx.lineTo(x2-dir*8, y2-5); ctx.lineTo(x2-dir*8, y2+5); ctx.closePath(); ctx.fill();
+  ctx.font = 'italic 500 13px "IBM Plex Serif", Georgia, serif'; ctx.textAlign = dir>0 ? 'left' : 'right';
+  ctx.fillText(lab, x2 + dir*5, y2 + 4);
+}
+
+function nice(max){
+  const raw = max/2, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw/p;
+  return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p;
+}
+function drawPlot(c, arr, ymax, colVar){
+  const { ctx, w, h } = fit(c);
+  const pl = 46, pr = 10, pt = 8, pb = 26, W = w-pl-pr, Hh = h-pt-pb;
+  const t1 = Math.max(WIN, S.t), t0 = t1 - WIN;
+  const X = t => pl + (t-t0)/WIN*W, Y = y => pt + Hh/2 - y/ymax*Hh/2;
+  const muted = css('--muted'), grid = css('--grid'), ink = css('--ink');
+  ctx.clearRect(0,0,w,h);
+  ctx.font = '11px "IBM Plex Mono", monospace'; ctx.lineWidth = 1;
+
+  const st = nice(ymax);
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  for (let y = -Math.floor(ymax/st)*st; y <= ymax + 1e-9; y += st){
+    const yy = Y(y);
+    ctx.strokeStyle = Math.abs(y) < 1e-9 ? css('--line') : grid;
+    ctx.lineWidth = Math.abs(y) < 1e-9 ? 1.5 : 1;
+    ctx.beginPath(); ctx.moveTo(pl, yy); ctx.lineTo(w-pr, yy); ctx.stroke();
+    ctx.fillStyle = muted; ctx.fillText(+y.toFixed(3) + '', pl-6, yy);
+  }
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (let t = Math.ceil(t0); t <= t1 + 1e-9; t += 1){
+    const xx = X(t);
+    ctx.strokeStyle = grid; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(xx, pt); ctx.lineTo(xx, pt+Hh); ctx.stroke();
+    if (t % 2 === 0) { ctx.fillStyle = muted; ctx.fillText(t + '', xx, pt+Hh+6); }
+  }
+  ctx.textAlign = 'right'; ctx.fillText('t (s)', w-pr, pt+Hh+6);
+
+  const col = css(colVar);
+  ctx.save(); ctx.beginPath(); ctx.rect(pl, pt, W, Hh); ctx.clip();
+  ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  let started = false;
+  for (let i = 0; i < hist.t.length; i++){
+    if (hist.t[i] < t0 - 0.1) continue;
+    const xx = X(hist.t[i]), yy = Y(arr[i]);
+    started ? ctx.lineTo(xx, yy) : (ctx.moveTo(xx, yy), started = true);
+  }
+  ctx.stroke();
+  const last = arr[arr.length-1];
+  ctx.fillStyle = col; ctx.beginPath(); ctx.arc(X(hist.t[hist.t.length-1]), Y(last), 3.5, 0, 7); ctx.fill();
+  ctx.restore();
+}
+
+/* ---------- UI ---------- */
+function fmt(v, d){ return (v >= 0 ? '' : '−') + Math.abs(v).toFixed(d); }
+function syncLabels(){
+  $('mo').textContent = P.m.toFixed(1) + ' kg';
+  $('ko').textContent = P.k.toFixed(0) + ' N/m';
+  $('x0o').textContent = fmt(P.x0,2) + ' m';
+  $('v0o').textContent = fmt(P.v0,2) + ' m/s';
+  $('bo').textContent = P.b.toFixed(2) + ' kg/s';
+  $('muo').textContent = P.mu.toFixed(3);
+  $('speedo').textContent = P.speed.toFixed(2) + '×';
+  $('brow').hidden = P.f !== 'viscous';
+  $('murow').hidden = P.f !== 'coulomb';
+  document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.f === P.f));
+  const eq = { none:'<b>m</b>ẍ + <b>k</b>x = 0', viscous:'<b>m</b>ẍ + <b>b</b>ẋ + <b>k</b>x = 0', coulomb:'<b>m</b>ẍ + <b>k</b>x = −<b>μ</b><b>m</b>g·sgn(ẋ)' };
+  $('eqn').innerHTML = eq[P.f];
+  facts();
+}
+function facts(){
+  const w0 = Math.sqrt(P.k/P.m), T = 2*Math.PI/w0;
+  let rows = [['ω₀ = √(k/m)', w0.toFixed(3) + ' rad/s'], ['Período T₀', T.toFixed(3) + ' s'], ['Frecuencia f₀', (1/T).toFixed(3) + ' Hz']];
+  if (P.f === 'viscous'){
+    const z = P.b/(2*Math.sqrt(P.k*P.m)), gam = P.b/(2*P.m);
+    let reg, col;
+    if (P.b === 0){ reg = 'sin amortiguar'; col = css('--muted'); }
+    else if (Math.abs(z-1) < 0.01){ reg = 'crítico'; col = css('--ac'); }
+    else if (z < 1){ reg = 'subamortiguado'; col = css('--xc'); }
+    else { reg = 'sobreamortiguado'; col = css('--vc'); }
+    rows.push(['γ = b/2m', gam.toFixed(3) + ' s⁻¹'], ['ζ = b/2√(km)', z.toFixed(3)]);
+    if (z < 1) rows.push(['ω_d = √(ω₀²−γ²)', Math.sqrt(w0*w0-gam*gam).toFixed(3) + ' rad/s']);
+    rows.push(['Régimen', `<span class="regime" style="color:${col}">${reg}</span>`]);
+  } else if (P.f === 'coulomb'){
+    const d = 2*P.mu*P.m*G/P.k;
+    rows.push(['Fricción μmg', (P.mu*P.m*G).toFixed(3) + ' N'], ['Pérdida de amplitud por ½ ciclo', d.toFixed(3) + ' m'], ['Zona de reposo |x| ≤ μmg/k', (d/2).toFixed(3) + ' m']);
+  }
+  $('facts').innerHTML = rows.map(([a,b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('');
+}
+function readouts(){
+  const s = S.v !== 0 ? Math.sign(S.v) : 0;
+  const a = S.stuck ? 0 : acc(S.x, S.v, s || Math.sign(-P.k*S.x));
+  $('rt').textContent = S.t.toFixed(2);
+  $('rx').textContent = fmt(S.x,3);
+  $('rv').textContent = fmt(S.v,3);
+  $('ra').textContent = fmt(a,3);
+  const {K,U} = energy(), tot = Math.max(E0, K+U+lost, 1e-9);
+  $('eK').style.width = (K/tot*100) + '%';
+  $('eU').style.width = (U/tot*100) + '%';
+  $('eL').style.width = (Math.max(0,lost)/tot*100) + '%';
+  $('lK').textContent = K.toFixed(3) + ' J';
+  $('lU').textContent = U.toFixed(3) + ' J';
+  $('lL').textContent = Math.max(0,lost).toFixed(3) + ' J';
+}
+function render(){ drawSim(); drawPlot($('px'), hist.x, yx, '--xc'); drawPlot($('pv'), hist.v, yv, '--vc'); readouts(); }
+
+const live = ['m','k','b','mu','speed'], init = ['x0','v0'];
+live.forEach(id => $(id).addEventListener('input', e => {
+  const old = energy().E;
+  P[id] = +e.target.value;
+  if (id === 'm' || id === 'k'){ E0 += energy().E - old; }  // cambio de parámetro no es disipación
+  checkStick(); syncLabels(); if (!running) render();
+}));
+init.forEach(id => $(id).addEventListener('input', e => { P[id] = +e.target.value; syncLabels(); reset(); lastRec = 0; render(); }));
+document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => { P.f = b.dataset.f; syncLabels(); checkStick(); if (!running) render(); }));
+$('play').addEventListener('click', () => { running = !running; $('play').textContent = running ? 'Pausar' : 'Reanudar'; last = performance.now(); });
+$('reset').addEventListener('click', () => { reset(); lastRec = 0; render(); });
+
+// arrastre del bloque
+function toX(ev){ const r = simC.getBoundingClientRect(), g = geom(r.width); return Math.max(-1, Math.min(1, (ev.clientX - r.left - g.cx)/g.ppm)); }
+simC.addEventListener('pointerdown', ev => {
+  const r = simC.getBoundingClientRect(), g = geom(r.width);
+  const bx = g.cx + S.x*g.ppm;
+  if (Math.abs(ev.clientX - r.left - bx) < g.bw*0.8){ dragging = true; simC.setPointerCapture(ev.pointerId); simC.style.cursor = 'grabbing'; }
+});
+simC.addEventListener('pointermove', ev => {
+  if (!dragging){ const r = simC.getBoundingClientRect(), g = geom(r.width); simC.style.cursor = Math.abs(ev.clientX - r.left - (g.cx + S.x*g.ppm)) < g.bw*0.8 ? 'grab' : 'default'; return; }
+  P.x0 = Math.round(toX(ev)*100)/100; P.v0 = 0; $('x0').value = P.x0; $('v0').value = 0; syncLabels(); reset(); lastRec = 0; render();
+});
+simC.addEventListener('pointerup', () => { dragging = false; simC.style.cursor = 'grab'; last = performance.now(); });
+
+let last = performance.now();
+function loop(now){
+  const dt = Math.min(0.05, (now - last)/1000); last = now;
+  if (running && !dragging){
+    let n = Math.round(dt*P.speed/H);
+    for (let i = 0; i < n; i++){ step(H); record(); }
+  }
+  render();
+  requestAnimationFrame(loop);
+}
+if (reduce){ P.speed = 0.5; $('speed').value = 0.5; }
+syncLabels(); reset(); render();
+requestAnimationFrame(loop);
+addEventListener('resize', render);
+})();
+</script>
+</body>
+</html>
