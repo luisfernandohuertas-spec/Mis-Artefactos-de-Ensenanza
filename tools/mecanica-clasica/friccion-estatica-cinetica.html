@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fricción estática y cinética</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:ital,wght@1,500&display=swap">
+<style>
+:root{
+  --bg:#EFF1EE; --panel:#FFFFFF; --ink:#1C2320; --muted:#5B6760; --line:#CDD5CF; --grid:#E3E8E4;
+  --fc:#B8422E; --Fc:#2B5FB8; --sc:#2F8A55; --kc:#C98A12; --block:#34423B; --floor:#8C7A62; --floor2:#C9B89C;
+  --nc:#6C7A72;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#101513; --panel:#18201C; --ink:#E3E9E5; --muted:#95A39B; --line:#2D3A33; --grid:#1F2924;
+    --fc:#FF7A62; --Fc:#6FA3FF; --sc:#5FCB8B; --kc:#F2B544; --block:#B8C8BF; --floor:#8F7D64; --floor2:#4E4435;
+    --nc:#8A9A91;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#101513; --panel:#18201C; --ink:#E3E9E5; --muted:#95A39B; --line:#2D3A33; --grid:#1F2924;
+  --fc:#FF7A62; --Fc:#6FA3FF; --sc:#5FCB8B; --kc:#F2B544; --block:#B8C8BF; --floor:#8F7D64; --floor2:#4E4435;
+  --nc:#8A9A91;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:14px;padding:20px 16px 32px}
+.wrap{max-width:1180px;margin:0 auto;display:grid;gap:16px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 24px}
+h1{margin:0;font-size:22px;font-weight:600;letter-spacing:-.01em;text-wrap:balance}
+.eq{font-family:"IBM Plex Serif",Georgia,serif;font-style:italic;font-size:16px;color:var(--muted)}
+.eq b{font-weight:500;color:var(--ink)}
+.layout{display:grid;grid-template-columns:300px 1fr;gap:16px;align-items:start}
+@media (max-width:860px){.layout{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px}
+.controls{padding:16px;display:grid;gap:14px}
+.group{display:grid;gap:10px}
+.group h2{margin:0;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.row{display:grid;gap:4px}
+.row label{display:flex;justify-content:space-between;gap:8px;font-size:13px}
+.row output{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--Fc)}
+.seg{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg button{border:0;background:transparent;color:var(--ink);font:inherit;font-size:12.5px;padding:7px 4px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--panel);font-weight:500}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.btn{flex:1;min-width:84px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:inherit;font-weight:500;padding:8px 10px;border-radius:7px;cursor:pointer}
+.btn.primary{background:var(--Fc);border-color:var(--Fc);color:#fff}
+.btn:focus-visible,.seg button:focus-visible,input:focus-visible{outline:2px solid var(--Fc);outline-offset:2px}
+hr{border:0;border-top:1px solid var(--line);margin:0}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px;margin:0}
+.facts dt{color:var(--muted)}
+.facts dd{margin:0;text-align:right;font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums}
+.note{font-size:12px;color:var(--muted);margin:0}
+.stage{display:grid;gap:16px}
+.sim{padding:12px 12px 10px;display:grid;gap:8px}
+.simtop{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:99px;font-size:12.5px;font-weight:500;border:1px solid currentColor}
+.pill::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}
+.sim canvas{display:block;width:100%;height:230px}
+.readouts{display:flex;flex-wrap:wrap;gap:6px 20px;font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;font-size:13px}
+.readouts i{font-style:normal;color:var(--muted)}
+.plot{padding:12px;display:grid;gap:8px}
+.plothead{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px}
+.plothead h3{margin:0;font-size:14px;font-weight:500}
+.plothead .seg{width:200px}
+.plot canvas{display:block;width:100%;height:300px}
+.legend{display:flex;flex-wrap:wrap;gap:4px 18px;font-size:12.5px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:18px;height:0;border-top:2.5px solid}
+.sw.d{border-top-style:dashed;border-top-width:2px}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>Fricción estática y cinética</h1>
+    <div class="eq" id="eqn"></div>
+  </header>
+
+  <div class="layout">
+    <aside class="card controls" aria-label="Parámetros">
+      <div class="group">
+        <h2>Bloque y superficie</h2>
+        <div class="row"><label for="m">Masa m <output id="mo"></output></label><input id="m" type="range" min="0.5" max="20" step="0.5" value="5"></div>
+        <div class="row"><label for="mus">Coef. estático μₛ <output id="muso"></output></label><input id="mus" type="range" min="0" max="1" step="0.01" value="0.5"></div>
+        <div class="row"><label for="muk">Coef. cinético μₖ <output id="muko"></output></label><input id="muk" type="range" min="0" max="1" step="0.01" value="0.3"></div>
+        <p class="note">μₖ no puede superar a μₛ; al mover uno se ajusta el otro.</p>
+      </div>
+      <hr>
+      <div class="group">
+        <h2>Fuerza aplicada F</h2>
+        <div class="seg" role="group" aria-label="Forma de aplicar la fuerza">
+          <button type="button" data-mode="ramp" aria-pressed="true">Creciente</button>
+          <button type="button" data-mode="const" aria-pressed="false">Constante</button>
+        </div>
+        <div id="rampBox" class="group">
+          <div class="row"><label for="rate">Ritmo de aumento <output id="rateo"></output></label><input id="rate" type="range" min="0.5" max="20" step="0.5" value="4"></div>
+          <div class="row"><label for="fmax">F máxima <output id="fmaxo"></output></label><input id="fmax" type="range" min="1" max="200" step="1" value="40"></div>
+        </div>
+        <div id="constBox" class="group" hidden>
+          <div class="row"><label for="fc">F <output id="fco"></output></label><input id="fc" type="range" min="0" max="200" step="0.5" value="30"></div>
+          <p class="note">Puedes cambiar F mientras corre la simulación.</p>
+        </div>
+      </div>
+      <hr>
+      <div class="group">
+        <div class="row"><label for="speed">Velocidad de reproducción <output id="speedo"></output></label><input id="speed" type="range" min="0.25" max="3" step="0.25" value="1"></div>
+        <div class="btns">
+          <button class="btn primary" id="play" type="button">Pausar</button>
+          <button class="btn" id="reset" type="button">Reiniciar</button>
+        </div>
+      </div>
+      <hr>
+      <dl class="facts" id="facts"></dl>
+    </aside>
+
+    <section class="stage">
+      <div class="card sim">
+        <div class="simtop">
+          <span class="pill" id="state"></span>
+          <div class="readouts">
+            <span><i>t</i> = <b id="rt"></b> s</span>
+            <span><i>F</i> = <b id="rF"></b> N</span>
+            <span><i>f</i> = <b id="rf"></b> N</span>
+            <span><i>a</i> = <b id="ra"></b> m/s²</span>
+            <span><i>v</i> = <b id="rv"></b> m/s</span>
+          </div>
+        </div>
+        <canvas id="sim" aria-label="Animación del bloque empujado sobre la superficie"></canvas>
+      </div>
+
+      <div class="card plot">
+        <div class="plothead">
+          <h3>Magnitud de la fuerza de fricción |f|</h3>
+          <div class="seg" role="group" aria-label="Eje horizontal">
+            <button type="button" data-ax="t" aria-pressed="true">vs tiempo</button>
+            <button type="button" data-ax="F" aria-pressed="false">vs F aplicada</button>
+          </div>
+        </div>
+        <canvas id="plot" aria-label="Gráfica de la magnitud de la fricción"></canvas>
+        <div class="legend">
+          <span><span class="sw" style="border-color:var(--fc)"></span>|f| fricción</span>
+          <span id="lgF"><span class="sw d" style="border-color:var(--Fc)"></span>F aplicada</span>
+          <span><span class="sw d" style="border-color:var(--sc)"></span>fₛ,máx = μₛN</span>
+          <span><span class="sw d" style="border-color:var(--kc)"></span>fₖ = μₖN</span>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+(() => {
+const G = 9.81, H = 0.001, PPM = 70;
+const $ = id => document.getElementById(id);
+const P = { m:5, mus:0.5, muk:0.3, mode:'ramp', rate:4, fmax:40, fc:30, speed:1 };
+let S, hist, running = true, ax = 't', lastRec = 0, camX = 0;
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const N = () => P.m*G, fsMax = () => P.mus*N(), fk = () => P.muk*N();
+const Fapp = t => P.mode === 'ramp' ? Math.min(P.rate*t, P.fmax) : P.fc;
+const tEnd = () => P.mode === 'ramp' ? P.fmax/P.rate + 4 : Infinity;
+
+function reset(){
+  S = { t:0, x:0, v:0, a:0, F:Fapp(0), f:0, moving:false, tBreak:null, FBreak:null };
+  evalStatic();
+  hist = { t:[0], F:[S.F], f:[S.f], v:[0] };
+  lastRec = 0; camX = 0;
+  if (!running) togglePlay();
+}
+function evalStatic(){
+  if (S.F > fsMax()){ S.moving = true; if (S.tBreak === null){ S.tBreak = S.t; S.FBreak = S.F; } }
+  if (!S.moving){ S.f = S.F; S.a = 0; S.v = 0; }
+}
+function step(h){
+  S.t += h; S.F = Fapp(S.t);
+  if (!S.moving){ evalStatic(); if (!S.moving) return; }
+  S.f = fk();
+  S.a = (S.F - S.f)/P.m;
+  let nv = S.v + S.a*h;
+  if (nv <= 0){ // se detiene: vuelve a régimen estático
+    nv = 0; S.moving = false;
+    S.x += S.v/2*h; S.v = 0;
+    S.f = Math.min(S.F, fsMax()); S.a = 0;
+    return;
+  }
+  S.x += (S.v + nv)/2*h; S.v = nv;
+}
+function record(force){
+  if (!force && S.t - lastRec < 0.01) return;
+  lastRec = S.t;
+  hist.t.push(S.t); hist.F.push(S.F); hist.f.push(S.f); hist.v.push(S.v);
+}
+
+/* ---------- dibujo ---------- */
+function fit(c){
+  const r = c.getBoundingClientRect(), d = devicePixelRatio || 1;
+  const W = Math.round(r.width*d), Hh = Math.round(r.height*d);
+  if (c.width !== W || c.height !== Hh){ c.width = W; c.height = Hh; }
+  const ctx = c.getContext('2d'); ctx.setTransform(d,0,0,d,0,0);
+  return { ctx, w:r.width, h:r.height };
+}
+function arrow(ctx, x1, y1, x2, y2, col, lab, labPos){
+  const dx = x2-x1, dy = y2-y1, L = Math.hypot(dx,dy); if (L < 4) return;
+  const ux = dx/L, uy = dy/L;
+  ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 3; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2-ux*9, y2-uy*9); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x2,y2); ctx.lineTo(x2-ux*11-uy*6, y2-uy*11+ux*6); ctx.lineTo(x2-ux*11+uy*6, y2-uy*11-ux*6); ctx.closePath(); ctx.fill();
+  if (lab){
+    ctx.font = 'italic 500 14px "IBM Plex Serif", Georgia, serif';
+    ctx.textAlign = labPos?.align || 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(lab, labPos?.x ?? x2, labPos?.y ?? y2);
+  }
+}
+function drawSim(){
+  const c = $('sim'), { ctx, w, h } = fit(c);
+  const floor = h - 48, bw = Math.min(110, w*0.2), bh = bw*0.62;
+  const home = Math.max(90, w*0.22);
+  // la cámara sigue al bloque cuando pasa del 45% del ancho
+  const target = Math.max(0, S.x*PPM - (w*0.45 - home));
+  camX = target;
+  const bx = home + S.x*PPM - camX, top = floor - bh;
+  const muted = css('--muted'), ink = css('--ink');
+  ctx.clearRect(0,0,w,h);
+
+  // superficie rugosa
+  ctx.fillStyle = css('--floor2'); ctx.fillRect(0, floor, w, 14);
+  ctx.strokeStyle = css('--floor'); ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(0, floor); ctx.lineTo(w, floor); ctx.stroke();
+  ctx.lineWidth = 1;
+  const off = camX % 8;
+  for (let x = -off; x < w+8; x += 8){ ctx.beginPath(); ctx.moveTo(x, floor+2); ctx.lineTo(x-6, floor+12); ctx.stroke(); }
+  // regla en metros
+  ctx.fillStyle = muted; ctx.strokeStyle = muted; ctx.font = '11px "IBM Plex Mono", monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  const m0 = Math.floor((camX - home)/PPM), m1 = Math.ceil((camX - home + w)/PPM);
+  for (let m = m0; m <= m1; m++){
+    const X = home + m*PPM - camX;
+    if (m < 0) continue;
+    ctx.beginPath(); ctx.moveTo(X, floor+16); ctx.lineTo(X, floor+22); ctx.stroke();
+    ctx.fillText(m + ' m', X, floor+26);
+  }
+  // marca de la posición inicial
+  const x0 = home - camX;
+  if (x0 > -5){ ctx.setLineDash([4,4]); ctx.strokeStyle = css('--line'); ctx.beginPath(); ctx.moveTo(x0, floor-bh-20); ctx.lineTo(x0, floor); ctx.stroke(); ctx.setLineDash([]); }
+
+  // bloque
+  ctx.fillStyle = css('--block');
+  ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx-bw/2, top, bw, bh, 5) : ctx.rect(bx-bw/2, top, bw, bh); ctx.fill();
+  ctx.fillStyle = css('--panel'); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = '500 14px "IBM Plex Mono", monospace';
+  ctx.fillText(P.m.toFixed(1) + ' kg', bx, top + bh/2);
+
+  // escala de flechas
+  const fscale = Math.min(1.6, (w*0.3) / Math.max(P.mode === 'ramp' ? P.fmax : P.fc, fsMax(), 1));
+  // F aplicada: empuja desde la izquierda
+  const lenF = S.F*fscale;
+  arrow(ctx, bx - bw/2 - lenF - 4, top + bh*0.45, bx - bw/2 - 4, top + bh*0.45, css('--Fc'), 'F', { x: bx - bw/2 - lenF - 10, y: top + bh*0.45, align:'right' });
+  // fricción: en la base, opuesta
+  const lenf = S.f*fscale;
+  if (lenf > 3) arrow(ctx, bx, floor-5, bx - lenf, floor-5, css('--fc'), 'f', { x: bx - lenf - 8, y: floor-12, align:'right' });
+  // N y mg (tamaño fijo, solo referencia)
+  const nl = Math.min(46, bh*0.8);
+  arrow(ctx, bx + bw*0.3, top, bx + bw*0.3, top - nl, css('--nc'), 'N', { x: bx + bw*0.3 + 12, y: top - nl + 6, align:'left' });
+  arrow(ctx, bx + bw*0.3, top + bh*0.2, bx + bw*0.3, top + bh*0.2 + nl, css('--nc'), '');
+  ctx.fillStyle = css('--nc'); ctx.font = 'italic 500 14px "IBM Plex Serif", Georgia, serif'; ctx.textAlign = 'left';
+  ctx.fillText('mg', bx + bw*0.3 + 8, top + bh*0.2 + nl - 4);
+
+  // velocidad
+  if (S.v > 0.01){
+    const vl = Math.min(90, 12 + S.v*14);
+    const vy = top - nl - 26;
+    arrow(ctx, bx - vl/2, vy, bx + vl/2, vy, ink, 'v', { x: bx + vl/2 + 8, y: vy, align:'left' });
+  }
+}
+
+function nice(range){
+  const raw = range/5, p = Math.pow(10, Math.floor(Math.log10(raw))), f = raw/p;
+  return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p;
+}
+function drawPlot(){
+  const c = $('plot'), { ctx, w, h } = fit(c);
+  const pl = 50, pr = 14, pt = 12, pb = 34, W = w-pl-pr, Hh = h-pt-pb;
+  const muted = css('--muted'), grid = css('--grid');
+  const Fref = P.mode === 'ramp' ? P.fmax : Math.max(P.fc, ...hist.F.slice(-1));
+  const ymax = Math.max(Fref, fsMax(), 1) * 1.12;
+  let xmax, xs, xlabel;
+  if (ax === 't'){
+    xmax = P.mode === 'ramp' ? tEnd() : Math.max(10, Math.ceil(S.t)); xs = hist.t; xlabel = 't (s)';
+  } else {
+    xmax = Math.max(Fref, fsMax(), 1) * 1.08; xs = hist.F; xlabel = 'F aplicada (N)';
+  }
+  const X = v => pl + v/xmax*W, Y = v => pt + Hh - v/ymax*Hh;
+  ctx.clearRect(0,0,w,h);
+  ctx.font = '11px "IBM Plex Mono", monospace'; ctx.lineWidth = 1;
+
+  const sy = nice(ymax), sx = nice(xmax);
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  for (let y = 0; y <= ymax + 1e-9; y += sy){
+    ctx.strokeStyle = y === 0 ? css('--line') : grid; ctx.lineWidth = y === 0 ? 1.5 : 1;
+    ctx.beginPath(); ctx.moveTo(pl, Y(y)); ctx.lineTo(w-pr, Y(y)); ctx.stroke();
+    ctx.fillStyle = muted; ctx.fillText(+y.toFixed(2) + '', pl-6, Y(y));
+  }
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (let x = 0; x <= xmax + 1e-9; x += sx){
+    ctx.strokeStyle = x === 0 ? css('--line') : grid; ctx.lineWidth = x === 0 ? 1.5 : 1;
+    ctx.beginPath(); ctx.moveTo(X(x), pt); ctx.lineTo(X(x), pt+Hh); ctx.stroke();
+    ctx.fillStyle = muted; ctx.fillText(+x.toFixed(2) + '', X(x), pt+Hh+6);
+  }
+  ctx.textAlign = 'right'; ctx.fillText(xlabel, w-pr, pt+Hh+20);
+  ctx.save(); ctx.translate(12, pt+Hh/2); ctx.rotate(-Math.PI/2); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('fuerza (N)', 0, 0); ctx.restore();
+
+  // líneas de referencia
+  const ref = (val, col, lab) => {
+    ctx.setLineDash([6,5]); ctx.strokeStyle = col; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(pl, Y(val)); ctx.lineTo(w-pr, Y(val)); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = col; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.font = '12px "IBM Plex Sans", sans-serif';
+    ctx.fillText(lab + ' = ' + val.toFixed(2) + ' N', w-pr-4, Y(val)-3);
+  };
+  ref(fsMax(), css('--sc'), 'μₛN');
+  ref(fk(), css('--kc'), 'μₖN');
+
+  ctx.save(); ctx.beginPath(); ctx.rect(pl, pt-2, W+2, Hh+4); ctx.clip();
+  const line = (xa, ya, col, dash, lw) => {
+    ctx.setLineDash(dash); ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    for (let i = 0; i < xa.length; i++){ const px = X(xa[i]), py = Y(ya[i]); i ? ctx.lineTo(px,py) : ctx.moveTo(px,py); }
+    ctx.stroke(); ctx.setLineDash([]);
+  };
+  if (ax === 't') line(xs, hist.F, css('--Fc'), [5,4], 1.8);
+  // área suave bajo |f|
+  ctx.globalAlpha = 0.1; ctx.fillStyle = css('--fc'); ctx.beginPath();
+  ctx.moveTo(X(xs[0]), Y(0));
+  for (let i = 0; i < xs.length; i++) ctx.lineTo(X(xs[i]), Y(hist.f[i]));
+  ctx.lineTo(X(xs[xs.length-1]), Y(0)); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
+  line(xs, hist.f, css('--fc'), [], 2.5);
+  // punto actual
+  const i = xs.length-1;
+  ctx.fillStyle = css('--fc'); ctx.beginPath(); ctx.arc(X(xs[i]), Y(hist.f[i]), 4, 0, 7); ctx.fill();
+  ctx.restore();
+
+  // marca de ruptura (inicio del deslizamiento)
+  if (S.tBreak !== null){
+    const bxv = ax === 't' ? S.tBreak : S.FBreak;
+    const px = X(bxv), py = Y(fsMax());
+    ctx.strokeStyle = css('--sc'); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(px, py, 6, 0, 7); ctx.stroke();
+    ctx.fillStyle = css('--ink'); ctx.font = '12px "IBM Plex Sans", sans-serif'; ctx.textBaseline = 'bottom';
+    const txt = ax === 't' ? `empieza a deslizar (t = ${S.tBreak.toFixed(2)} s)` : `empieza a deslizar (F = ${S.FBreak.toFixed(2)} N)`;
+    const tw = ctx.measureText(txt).width;
+    ctx.textAlign = px + 10 + tw > w - pr ? 'right' : 'left';
+    ctx.fillText(txt, ctx.textAlign === 'left' ? px + 10 : px - 10, py - 18);
+  }
+}
+
+/* ---------- UI ---------- */
+const f2 = v => v.toFixed(2);
+function sync(){
+  $('mo').textContent = P.m.toFixed(1) + ' kg';
+  $('muso').textContent = P.mus.toFixed(2);
+  $('muko').textContent = P.muk.toFixed(2);
+  $('rateo').textContent = P.rate.toFixed(1) + ' N/s';
+  $('fmaxo').textContent = P.fmax.toFixed(0) + ' N';
+  $('fco').textContent = P.fc.toFixed(1) + ' N';
+  $('speedo').textContent = P.speed.toFixed(2) + '×';
+  $('rampBox').hidden = P.mode !== 'ramp';
+  $('constBox').hidden = P.mode !== 'const';
+  document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === P.mode));
+  document.querySelectorAll('[data-ax]').forEach(b => b.setAttribute('aria-pressed', b.dataset.ax === ax));
+  $('lgF').hidden = ax !== 't';
+  const n = N();
+  $('facts').innerHTML = [
+    ['Normal N = mg', f2(n) + ' N'],
+    ['fₛ,máx = μₛN', f2(fsMax()) + ' N'],
+    ['fₖ = μₖN', f2(fk()) + ' N'],
+    ['a si desliza con F', P.mode === 'const' ? (P.fc > fsMax() ? f2((P.fc - fk())/P.m) + ' m/s²' : 'no desliza') : '(F − μₖN)/m'],
+  ].map(([a,b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('');
+  $('eqn').innerHTML = S && S.moving ? '<b>f</b> = μₖ<b>N</b> &nbsp;·&nbsp; <b>m</b>a = <b>F</b> − μₖ<b>N</b>' : '<b>f</b> = <b>F</b> ≤ μₛ<b>N</b> &nbsp;·&nbsp; a = 0';
+}
+function readouts(){
+  $('rt').textContent = S.t.toFixed(2);
+  $('rF').textContent = f2(S.F);
+  $('rf').textContent = f2(S.f);
+  $('ra').textContent = f2(S.a);
+  $('rv').textContent = f2(S.v);
+  const st = $('state');
+  if (S.moving){ st.textContent = 'Deslizando · fricción cinética'; st.style.color = css('--kc'); }
+  else { st.textContent = 'En reposo · fricción estática'; st.style.color = css('--sc'); }
+}
+let prevMoving = null;
+function render(){
+  drawSim(); drawPlot(); readouts();
+  if (prevMoving !== S.moving){ prevMoving = S.moving; sync(); }
+}
+function togglePlay(){ running = !running; $('play').textContent = running ? 'Pausar' : 'Reanudar'; last = performance.now(); }
+
+$('mus').addEventListener('input', e => { P.mus = +e.target.value; if (P.muk > P.mus){ P.muk = P.mus; $('muk').value = P.muk; } sync(); if (!S.moving && S.t === 0) reset(); render(); });
+$('muk').addEventListener('input', e => { P.muk = +e.target.value; if (P.muk > P.mus){ P.mus = P.muk; $('mus').value = P.mus; } sync(); render(); });
+$('m').addEventListener('input', e => { P.m = +e.target.value; sync(); render(); });
+['rate','fmax'].forEach(id => $(id).addEventListener('input', e => { P[id] = +e.target.value; sync(); reset(); render(); }));
+$('fc').addEventListener('input', e => { P.fc = +e.target.value; sync(); if (S.t === 0) reset(); render(); });
+$('speed').addEventListener('input', e => { P.speed = +e.target.value; sync(); });
+document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => { P.mode = b.dataset.mode; sync(); reset(); render(); }));
+document.querySelectorAll('[data-ax]').forEach(b => b.addEventListener('click', () => { ax = b.dataset.ax; sync(); render(); }));
+$('play').addEventListener('click', () => { if (S.t >= tEnd()) reset(); else togglePlay(); });
+$('reset').addEventListener('click', () => { reset(); render(); });
+
+let last = performance.now();
+function loop(now){
+  const dt = Math.min(0.05, (now - last)/1000); last = now;
+  if (running){
+    const n = Math.round(dt*P.speed/H);
+    for (let i = 0; i < n && S.t < tEnd(); i++){ step(H); record(); }
+    if (S.t >= tEnd()){ record(true); running = false; $('play').textContent = 'Repetir'; }
+  }
+  render();
+  requestAnimationFrame(loop);
+}
+if (matchMedia('(prefers-reduced-motion: reduce)').matches){ P.speed = 0.5; $('speed').value = 0.5; }
+reset(); sync(); render();
+requestAnimationFrame(loop);
+addEventListener('resize', render);
+})();
+</script>
+</body>
+</html>
