@@ -1,0 +1,378 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+</head><body>
+<title>Explorador de Gradientes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,500;7..72,600&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#EEF1F5; --surface:#FFFFFF; --surface-2:#F6F8FB; --ink:#141C28; --muted:#566275;
+  --line:#D5DCE6; --grad:#E0570F; --level:#1D2B44; --tangent:#7A8699; --focus:#2F6FB5;
+  --plot-grid:#E1E6EE;
+  --serif:"Literata",Georgia,"Times New Roman",serif;
+  --sans:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0E141C; --surface:#151E29; --surface-2:#1A2531; --ink:#E4E9F0; --muted:#98A4B5;
+    --line:#293646; --grad:#FF8A4C; --level:#F1F4F8; --tangent:#8C98AA; --focus:#7FB2EA;
+    --plot-grid:#243140;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0E141C; --surface:#151E29; --surface-2:#1A2531; --ink:#E4E9F0; --muted:#98A4B5;
+  --line:#293646; --grad:#FF8A4C; --level:#F1F4F8; --tangent:#8C98AA; --focus:#7FB2EA;
+  --plot-grid:#243140;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5;padding-inline:16px;padding-block:20px 40px}
+.wrap{max-width:1320px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 24px}
+h1{font-family:var(--serif);font-weight:600;font-size:clamp(1.5rem,2.6vw,2rem);margin:0;letter-spacing:-.01em;text-wrap:balance}
+h1 .nabla{color:var(--grad)}
+header p{margin:0;color:var(--muted);max-width:62ch}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:18px;align-items:start}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:18px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px)}
+@media (max-width:1000px){
+  .layout{grid-template-columns:1fr}
+  .panel{position:static;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px 24px}
+  .g-fn{grid-column:1/-1}
+}
+.group{display:flex;flex-direction:column;gap:8px;min-width:0}
+.label{font-size:11.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.fx{display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:0 10px}
+.fx span{font-family:var(--mono);color:var(--muted);font-size:13px;white-space:nowrap}
+.fx input{flex:1;min-width:0;border:0;background:transparent;color:var(--ink);font-family:var(--mono);font-size:15px;padding:10px 0;outline:none}
+.fx:focus-within{border-color:var(--focus);box-shadow:0 0 0 3px color-mix(in srgb,var(--focus) 22%,transparent)}
+.err{font-size:13px;color:#C92A2A}
+.err:empty{display:none}
+:root[data-theme="dark"] .err{color:#FF8787}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .err{color:#FF8787}}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.pt{display:grid;grid-template-columns:auto 1fr 70px;align-items:center;gap:8px 10px}
+.pt label{font-family:var(--mono);font-size:14px}
+input[type=range]{width:100%;min-width:0;accent-color:var(--grad)}
+input[type=number],select{width:100%;min-width:0;font-family:var(--mono);font-size:13.5px;color:var(--ink);background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:6px 6px}
+.dom{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 8px}
+.dom label{display:flex;flex-direction:column;gap:3px;font-family:var(--mono);font-size:12px;color:var(--muted)}
+.opts{display:flex;flex-direction:column;gap:7px;font-size:14px}
+.opts label{display:flex;align-items:center;gap:8px;cursor:pointer}
+.opts input[type=checkbox]{accent-color:var(--grad);width:16px;height:16px}
+.field{display:flex;flex-direction:column;gap:4px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px}
+.stage{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:inline-size}
+.results{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.stat{display:flex;flex-direction:column;gap:2px;padding:10px 14px;border-left:1px solid var(--line);min-width:0}
+.stat:first-child{border-left:0}
+.stat .k{color:var(--muted);font-family:var(--mono);font-size:12px;white-space:nowrap}
+.stat .v{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:15px;overflow-wrap:anywhere}
+.stat.big .v{color:var(--grad);font-weight:500}
+@container (max-width:720px){.results{grid-template-columns:repeat(3,minmax(0,1fr))}.stat:nth-child(4){border-left:0}.stat:nth-child(n+4){border-top:1px solid var(--line)}}
+.sym{font-family:var(--mono);font-size:12.5px;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 14px;display:flex;flex-wrap:wrap;gap:4px 28px;overflow-wrap:anywhere}
+.sym b{color:var(--ink);font-weight:500}
+.plots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+@container (max-width:820px){.plots{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 12px 6px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.card h2{font-family:var(--serif);font-weight:500;font-size:17px;margin:0 4px}
+.card .hint{font-size:12.5px;color:var(--muted);margin:0 4px}
+.plot{width:100%;height:clamp(380px,62vh,560px)}
+@media (max-width:600px){.plot{height:380px}}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12.5px;color:var(--muted);margin:2px 4px 6px}
+.legend i{display:inline-block;width:18px;height:0;border-top:3px solid;vertical-align:middle;margin-right:6px}
+.note{font-size:13px;color:var(--muted);max-width:80ch;margin:0}
+.note code{font-family:var(--mono);color:var(--ink)}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1><span class="nabla">∇</span>f · Explorador de Gradientes</h1>
+    <p>Escribe f(x, y), mueve el punto (x₀, y₀) y observa cómo el gradiente es perpendicular a la curva de nivel y apunta hacia el mayor ascenso.</p>
+  </header>
+
+  <div class="layout">
+    <main class="stage">
+      <div class="results" aria-live="polite">
+        <div class="stat"><span class="k">f(x₀,y₀)</span><span class="v" id="rf">—</span></div>
+        <div class="stat"><span class="k">∂f/∂x</span><span class="v" id="rfx">—</span></div>
+        <div class="stat"><span class="k">∂f/∂y</span><span class="v" id="rfy">—</span></div>
+        <div class="stat big"><span class="k">∇f(x₀,y₀)</span><span class="v" id="rg">—</span></div>
+        <div class="stat"><span class="k">‖∇f‖</span><span class="v" id="rn">—</span></div>
+        <div class="stat"><span class="k">dirección</span><span class="v" id="rang">—</span></div>
+      </div>
+      <div class="plots">
+        <section class="card">
+          <h2>Superficie z = f(x, y)</h2>
+          <p class="hint">Arrastra para rotar, rueda para acercar. Las curvas de nivel se proyectan en el piso.</p>
+          <div id="plot3d" class="plot"></div>
+          <div class="legend"><span><i style="border-color:var(--grad)"></i>∇f en el piso y dirección de ascenso sobre la superficie</span></div>
+        </section>
+        <section class="card">
+          <h2>Curvas de nivel y gradiente</h2>
+          <p class="hint">Haz clic en cualquier punto para mover (x₀, y₀).</p>
+          <div id="plot2d" class="plot"></div>
+          <div class="legend">
+            <span><i style="border-color:var(--grad)"></i>∇f(x₀,y₀)</span>
+            <span><i style="border-color:var(--level)"></i>curva f = f(x₀,y₀)</span>
+            <span><i style="border-color:var(--tangent);border-top-style:dashed"></i>recta tangente</span>
+          </div>
+        </section>
+      </div>
+      <div class="sym" id="sym"></div>
+    </main>
+
+    <aside class="panel" aria-label="Controles">
+      <div class="group g-fn">
+        <div class="label">Función</div>
+        <div class="fx"><span>f(x,y) =</span><input id="fexpr" type="text" spellcheck="false" autocomplete="off" value="x*exp(-x^2 - y^2)"></div>
+        <div class="err" id="err" role="status"></div>
+        <select id="presets" aria-label="Funciones de ejemplo"></select>
+      </div>
+
+      <div class="group">
+        <div class="label">Punto (x₀, y₀)</div>
+        <div class="pt">
+          <label for="x0r">x₀</label><input id="x0r" type="range" step="0.01"><input id="x0" type="number" step="0.1" aria-label="x₀">
+          <label for="y0r">y₀</label><input id="y0r" type="range" step="0.01"><input id="y0" type="number" step="0.1" aria-label="y₀">
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="label">Dominio</div>
+        <div class="dom">
+          <label>x mín<input id="xmin" type="number" step="0.5" value="-2"></label>
+          <label>x máx<input id="xmax" type="number" step="0.5" value="2"></label>
+          <label>y mín<input id="ymin" type="number" step="0.5" value="-2"></label>
+          <label>y máx<input id="ymax" type="number" step="0.5" value="2"></label>
+        </div>
+      </div>
+
+      <div class="group">
+        <div class="label">Mostrar</div>
+        <div class="opts">
+          <label><input type="checkbox" id="optField" checked> Campo de gradientes</label>
+          <label><input type="checkbox" id="optLevel" checked> Curva de nivel por (x₀, y₀)</label>
+          <label><input type="checkbox" id="optTan" checked> Recta tangente</label>
+          <label><input type="checkbox" id="optPlane"> Plano tangente (3D)</label>
+        </div>
+        <div class="row2">
+          <label class="field"><span class="label">Vector ∇f</span>
+            <select id="scaleMode"><option value="real">Real</option><option value="unit">Unitario</option></select></label>
+          <label class="field"><span class="label">Niveles</span>
+            <input id="nlev" type="number" min="4" max="40" step="1" value="16"></label>
+        </div>
+      </div>
+    </aside>
+  </div>
+  <p class="note">Sintaxis: <code>^</code> potencia, <code>*</code> producto (también <code>2x</code>), funciones <code>sin cos tan exp log sqrt abs atan2</code>, constantes <code>pi e</code>. Las derivadas parciales se calculan simbólicamente cuando es posible; si no, con diferencias centrales.</p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mathjs@13.2.0/lib/browser/math.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"></script>
+<script>
+(function(){
+const $ = id => document.getElementById(id);
+const PRESETS = [
+  "x*exp(-x^2 - y^2)", "x^2 + y^2", "x^2 - y^2", "sin(x)*cos(y)",
+  "x*y", "3*exp(-(x^2+y^2)) - x/2", "sin(x^2 + y^2)", "x^3 - 3x*y^2"
+];
+const COLORSCALE = [[0,"#2A2F6B"],[0.25,"#2D5E95"],[0.5,"#2F9A9C"],[0.75,"#8CCB93"],[1,"#F2E6A0"]];
+
+const state = { f:null, fx:null, fy:null, fxStr:"", fyStr:"", symbolic:false,
+  grid:null, x0:0.5, y0:0.5, dom:{xmin:-2,xmax:2,ymin:-2,ymax:2} };
+
+// presets
+const pc = $("presets");
+pc.innerHTML='<option value="">Ejemplos…</option>'+PRESETS.map(p=>'<option>'+p+'</option>').join("");
+pc.addEventListener("change",()=>{ if(!pc.value) return; $("fexpr").value=pc.value; pc.value=""; if(compile()) rebuild(); });
+
+function tok(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function fmt(v,d=4){ if(!isFinite(v)) return "indef."; const a=Math.abs(v); if(a!==0 && (a<1e-3||a>=1e5)) return v.toExponential(3); return (+v.toFixed(d)).toString(); }
+
+function compile(){
+  let s = $("fexpr").value.trim().replace(/^f\s*\(\s*x\s*,\s*y\s*\)\s*=\s*/i,"");
+  const err=$("err");
+  try{
+    const node = math.parse(s);
+    const code = node.compile();
+    const f = (x,y)=>{ const v=code.evaluate({x,y}); return (typeof v==="number")?v:(v&&typeof v.re==="number"&&Math.abs(v.im)<1e-12?v.re:NaN); };
+    const test = f(0.37,-0.41);
+    if(typeof test!=="number") throw new Error("La expresión debe depender solo de x e y.");
+    state.f=f; state.symbolic=false;
+    try{
+      const dx=math.simplify(math.derivative(node,"x")), dy=math.simplify(math.derivative(node,"y"));
+      const cx=dx.compile(), cy=dy.compile();
+      const wrap=c=>(x,y)=>{ const v=c.evaluate({x,y}); return typeof v==="number"?v:NaN; };
+      state.fx=wrap(cx); state.fy=wrap(cy); state.fxStr=dx.toString(); state.fyStr=dy.toString(); state.symbolic=true;
+      // sanity check vs numeric
+      const nx=numDx(f,0.37,-0.41); if(isFinite(nx) && isFinite(state.fx(0.37,-0.41)) && Math.abs(nx-state.fx(0.37,-0.41))>1e-3*(1+Math.abs(nx))) throw 0;
+    }catch(e){
+      state.fx=(x,y)=>numDx(f,x,y); state.fy=(x,y)=>numDy(f,x,y); state.fxStr="(diferencias centrales)"; state.fyStr="(diferencias centrales)"; state.symbolic=false;
+    }
+    err.textContent=""; state.expr=s; return true;
+  }catch(e){
+    err.textContent = "No pude interpretar la función: " + (e.message||e) + ". Revisa paréntesis y operadores.";
+    return false;
+  }
+}
+function numDx(f,x,y){ const h=1e-5*Math.max(1,Math.abs(x)); return (f(x+h,y)-f(x-h,y))/(2*h); }
+function numDy(f,x,y){ const h=1e-5*Math.max(1,Math.abs(y)); return (f(x,y+h)-f(x,y-h))/(2*h); }
+
+function readDomain(){
+  let d={xmin:+$("xmin").value,xmax:+$("xmax").value,ymin:+$("ymin").value,ymax:+$("ymax").value};
+  if(!(d.xmax>d.xmin)) { d.xmin=-2; d.xmax=2; }
+  if(!(d.ymax>d.ymin)) { d.ymin=-2; d.ymax=2; }
+  state.dom=d;
+  for(const [r,n,lo,hi] of [["x0r","x0",d.xmin,d.xmax],["y0r","y0",d.ymin,d.ymax]]){
+    $(r).min=lo; $(r).max=hi; $(n).min=lo; $(n).max=hi;
+  }
+  state.x0=Math.min(d.xmax,Math.max(d.xmin,state.x0)); state.y0=Math.min(d.ymax,Math.max(d.ymin,state.y0));
+  syncPoint();
+}
+function syncPoint(){ $("x0r").value=state.x0; $("y0r").value=state.y0; $("x0").value=+state.x0.toFixed(3); $("y0").value=+state.y0.toFixed(3); }
+
+function buildGrid(){
+  const {xmin,xmax,ymin,ymax}=state.dom, N=90;
+  const xs=[],ys=[],z=[],vals=[];
+  for(let i=0;i<N;i++){ xs.push(xmin+(xmax-xmin)*i/(N-1)); ys.push(ymin+(ymax-ymin)*i/(N-1)); }
+  for(let j=0;j<N;j++){ const row=[]; for(let i=0;i<N;i++){ let v=state.f(xs[i],ys[j]); if(!isFinite(v)) v=null; else vals.push(v); row.push(v);} z.push(row); }
+  vals.sort((a,b)=>a-b);
+  let lo=vals.length?vals[Math.floor(vals.length*0.02)]:-1, hi=vals.length?vals[Math.floor(vals.length*0.98)]:1;
+  const full=[vals[0],vals[vals.length-1]];
+  let span=hi-lo; if(!(span>0)){ span=Math.max(1,Math.abs(hi)); lo-=span/2; hi+=span/2; span=hi-lo; }
+  // clip extreme outliers (poles) so the view stays usable
+  const cl=lo-0.6*span, ch=hi+0.6*span;
+  let clipped=false;
+  const zc=z.map(r=>r.map(v=>{ if(v===null) return null; if(v<cl||v>ch){clipped=true; return null;} return v; }));
+  const zlo=clipped?cl:full[0], zhi=clipped?ch:full[1];
+  state.grid={xs,ys,z:zc,zlo,zhi};
+}
+
+function plotColors(){ return {ink:tok("--ink"),muted:tok("--muted"),grid:tok("--plot-grid"),line:tok("--line"),grad:tok("--grad"),level:tok("--level"),tan:tok("--tangent"),surf:tok("--surface")}; }
+
+function render(){
+  if(!state.grid) return;
+  const C=plotColors(), g=state.grid, d=state.dom;
+  const x0=state.x0, y0=state.y0, f0=state.f(x0,y0), gx=state.fx(x0,y0), gy=state.fy(x0,y0);
+  const nrm=Math.hypot(gx,gy);
+  const range=Math.min(d.xmax-d.xmin,d.ymax-d.ymin);
+  let s=1; const mode=$("scaleMode").value;
+  if(mode==="unit") s = nrm>0 ? 0.25*range/nrm : 0;
+  const ex=x0+s*gx, ey=y0+s*gy;
+  const nlev=Math.max(4,Math.min(40,+$("nlev").value||16));
+  const zspan=(g.zhi-g.zlo)||1;
+  const levSize=zspan/nlev;
+
+  // readout
+  $("rf").textContent=fmt(f0); $("rfx").textContent=fmt(gx); $("rfy").textContent=fmt(gy);
+  $("rg").textContent="⟨"+fmt(gx,3)+", "+fmt(gy,3)+"⟩"; $("rn").textContent=fmt(nrm);
+  $("rang").textContent = nrm>0 ? fmt(Math.atan2(gy,gx)*180/Math.PI,2)+"°" : "punto crítico";
+  $("sym").innerHTML = "<div><b>∂f/∂x</b> = "+esc(state.fxStr)+"</div><div><b>∂f/∂y</b> = "+esc(state.fyStr)+"</div>";
+
+  const font={family:'Figtree, system-ui, sans-serif',color:C.ink,size:12};
+
+  // ---------- 2D ----------
+  const tr2=[{type:"contour",x:g.xs,y:g.ys,z:g.z,colorscale:COLORSCALE,ncontours:nlev,
+      contours:{start:g.zlo,end:g.zhi,size:levSize,coloring:"heatmap",showlines:true},
+      line:{color:"rgba(0,0,0,0.25)",width:0.6},opacity:0.92,connectgaps:false,
+      colorbar:{thickness:10,len:0.9,tickfont:{color:C.muted,size:11},outlinewidth:0},
+      hovertemplate:"x=%{x:.3f}<br>y=%{y:.3f}<br>f=%{z:.4f}<extra></extra>"}];
+  if($("optLevel").checked && isFinite(f0)){
+    tr2.push({type:"contour",x:g.xs,y:g.ys,z:g.z,showscale:false,hoverinfo:"skip",
+      contours:{start:f0,end:f0,size:1,coloring:"none",showlabels:false},line:{color:C.level,width:3},connectgaps:false});
+  }
+  if($("optField").checked){
+    const M=13, xs=[], ys=[]; let maxn=0; const pts=[];
+    for(let i=0;i<M;i++)for(let j=0;j<M;j++){ const x=d.xmin+(d.xmax-d.xmin)*(i+0.5)/M, y=d.ymin+(d.ymax-d.ymin)*(j+0.5)/M;
+      const a=state.fx(x,y), b=state.fy(x,y); if(isFinite(a)&&isFinite(b)){ const n=Math.hypot(a,b); pts.push([x,y,a,b,n]); } }
+    const ns=pts.map(p=>p[4]).sort((a,b)=>a-b); maxn=ns[Math.floor(ns.length*0.9)]||1;
+    const L=0.8*(d.xmax-d.xmin)/M;
+    const fx=[],fy=[];
+    pts.forEach(([x,y,a,b,n])=>{ if(n===0) return; const k=L*Math.min(1,Math.sqrt(n/maxn))/n; const tx=x+a*k, ty=y+b*k;
+      const ang=Math.atan2(b,a), h=0.28*L*Math.min(1,Math.sqrt(n/maxn));
+      fx.push(x,tx,null, tx-h*Math.cos(ang-0.45),tx,tx-h*Math.cos(ang+0.45),null);
+      fy.push(y,ty,null, ty-h*Math.sin(ang-0.45),ty,ty-h*Math.sin(ang+0.45),null); });
+    tr2.push({type:"scatter",mode:"lines",x:fx,y:fy,line:{color:"rgba(255,255,255,0.75)",width:1.2},hoverinfo:"skip",showlegend:false});
+  }
+  if($("optTan").checked && nrm>0){
+    const tx=-gy/nrm, ty=gx/nrm, T=0.35*range;
+    tr2.push({type:"scatter",mode:"lines",x:[x0-T*tx,x0+T*tx],y:[y0-T*ty,y0+T*ty],line:{color:C.tan,width:2,dash:"dash"},hoverinfo:"skip",showlegend:false});
+  }
+  tr2.push({type:"scatter",mode:"markers",x:[x0],y:[y0],marker:{size:11,color:C.grad,line:{color:C.surf,width:2}},
+    hovertemplate:"(x₀, y₀) = (%{x:.3f}, %{y:.3f})<extra></extra>",showlegend:false});
+  const ann = (nrm>0 && s>0) ? [{x:ex,y:ey,ax:x0,ay:y0,xref:"x",yref:"y",axref:"x",ayref:"y",showarrow:true,arrowhead:2,arrowsize:1.3,arrowwidth:3,arrowcolor:C.grad,text:""},
+     {x:ex,y:ey,xref:"x",yref:"y",text:"∇f",showarrow:false,font:{color:C.grad,size:15,family:"Literata, serif"},xshift:12*Math.sign(gx||1),yshift:12*Math.sign(gy||1),bgcolor:C.surf,borderpad:2}] : [];
+  const lay2={margin:{l:44,r:10,t:10,b:36},paper_bgcolor:C.surf,plot_bgcolor:C.surf,font,
+    xaxis:{range:[d.xmin,d.xmax],gridcolor:C.grid,zeroline:false,title:{text:"x",font:{color:C.muted}},tickfont:{color:C.muted},constrain:"domain"},
+    yaxis:{range:[d.ymin,d.ymax],gridcolor:C.grid,zeroline:false,title:{text:"y",font:{color:C.muted}},tickfont:{color:C.muted},scaleanchor:"x",scaleratio:1},
+    annotations:ann,showlegend:false,dragmode:false,uirevision:"k"};
+  Plotly.react("plot2d",tr2,lay2,{displaylogo:false,responsive:true,modeBarButtonsToRemove:["select2d","lasso2d"]});
+
+  // ---------- 3D ----------
+  const zr=[g.zlo-0.35*zspan, g.zhi+0.05*zspan];
+  const floor=zr[0];
+  const tr3=[{type:"surface",x:g.xs,y:g.ys,z:g.z,colorscale:COLORSCALE,cmin:g.zlo,cmax:g.zhi,showscale:false,opacity:$("optPlane").checked?0.85:0.96,
+    contours:{z:{show:true,start:g.zlo,end:g.zhi,size:levSize,usecolormap:true,project:{z:true},width:2}},
+    lighting:{ambient:0.65,diffuse:0.6,specular:0.15,roughness:0.8},
+    hovertemplate:"x=%{x:.3f}<br>y=%{y:.3f}<br>z=%{z:.4f}<extra></extra>"}];
+  if(isFinite(f0)){
+    tr3.push({type:"scatter3d",mode:"markers",x:[x0],y:[y0],z:[f0],marker:{size:5,color:C.grad,line:{color:C.surf,width:1}},hoverinfo:"skip",showlegend:false});
+    tr3.push({type:"scatter3d",mode:"lines",x:[x0,x0],y:[y0,y0],z:[floor,f0],line:{color:C.muted,width:3,dash:"dash"},hoverinfo:"skip",showlegend:false});
+    if(nrm>0 && s>0){
+      // gradient on the floor (the true 2D vector)
+      tr3.push({type:"scatter3d",mode:"lines",x:[x0,ex],y:[y0,ey],z:[floor,floor],line:{color:C.grad,width:7},hoverinfo:"skip",showlegend:false});
+      // direction of steepest ascent lifted onto the tangent plane
+      const lz=f0+s*nrm*nrm;
+      tr3.push({type:"scatter3d",mode:"lines",x:[x0,ex],y:[y0,ey],z:[f0,lz],line:{color:C.grad,width:7},hoverinfo:"skip",showlegend:false});
+      // arrowheads drawn as line pairs (flat in the plane spanned by the arrow and the xy-perpendicular)
+      const px=-gy/nrm, py=gx/nrm, H=0.07*range, W=0.035*range;
+      const head=(tx,ty,tz,dx,dy,dz)=>{ const m=Math.hypot(dx,dy,dz*(range/zspan)); const ux=dx/m, uy=dy/m, uz=dz/m;
+        return {x:[tx-H*ux+W*px,tx,tx-H*ux-W*px],y:[ty-H*uy+W*py,ty,ty-H*uy-W*py],z:[tz-H*uz,tz,tz-H*uz]}; };
+      [head(ex,ey,floor,gx*s,gy*s,0), head(ex,ey,lz,gx*s,gy*s,s*nrm*nrm)].forEach(h=>
+        tr3.push({type:"scatter3d",mode:"lines",...h,line:{color:C.grad,width:7},hoverinfo:"skip",showlegend:false}));
+      tr3.push({type:"scatter3d",mode:"markers",x:[x0],y:[y0],z:[floor],marker:{size:4,color:C.grad},hoverinfo:"skip",showlegend:false});
+    }
+    if($("optPlane").checked && isFinite(gx)&&isFinite(gy)){
+      const P=0.3*range, px=[x0-P,x0+P], py=[y0-P,y0+P];
+      const pz=py.map(y=>px.map(x=>f0+gx*(x-x0)+gy*(y-y0)));
+      tr3.push({type:"surface",x:px,y:py,z:pz,showscale:false,opacity:0.55,colorscale:[[0,C.grad],[1,C.grad]],hoverinfo:"skip"});
+    }
+  }
+  const ax=(t)=>({title:{text:t,font:{color:C.muted}},gridcolor:C.grid,zerolinecolor:C.line,backgroundcolor:C.surf,showbackground:true,tickfont:{color:C.muted,size:10}});
+  const lay3={margin:{l:0,r:0,t:0,b:0},paper_bgcolor:C.surf,font,showlegend:false,uirevision:state.expr+JSON.stringify(d),
+    scene:{xaxis:{...ax("x"),range:[d.xmin,d.xmax]},yaxis:{...ax("y"),range:[d.ymin,d.ymax]},zaxis:{...ax("z"),range:zr},
+      aspectmode:"manual",aspectratio:{x:1,y:(d.ymax-d.ymin)/(d.xmax-d.xmin),z:0.75},camera:{eye:{x:1.55,y:-1.55,z:1.05}}}};
+  Plotly.react("plot3d",tr3,lay3,{displaylogo:false,responsive:true});
+}
+function esc(s){ return String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+
+function rebuild(){ readDomain(); buildGrid(); render(); }
+let raf=0; function schedule(){ cancelAnimationFrame(raf); raf=requestAnimationFrame(render); }
+
+// events
+let t=0;
+$("fexpr").addEventListener("input",()=>{ clearTimeout(t); t=setTimeout(()=>{ if(compile()) rebuild(); },350); });
+["xmin","xmax","ymin","ymax"].forEach(id=>$(id).addEventListener("change",rebuild));
+$("x0r").addEventListener("input",e=>{ state.x0=+e.target.value; syncPoint(); schedule(); });
+$("y0r").addEventListener("input",e=>{ state.y0=+e.target.value; syncPoint(); schedule(); });
+$("x0").addEventListener("change",e=>{ const v=+e.target.value; if(isFinite(v)){ state.x0=Math.min(state.dom.xmax,Math.max(state.dom.xmin,v)); } syncPoint(); schedule(); });
+$("y0").addEventListener("change",e=>{ const v=+e.target.value; if(isFinite(v)){ state.y0=Math.min(state.dom.ymax,Math.max(state.dom.ymin,v)); } syncPoint(); schedule(); });
+["optField","optLevel","optTan","optPlane","scaleMode"].forEach(id=>$(id).addEventListener("change",schedule));
+$("nlev").addEventListener("change",schedule);
+
+function init(){
+  if(!window.Plotly||!window.math){ $("err").textContent="No se pudieron cargar las librerías de gráficos. Recarga la página."; return; }
+  compile(); rebuild();
+  const bindClick=id=>$(id).on("plotly_click",ev=>{ const p=ev.points&&ev.points[0]; if(!p||typeof p.x!=="number"||typeof p.y!=="number") return;
+    state.x0=p.x; state.y0=p.y; syncPoint(); schedule(); });
+  bindClick("plot2d"); bindClick("plot3d");
+  // re-theme plots when the theme changes
+  new MutationObserver(schedule).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+  try{ matchMedia("(prefers-color-scheme: dark)").addEventListener("change",schedule); }catch(e){}
+}
+init();
+})();
+</script>
+</body></html>
