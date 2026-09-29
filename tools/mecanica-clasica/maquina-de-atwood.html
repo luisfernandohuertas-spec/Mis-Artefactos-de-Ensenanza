@@ -1,0 +1,439 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head><body>
+<title>Máquina de Atwood</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&family=Source+Sans+3:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Share+Tech+Mono&display=swap">
+<style>
+/* Layout: máquina de Atwood (animación) arriba a la izquierda con controles a la derecha; debajo, resultados, proceso de cálculo, registro temporal de N y T y tabla de mediciones. */
+:root{
+  --bg:#ECEFEC; --surface:#FFFFFF; --surface-2:#F4F6F4; --ink:#18201B; --muted:#58645C; --line:#D3DAD4; --focus:#2563EB;
+  --cN:#15803D; --cW:#C2410C; --cT:#1D4ED8; --cf:#7E22CE; --cF:#B45309;
+  --bench:#F7F8F5; --wood:#C9B79C; --wood-2:#B09A7A; --metal:#8A949C; --block1:#5B7A99; --block2:#8E6F5A; --rope:#3F3A33; --floor:#9AA39C;
+  --lcd:#0E1A13; --lcd-ink:#7CF2A6;
+  --display:"Archivo","Arial Narrow",system-ui,sans-serif;
+  --sans:"Source Sans 3",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  --lcdf:"Share Tech Mono","JetBrains Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0F1411; --surface:#161D19; --surface-2:#1C2520; --ink:#E3EAE5; --muted:#99A69E; --line:#2A352E; --focus:#7AA7FF;
+    --cN:#4ADE80; --cW:#FB923C; --cT:#60A5FA; --cf:#C084FC; --cF:#FBBF24;
+    --bench:#131A16; --wood:#6E6250; --wood-2:#5A4F40; --metal:#9AA4AC; --block1:#6F93B8; --block2:#A5846C; --rope:#D8CFC0; --floor:#56615A;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0F1411; --surface:#161D19; --surface-2:#1C2520; --ink:#E3EAE5; --muted:#99A69E; --line:#2A352E; --focus:#7AA7FF;
+  --cN:#4ADE80; --cW:#FB923C; --cT:#60A5FA; --cf:#C084FC; --cF:#FBBF24;
+  --bench:#131A16; --wood:#6E6250; --wood-2:#5A4F40; --metal:#9AA4AC; --block1:#6F93B8; --block2:#A5846C; --rope:#D8CFC0; --floor:#56615A;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15.5px;line-height:1.5;padding-inline:16px;padding-block:20px 40px}
+.wrap{max-width:1300px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:8px 28px}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(1.55rem,2.8vw,2.2rem);line-height:1.1;margin:0;letter-spacing:-.01em;text-wrap:balance}
+h1 em{font-style:normal;color:var(--cN)}
+header p{margin:0;color:var(--muted);max-width:62ch}
+.eqbox{font-family:var(--mono);font-size:14.5px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 14px}
+.eqbox b{color:var(--cN);font-weight:500}
+
+.top{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:18px;align-items:start}
+@media (max-width:980px){.top{grid-template-columns:1fr}}
+.stage{position:relative;background:var(--bench);border:1px solid var(--line);border-radius:12px;overflow:hidden;min-width:0;aspect-ratio:16/10;max-width:100%}
+@media (max-width:600px){.stage{aspect-ratio:3/4}}
+.stage canvas{display:block;width:100%;height:100%}
+.meters{position:absolute;left:12px;top:12px;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+@media (max-width:600px){.meters{flex-direction:row;flex-wrap:wrap;right:12px}.meter{min-width:0}.meter .mv{font-size:18px}}
+.meter{background:var(--lcd);border-radius:8px;padding:7px 12px 6px;min-width:150px;box-shadow:inset 0 0 0 2px rgba(124,242,166,.12)}
+.meter .ml{font-family:var(--sans);font-size:10.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:rgba(124,242,166,.65)}
+.meter .mv{font-family:var(--lcdf);font-size:26px;line-height:1.1;color:var(--lcd-ink);font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.meter .mv small{font-size:15px;margin-left:4px}
+.meter.small .mv{font-size:19px}
+.state{position:absolute;right:12px;top:12px;font-size:13px;font-weight:600;border-radius:999px;padding:4px 12px;background:var(--surface);border:1px solid var(--line)}
+.state[data-s="rest"]{color:var(--muted)}
+.state[data-s="up"],.state[data-s="down"]{color:var(--cT);border-color:var(--cT)}
+.state[data-s="lift"]{color:var(--cW);border-color:var(--cW)}
+.stagebar{position:absolute;left:12px;bottom:12px;display:flex;gap:8px;flex-wrap:wrap}
+.btn{font:inherit;font-size:14px;font-weight:600;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:7px 14px;cursor:pointer}
+.btn.primary{background:var(--cN);border-color:var(--cN);color:#fff}
+:root[data-theme="dark"] .btn.primary{color:#07130B}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .btn.primary{color:#07130B}}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn:focus-visible,input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:16px}
+@media (max-width:980px){.panel{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px 24px}}
+.group{display:flex;flex-direction:column;gap:7px;min-width:0}
+.label{font-size:11.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.ctl{display:grid;grid-template-columns:52px 1fr 80px;gap:8px;align-items:center;font-family:var(--mono);font-size:13.5px}
+.ctl label{white-space:nowrap}
+input[type=range]{width:100%;min-width:0;accent-color:var(--cN)}
+input[type=number],select{width:100%;min-width:0;font-family:var(--mono);font-size:13.5px;color:var(--ink);background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:5px 6px}
+.hint{font-size:12.5px;color:var(--muted);margin:0}
+.opts{display:flex;flex-direction:column;gap:6px;font-size:14px}
+.opts label{display:flex;align-items:center;gap:8px;cursor:pointer}
+.opts input{accent-color:var(--cN);width:16px;height:16px}
+
+.result{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.tile{background:var(--surface);padding:13px 16px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.tile .k{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:7px}
+.tile .k i{width:12px;height:3px;border-radius:2px;display:inline-block}
+.tile .v{font-family:var(--mono);font-size:20px;font-variant-numeric:tabular-nums}
+.tile.main .v{color:var(--cN);font-size:23px;font-weight:500}
+.tile .sub{font-size:12px;color:var(--muted)}
+
+.bottom{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:980px){.bottom{grid-template-columns:1fr}}
+.col{display:flex;flex-direction:column;gap:18px;min-width:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px 20px;min-width:0}
+.card h2{font-family:var(--display);font-weight:600;font-size:19px;margin:0 0 12px}
+ol.steps{list-style:none;margin:0;padding:0;counter-reset:st;display:flex;flex-direction:column}
+ol.steps li{counter-increment:st;display:grid;grid-template-columns:28px minmax(0,1fr);gap:4px 12px;padding:11px 0;border-top:1px dashed var(--line)}
+ol.steps li:first-child{border-top:0;padding-top:0}
+ol.steps li::before{content:counter(st);font-family:var(--mono);font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:50%;width:24px;height:24px;display:grid;place-items:center}
+.st-t{font-weight:600;font-size:14.5px}
+.math{grid-column:2;font-family:var(--mono);font-size:13.5px;line-height:1.8;overflow-x:auto;white-space:nowrap;padding-bottom:2px}
+.math .n{color:var(--cN);font-weight:500} .math .w{color:var(--cW)} .math .t{color:var(--cT)} .math .f{color:var(--cf)} .math .F{color:var(--cF)}
+.expl{grid-column:2;font-size:14px;color:var(--muted);margin:0;max-width:64ch}
+.verdict{grid-column:2;font-size:14px;font-weight:600}
+.chart{width:100%;height:auto;display:block}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--muted);margin-top:6px}
+.legend i{display:inline-block;width:16px;height:3px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.tbl{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{text-align:right;padding:7px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:12px;font-weight:600;color:var(--muted)}
+td{font-family:var(--mono);font-variant-numeric:tabular-nums}
+td.nn{color:var(--cN);font-weight:500}
+.empty{font-size:13.5px;color:var(--muted);margin:6px 0 0}
+.rowbtns{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+</style>
+<style>
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:3px;gap:3px}
+.seg button{font:inherit;font-size:13.5px;border:0;border-radius:6px;padding:7px 6px;background:transparent;color:var(--muted);cursor:pointer;line-height:1.25}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12);font-weight:600}
+.state{max-width:calc(100% - 200px)}
+</style>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Máquina de <em>Atwood</em></h1>
+      <p>Dos bloques, m₁ y m₂, cuelgan de una cuerda ideal que pasa por una polea sin masa ni fricción. En el modo «m₁ sobre la balanza», el bloque m₁ empieza apoyado en una balanza que mide la fuerza normal.</p>
+    </div>
+    <div class="eqbox">a = (m₂ − m₁)g / (m₁ + m₂) = <b id="eqA">—</b></div>
+  </header>
+
+  <div class="top">
+    <div class="stage">
+      <canvas id="cv" aria-label="Máquina de Atwood: polea en el techo, bloques m1 y m2 colgando, balanza bajo m1"></canvas>
+      <div class="meters" aria-live="polite">
+        <div class="meter"><div class="ml">Balanza · fuerza normal</div><div class="mv"><span id="lcdN">—</span><small>N</small></div><div class="ml" style="letter-spacing:.04em;text-transform:none">indica <span id="lcdKg">—</span> kg</div></div>
+        <div class="meter small"><div class="ml">Tensión de la cuerda</div><div class="mv"><span id="lcdT">—</span><small>N</small></div></div>
+        <div class="meter small"><div class="ml">Soporte de la polea</div><div class="mv"><span id="lcdS">—</span><small>N</small></div></div>
+        <div class="meter small"><div class="ml">Aceleración</div><div class="mv"><span id="lcdA">—</span><small>m/s²</small></div></div>
+      </div>
+      <div class="state" id="state" data-s="rest">—</div>
+      <div class="stagebar">
+        <button class="btn primary" id="go" type="button">Soltar</button>
+        <button class="btn" id="reset" type="button">Reiniciar</button>
+        <button class="btn" id="rec" type="button">Registrar medición</button>
+      </div>
+    </div>
+
+    <aside class="panel" aria-label="Controles">
+      <div class="group">
+        <div class="label">Montaje</div>
+        <div class="seg" role="group" aria-label="Montaje">
+          <button type="button" id="modeS" aria-pressed="true">m₁ sobre la balanza</button>
+          <button type="button" id="modeC" aria-pressed="false">Ambos colgando</button>
+        </div>
+        <p class="hint" id="modeHint"></p>
+      </div>
+      <div class="group">
+        <div class="label">Masas</div>
+        <div class="ctl"><label for="m1r">m₁ kg</label><input id="m1r" type="range" min="0.1" max="20" step="0.1" value="3"><input id="m1" type="number" min="0.1" step="0.1" value="3"></div>
+        <div class="ctl"><label for="m2r">m₂ kg</label><input id="m2r" type="range" min="0.1" max="20" step="0.1" value="2"><input id="m2" type="number" min="0.1" step="0.1" value="2"></div>
+      </div>
+      <div class="group">
+        <div class="label">Gravedad</div>
+        <select id="g" aria-label="Gravedad">
+          <option value="9.81" selected>Tierra · 9,81 m/s²</option>
+          <option value="1.62">Luna · 1,62 m/s²</option>
+          <option value="3.71">Marte · 3,71 m/s²</option>
+          <option value="24.79">Júpiter · 24,79 m/s²</option>
+        </select>
+      </div>
+      <div class="group">
+        <div class="label">Mostrar</div>
+        <div class="opts">
+          <label><input type="checkbox" id="oVec" checked> Vectores de fuerza</label>
+          <label><input type="checkbox" id="oLbl" checked> Valores en los vectores</label>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="result" aria-live="polite">
+    <div class="tile main"><span class="k"><i style="background:var(--cN)"></i>Fuerza normal sobre m₁</span><span class="v" id="tN">—</span><span class="sub" id="tNs">—</span></div>
+    <div class="tile"><span class="k"><i style="background:var(--cT)"></i>Tensión T</span><span class="v" id="tT">—</span><span class="sub" id="tTs">—</span></div>
+    <div class="tile"><span class="k">Aceleración a</span><span class="v" id="ta">—</span><span class="sub" id="tas">—</span></div>
+    <div class="tile"><span class="k"><i style="background:var(--cF)"></i>Soporte de la polea</span><span class="v" id="tS">—</span><span class="sub" id="tSs">—</span></div>
+    <div class="tile"><span class="k"><i style="background:var(--cW)"></i>Pesos</span><span class="v" id="tW">—</span><span class="sub">W₁ · W₂</span></div>
+  </div>
+
+  <div class="bottom">
+    <section class="card">
+      <h2>Proceso de cálculo</h2>
+      <ol class="steps" id="steps"></ol>
+    </section>
+    <div class="col">
+      <section class="card">
+        <h2>Lectura de la balanza y la tensión en el tiempo</h2>
+        <svg class="chart" id="chart" viewBox="0 0 440 250" role="img" aria-label="Fuerza normal y tensión en función del tiempo"></svg>
+        <div class="legend"><span><i style="background:var(--cN)"></i>Fuerza normal N</span><span><i style="background:var(--cT)"></i>Tensión T</span><span><i style="background:var(--muted);height:2px"></i>momento de soltar</span></div>
+        <p class="hint" style="margin-top:8px" id="chartHint">Pulsa «Soltar» para registrar las lecturas.</p>
+      </section>
+      <section class="card">
+        <h2>Registro de mediciones</h2>
+        <div class="rowbtns"><button class="btn" id="clear" type="button">Borrar registro</button></div>
+        <div class="tbl">
+          <table>
+            <thead><tr><th>#</th><th>Montaje</th><th>m₁</th><th>m₂</th><th>N</th><th>T</th><th>a</th><th>Soporte</th></tr></thead>
+            <tbody id="log"></tbody>
+          </table>
+        </div>
+        <p class="empty" id="logEmpty">Pulsa «Registrar medición» para guardar la lectura actual y comparar varios montajes.</p>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const P={m1:3,m2:2,g:9.81,mode:"S"};
+function fx(x,d=2){ if(!isFinite(x)) return "—"; const v=Math.abs(x)<5e-10?0:x; return v.toFixed(d).replace(".",",").replace("-","−"); }
+function fN(x){ return fx(x,2)+" N"; }
+const fr=(n,d)=>'<span style="display:inline-flex;flex-direction:column;vertical-align:middle;text-align:center;margin:0 4px"><span style="border-bottom:1px solid currentColor;padding:0 4px">'+n+'</span><span>'+d+'</span></span>';
+
+// ---------- controls ----------
+[["m1r","m1","m1"],["m2r","m2","m2"]].forEach(([r,n,k])=>{
+  $(r).addEventListener("input",()=>{ P[k]=+$(r).value; $(n).value=$(r).value; changed(); });
+  $(n).addEventListener("input",()=>{ const v=+$(n).value; if(!(v>0)) return; P[k]=v; $(r).value=v; changed(); });
+});
+$("g").addEventListener("change",()=>{ P.g=+$("g").value; changed(); });
+function setMode(m){ P.mode=m; $("modeS").setAttribute("aria-pressed",m==="S"); $("modeC").setAttribute("aria-pressed",m==="C"); changed(); }
+$("modeS").onclick=()=>setMode("S"); $("modeC").onclick=()=>setMode("C");
+function changed(){ reset(); update(); }
+
+// ---------- physics (after release) ----------
+// + direction: m₂ down / m₁ up
+function solve(){
+  const {m1,m2,g,mode}=P, W1=m1*g, W2=m2*g;
+  let a,T,N,state;
+  if(mode==="S" && m2<=m1){ a=0; T=W2; N=W1-T; state="rest"; }
+  else { a=(m2-m1)*g/(m1+m2); T=2*m1*m2*g/(m1+m2); N= mode==="S"?0:NaN; state= a>0?"m2down":(a<0?"m1down":"eq"); }
+  return {W1,W2,a,T,N,S:2*T,state};
+}
+// what the instruments read before release (a hand holds m₂; in classic mode both blocks are held)
+function held(){ const {m1,g,mode}=P; return {a:0,T:0,N:mode==="S"?m1*g:NaN,S:0}; }
+
+// ---------- simulation ----------
+const TOP=2.0, BLK=0.22;               // pulley height (m), block size (m)
+let sim, trace=[], R={};
+function reset(){
+  const cS=P.mode==="S";
+  sim={y1:cS?0:0.75, y2:cS?1.35:0.75, v:0, t:0, released:false, running:false, ended:false};
+  const N0=cS?P.m1*P.g:NaN; trace=[[-0.5,N0,0],[0,N0,0]]; tPre=0; $("go").textContent="Soltar"; drawChart();
+}
+let tPre=0;
+$("go").onclick=()=>{ if(sim.ended){ reset(); } if(!sim.released){ sim.released=true; sim.t=0; } sim.running=!sim.running; $("go").textContent=sim.running?"Pausar":"Soltar"; };
+$("reset").onclick=()=>{ reset(); update(); };
+
+function update(){
+  R=solve(); const r=R, {m1,m2,g}=P, cS=P.mode==="S";
+  $("eqA").textContent=fx(Math.abs(r.a),3)+" m/s²";
+  $("modeHint").textContent= cS ? "m₁ descansa sobre una balanza y una mano sostiene m₂. Al soltar, m₁ solo se levanta si m₂ > m₁." : "Los dos bloques cuelgan libres; el más pesado baja. Aquí no hay fuerza normal sobre m₁.";
+  const st=$("state");
+  if(r.state==="rest"){ st.dataset.s="rest"; st.textContent="Al soltar: m₁ sigue apoyado (m₂ ≤ m₁)"; }
+  else if(r.state==="m2down"){ st.dataset.s="up"; st.textContent="Al soltar: m₂ baja y m₁ sube"; }
+  else if(r.state==="m1down"){ st.dataset.s="down"; st.textContent="Al soltar: m₁ baja y m₂ sube"; }
+  else { st.dataset.s="rest"; st.textContent="Al soltar: masas iguales, quedan en equilibrio"; }
+  $("tN").textContent= cS?fN(r.N):"no hay contacto";
+  $("tNs").textContent= cS ? (r.state==="rest"?"N = (m₁ − m₂)g · la balanza indica "+fx(r.N/g,2)+" kg":"m₁ se despega: la balanza indica 0 kg") : "m₁ cuelga libre";
+  $("tT").textContent=fN(r.T); $("tTs").textContent= r.state==="rest"?"T = m₂g":"T = 2m₁m₂g/(m₁+m₂)";
+  $("ta").textContent=fx(Math.abs(r.a),3)+" m/s²"; $("tas").textContent= r.a===0?"sin movimiento":(r.a>0?"m₂ baja":"m₁ baja");
+  $("tS").textContent=fN(r.S); $("tSs").textContent="2T · peso total "+fx((m1+m2)*g)+" N";
+  $("tW").textContent=fx(r.W1,1)+" · "+fx(r.W2,1)+" N";
+  renderSteps(r); drawChart();
+}
+
+function renderSteps(r){
+  const {m1,m2,g}=P, cS=P.mode==="S", s=[];
+  s.push(["Datos del montaje",'m₁ = '+fx(m1)+' kg · m₂ = '+fx(m2)+' kg · g = '+fx(g)+' m/s²',
+    "Cuerda ideal (sin masa, inextensible) y polea sin masa ni fricción: la tensión es la misma a ambos lados y los bloques tienen aceleraciones de igual magnitud y sentido opuesto."]);
+  s.push(["Pesos",'<span class="w">W₁ = m₁g</span> = '+fx(m1)+' × '+fx(g)+' = <span class="w">'+fN(r.W1)+'</span> &nbsp;·&nbsp; <span class="w">W₂ = m₂g</span> = '+fx(m2)+' × '+fx(g)+' = <span class="w">'+fN(r.W2)+'</span>',null]);
+  if(cS){
+    s.push(["Antes de soltar",'<span class="t">T</span> = 0 &nbsp;⇒&nbsp; <span class="n">N</span> = m₁g = <span class="n">'+fN(r.W1)+'</span>',
+      "Una mano sostiene m₂, así que la cuerda no tira de m₁ y la balanza marca todo su peso."]);
+    s.push(["¿Se levanta m₁ al soltar?",'Compara m₂ = '+fx(m2)+' kg con m₁ = '+fx(m1)+' kg',null,
+      m2<=m1?"m₂ ≤ m₁ ⇒ la tensión no alcanza para levantar m₁: el sistema queda en reposo.":"m₂ > m₁ ⇒ la tensión supera el peso de m₁: m₁ se despega de la balanza y el sistema acelera."]);
+  }
+  if(r.state==="rest" && cS){
+    s.push(["Equilibrio de m₂ (ΣF = 0)",'<span class="t">T</span> − m₂g = 0 &nbsp;⇒&nbsp; <span class="t">T</span> = m₂g = <span class="t">'+fN(r.T)+'</span>',"m₂ cuelga quieto, así que la tensión iguala su peso."]);
+    s.push(["Equilibrio de m₁ (ΣF = 0)",'<span class="n">N</span> + <span class="t">T</span> − m₁g = 0 &nbsp;⇒&nbsp; <span class="n">N</span> = m₁g − T = (m₁ − m₂)g = ('+fx(m1)+' − '+fx(m2)+') × '+fx(g)+' = <span class="n">'+fN(r.N)+'</span>',
+      "La cuerda sostiene parte del peso de m₁; la balanza sostiene el resto. Es la lectura de la balanza."]);
+  } else {
+    s.push(["2.ª ley de Newton para cada bloque",'m₂:&nbsp; m₂g − <span class="t">T</span> = m₂a &nbsp;&nbsp;&nbsp; m₁:&nbsp; <span class="t">T</span> − m₁g = m₁a',
+      "Se toma como positivo el sentido en que m₂ baja y m₁ sube."]);
+    s.push(["Sumar las dos ecuaciones y despejar a",'a = '+fr('(m₂ − m₁)g','m₁ + m₂')+' = '+fr('('+fx(m2)+' − '+fx(m1)+') × '+fx(g),fx(m1+m2))+' = '+fx(r.a,3)+' m/s²',
+      r.a>0?"a > 0: m₂ baja y m₁ sube.":r.a<0?"a < 0: m₁ baja y m₂ sube.":"a = 0: masas iguales, el sistema no acelera."]);
+    s.push(["Tensión",'<span class="t">T</span> = m₁(g + a) = '+fx(m1)+' × ('+fx(g)+' + '+fx(r.a,3)+') = <span class="t">'+fN(r.T)+'</span> &nbsp;= '+fr('2m₁m₂g','m₁ + m₂'),
+      "La tensión queda entre los dos pesos: mayor que el peso del bloque que sube y menor que el del que baja."]);
+    if(cS) s.push(["Fuerza normal después de soltar",'<span class="n">N = 0</span>',"m₁ ya no toca la balanza, así que marca cero."]);
+  }
+  s.push(["Fuerza sobre el soporte de la polea",'S = 2T = 2 × '+fx(r.T)+' = '+fN(r.S)+' &nbsp;(peso total: '+fN(r.W1+r.W2)+')',
+    r.a!==0?"El soporte sostiene menos que el peso total porque el sistema acelera: el bloque que baja no está completamente sostenido.":"En reposo, el soporte y la balanza juntos sostienen el peso total: 2T + N = (m₁ + m₂)g."]);
+  $("steps").innerHTML=s.map(x=>'<li><span class="st-t">'+x[0]+'</span><div class="math">'+x[1]+'</div>'+(x[3]?'<p class="verdict">'+x[3]+'</p>':'')+(x[2]?'<p class="expl">'+x[2]+'</p>':'')+'</li>').join("");
+}
+
+// ---------- time chart ----------
+function drawChart(){
+  const svg=$("chart"), W=440, H=250, L=52, Rr=14, T=14, B=36, TM=3;
+  const ymax=Math.max(P.m1*P.g, R.T||0, 1)*1.15;
+  const X=t=>L+(W-L-Rr)*(t+0.5)/(TM+0.5), Y=v=>H-B-(H-B-T)*v/ymax;
+  let tick=Math.pow(10,Math.floor(Math.log10(ymax))); if(ymax/tick<3) tick/=2; if(ymax/tick>7) tick*=2;
+  let g='';
+  for(let v=0; v<=ymax+1e-9; v+=tick){ g+='<line x1="'+L+'" x2="'+(W-Rr)+'" y1="'+Y(v)+'" y2="'+Y(v)+'" stroke="var(--line)"/><text x="'+(L-6)+'" y="'+(Y(v)+4)+'" text-anchor="end" font-size="11" fill="var(--muted)" font-family="JetBrains Mono, monospace">'+fx(v,tick<1?1:0)+'</text>'; }
+  for(let t=0;t<=TM;t+=0.5){ g+='<text x="'+X(t)+'" y="'+(H-B+16)+'" text-anchor="middle" font-size="11" fill="var(--muted)" font-family="JetBrains Mono, monospace">'+fx(t,1)+'</text>'; }
+  g+='<text x="'+((L+W-Rr)/2)+'" y="'+(H-4)+'" text-anchor="middle" font-size="12" fill="var(--muted)">tiempo desde que se suelta (s)</text>';
+  g+='<text x="12" y="'+((T+H-B)/2)+'" text-anchor="middle" font-size="12" fill="var(--muted)" transform="rotate(-90 12 '+((T+H-B)/2)+')">Fuerza (N)</text>';
+  g+='<line x1="'+X(0)+'" x2="'+X(0)+'" y1="'+T+'" y2="'+(H-B)+'" stroke="var(--muted)" stroke-dasharray="4 4"/>';
+  const pts=trace.filter(p=>p[0]<=TM);
+  if(pts.length>1){
+    const path=(i)=>pts.filter(p=>isFinite(p[i])).map((p,j)=>(j?"L":"M")+X(p[0]).toFixed(1)+","+Y(p[i]).toFixed(1)).join("");
+    g+='<path d="'+path(2)+'" fill="none" stroke="var(--cT)" stroke-width="2.5"/>';
+    if(P.mode==="S") g+='<path d="'+path(1)+'" fill="none" stroke="var(--cN)" stroke-width="2.5"/>';
+    const lastp=pts[pts.length-1];
+    if(P.mode==="S") g+='<circle cx="'+X(lastp[0])+'" cy="'+Y(lastp[1])+'" r="4.5" fill="var(--cN)" stroke="var(--surface)" stroke-width="2"/>';
+    g+='<circle cx="'+X(lastp[0])+'" cy="'+Y(lastp[2])+'" r="4.5" fill="var(--cT)" stroke="var(--surface)" stroke-width="2"/>';
+    if(sim.released) $("chartHint").textContent = P.mode==="S" ? "Al soltar, N cae de m₁g a "+fx(R.N,2)+" N y T sube de 0 a "+fx(R.T,2)+" N." : "Al soltar, T pasa de 0 a "+fx(R.T,2)+" N y se mantiene constante mientras los bloques se mueven.";
+      else $("chartHint").textContent="Antes de soltar: "+(P.mode==="S"?"N = m₁g y ":"")+"T = 0. Pulsa «Soltar» para registrar las lecturas.";
+  }
+  g+='<line x1="'+L+'" x2="'+(W-Rr)+'" y1="'+(H-B)+'" y2="'+(H-B)+'" stroke="var(--muted)"/>';
+  svg.innerHTML=g;
+}
+
+// ---------- log ----------
+let logN=0;
+$("rec").onclick=()=>{ const r=live(); logN++; const tr=document.createElement("tr");
+  tr.innerHTML='<td>'+logN+'</td><td style="text-align:left">'+(P.mode==="S"?"balanza":"colgando")+(sim.released?"":" · antes de soltar")+'</td><td>'+fx(P.m1,1)+'</td><td>'+fx(P.m2,1)+'</td><td class="nn">'+(isFinite(r.N)?fx(r.N):"—")+'</td><td>'+fx(r.T)+'</td><td>'+fx(r.a,3)+'</td><td>'+fx(r.S)+'</td>';
+  $("log").appendChild(tr); $("logEmpty").hidden=true; };
+$("clear").onclick=()=>{ $("log").innerHTML=""; logN=0; $("logEmpty").hidden=false; };
+function live(){ return sim.released?R:held(); }
+
+// ---------- drawing ----------
+const cv=$("cv"), ctx=cv.getContext("2d");
+let W=0,H=0,C={};
+function readColors(){ const cs=getComputedStyle(document.documentElement); ["bench","wood","wood-2","metal","block1","block2","rope","floor","ink","muted","cN","cW","cT","cf","cF","surface","line"].forEach(k=>C[k]=cs.getPropertyValue("--"+k).trim()); }
+function resize(){ const bx=cv.getBoundingClientRect(), dpr=Math.min(2,devicePixelRatio||1); W=bx.width; H=bx.height; cv.width=W*dpr; cv.height=H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0); }
+new ResizeObserver(resize).observe(cv);
+new MutationObserver(readColors).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+try{ matchMedia("(prefers-color-scheme: dark)").addEventListener("change",readColors); }catch(e){}
+readColors();
+function arrow(x1,y1,x2,y2,col,w=3){ const len=Math.hypot(x2-x1,y2-y1); if(len<3) return; const ang=Math.atan2(y2-y1,x2-x1), h=Math.min(12,Math.max(7,len*0.35));
+  ctx.strokeStyle=col; ctx.fillStyle=col; ctx.lineWidth=w; ctx.lineCap="round";
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2-h*0.7*Math.cos(ang),y2-h*0.7*Math.sin(ang)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x2,y2); ctx.lineTo(x2-h*Math.cos(ang-0.42),y2-h*Math.sin(ang-0.42)); ctx.lineTo(x2-h*Math.cos(ang+0.42),y2-h*Math.sin(ang+0.42)); ctx.closePath(); ctx.fill(); }
+function tag(txt,x,y,col,align){ ctx.font="600 12px 'Source Sans 3', system-ui, sans-serif"; const w=ctx.measureText(txt).width+10;
+  let xx = align==="r"? x : align==="l"? x-w : x-w/2; xx=Math.max(4,Math.min(W-w-4,xx)); const yy=Math.max(4,Math.min(H-22,y-9));
+  ctx.fillStyle=C.surface; ctx.globalAlpha=0.92; ctx.beginPath(); ctx.roundRect(xx,yy,w,18,5); ctx.fill(); ctx.globalAlpha=1;
+  ctx.fillStyle=col; ctx.textBaseline="middle"; ctx.fillText(txt,xx+5,yy+9.5); }
+
+let last=performance.now(), traceT=0;
+function frame(now){
+  const dt=Math.min(0.033,(now-last)/1000); last=now;
+  if(!W){ requestAnimationFrame(frame); return; }
+  const cS=P.mode==="S";
+  // --- physics step
+  if(sim.running){
+    const r=R; sim.t+=dt;
+    if(r.state!=="rest"){ sim.v+=r.a*dt; const dy=sim.v*dt; sim.y2-=dy; sim.y1+=dy; }
+    const maxY=TOP-0.28-BLK;
+    if(sim.y1<0||sim.y2<0||sim.y1>maxY||sim.y2>maxY){ sim.y1=Math.min(maxY,Math.max(0,sim.y1)); sim.y2=Math.min(maxY,Math.max(0,sim.y2)); sim.running=false; sim.ended=true; $("go").textContent="Repetir"; }
+    if(sim.t<=3.2){ trace.push([sim.t,r.N,r.T]); if(now-traceT>60){ traceT=now; drawChart(); } }
+  }
+  const rv=live();
+  $("lcdN").textContent=isFinite(rv.N)?fx(rv.N,2):"—"; $("lcdKg").textContent=isFinite(rv.N)?fx(rv.N/P.g,2):"—"; $("lcdT").textContent=fx(rv.T,2); $("lcdS").textContent=fx(rv.S,2); $("lcdA").textContent=sim.released?fx(Math.abs(rv.a),2):fx(0,2);
+
+  // --- geometry
+  const floorY=H-30, ceilY=18;
+  const sc=(floorY-ceilY-10)/(TOP+0.12);            // px per metre
+  const pr=Math.max(26,Math.min(40,W*0.035));
+  const px=Math.max(W*0.6, 230+pr+60), py=ceilY+18+pr;
+  const xL=px-pr, xR=px+pr;
+  const bs1=Math.max(34,Math.min(70,38*Math.cbrt(P.m1/2))), bs2=Math.max(34,Math.min(70,38*Math.cbrt(P.m2/2)));
+  const plate=cS?38:0;
+  const b1y=floorY-plate-sim.y1*sc, b2y=floorY-sim.y2*sc;   // bottom edges
+
+  ctx.fillStyle=C.bench; ctx.fillRect(0,0,W,H);
+  // ceiling & floor
+  ctx.fillStyle=C.wood; ctx.fillRect(px-110,ceilY-10,220,12);
+  ctx.fillStyle=C.floor; ctx.fillRect(0,floorY,W,2);
+  // ruler
+  ctx.strokeStyle=C.muted; ctx.fillStyle=C.muted; ctx.lineWidth=1; ctx.font="11px 'JetBrains Mono', monospace"; ctx.textBaseline="middle";
+  const rx=px+pr+90;
+  if(rx<W-30){ ctx.beginPath(); ctx.moveTo(rx,floorY); ctx.lineTo(rx,floorY-1.8*sc); ctx.stroke();
+    for(let m=0;m<=1.8001;m+=0.2){ const y=floorY-m*sc; ctx.beginPath(); ctx.moveTo(rx,y); ctx.lineTo(rx+(Math.round(m*10)%10===0?10:5),y); ctx.stroke(); if(Math.round(m*10)%5===0) ctx.fillText(fx(m,1)+" m",rx+14,y); } }
+  // hanger + pulley
+  ctx.strokeStyle=C.metal; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(px,ceilY); ctx.lineTo(px,py); ctx.stroke();
+  // rope
+  ctx.strokeStyle=C.rope; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(xL,b1y-bs1); ctx.lineTo(xL,py); ctx.arc(px,py,pr,Math.PI,0,false); ctx.lineTo(xR,b2y-bs2); ctx.stroke();
+  ctx.fillStyle=C.surface; ctx.strokeStyle=C.metal; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(px,py,pr-2,0,Math.PI*2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=C.metal; ctx.beginPath(); ctx.arc(px,py,4,0,Math.PI*2); ctx.fill();
+  // scale (balanza) under m₁
+  if(cS){
+    const sw=Math.max(bs1+60,120), sx0=xL-sw/2, sy0=floorY-plate;
+    ctx.fillStyle=C.ink; ctx.globalAlpha=.85; ctx.beginPath(); ctx.roundRect(sx0,sy0+6,sw,plate-6,6); ctx.fill(); ctx.globalAlpha=1;
+    ctx.fillStyle=C.metal; ctx.beginPath(); ctx.roundRect(sx0-4,sy0,sw+8,7,3); ctx.fill();
+    ctx.fillStyle="#2a2f2c"; ctx.fillRect(sx0+10,floorY-3,10,3); ctx.fillRect(sx0+sw-20,floorY-3,10,3);
+    const rv2=live(), kg=isFinite(rv2.N)?rv2.N/P.g:0;
+    const lw=Math.min(sw-24,96), lx=xL-lw/2, ly=sy0+11;
+    ctx.fillStyle="#0E1A13"; ctx.beginPath(); ctx.roundRect(lx,ly,lw,plate-16,3); ctx.fill();
+    ctx.fillStyle="#7CF2A6"; ctx.font="16px 'Share Tech Mono', 'JetBrains Mono', monospace"; ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.fillText(fx(kg,2)+" kg", xL, ly+(plate-16)/2+1); ctx.textAlign="start";
+    ctx.fillStyle=C.muted; ctx.font="600 11px 'Source Sans 3', sans-serif"; ctx.textBaseline="middle";
+    ctx.fillText("balanza", sx0+sw+8, sy0+plate/2);
+  }
+  // hand holding m₂ before release
+  if(!sim.released){ ctx.strokeStyle=C.muted; ctx.lineWidth=2; ctx.setLineDash([4,4]); ctx.beginPath(); ctx.moveTo(xR+bs2/2+4,b2y-bs2/2); ctx.lineTo(xR+bs2/2+36,b2y-bs2/2); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle=C.muted; ctx.font="12px 'Source Sans 3', sans-serif"; ctx.fillText(cS?"sostenido":"sostenidos",xR+bs2/2+40,b2y-bs2/2); }
+  // blocks
+  ctx.fillStyle=C.block1; ctx.beginPath(); ctx.roundRect(xL-bs1/2,b1y-bs1,bs1,bs1,3); ctx.fill();
+  ctx.fillStyle=C.block2; ctx.beginPath(); ctx.roundRect(xR-bs2/2,b2y-bs2,bs2,bs2,3); ctx.fill();
+  ctx.fillStyle="#fff"; ctx.font="700 14px 'Archivo', sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.fillText("m₁",xL,b1y-bs1/2); ctx.fillText("m₂",xR,b2y-bs2/2); ctx.textAlign="start";
+
+  // --- vectors
+  if($("oVec").checked){
+    const r=rv, maxF=Math.max(P.m1*P.g,P.m2*P.g,r.T,isFinite(r.N)?r.N:0,1e-6);
+    const k=Math.min(110,Math.max(60,H*0.2))/maxF, lbl=$("oLbl").checked;
+    const c1={x:xL,y:b1y-bs1/2}, c2={x:xR,y:b2y-bs2/2};
+    const o1=c1.x-bs1/2-12, o2=c2.x+bs2/2+12;
+    arrow(o1,c1.y,o1,c1.y+P.m1*P.g*k,C.cW,3); if(lbl) tag("W₁ = "+fx(P.m1*P.g,1)+" N",o1-6,c1.y+P.m1*P.g*k*0.75,C.cW,"l");
+    if(r.T>0){ arrow(o1,c1.y,o1,c1.y-r.T*k,C.cT,3); if(lbl) tag("T = "+fx(r.T,1)+" N",o1-6,c1.y-r.T*k*0.7,C.cT,"l"); }
+    if(isFinite(r.N) && r.N>0){ const ox=c1.x; arrow(ox,b1y,ox,b1y-r.N*k,C.cN,3.6); if(lbl) tag("N = "+fx(r.N,1)+" N",ox+8,b1y-r.N*k-4,C.cN,"r"); }
+    arrow(o2,c2.y,o2,c2.y+P.m2*P.g*k,C.cW,3); if(lbl) tag("W₂ = "+fx(P.m2*P.g,1)+" N",o2+6,c2.y+P.m2*P.g*k*0.75,C.cW,"r");
+    if(r.T>0){ arrow(o2,c2.y,o2,c2.y-r.T*k,C.cT,3); if(lbl) tag("T",o2+6,c2.y-r.T*k*0.7,C.cT,"r"); }
+  }
+  requestAnimationFrame(frame);
+}
+
+reset(); update(); resize();
+requestAnimationFrame(t=>{ last=t; frame(t); });
+})();
+</script>
+</body></html>
