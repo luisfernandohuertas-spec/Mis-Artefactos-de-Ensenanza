@@ -1,0 +1,655 @@
+<title>Ondas sonoras esféricas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..800&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: laboratorio oscuro — escena 3D a la izquierda (arriba en móvil), banco de instrumentos a la derecha */
+:root{
+  --bg:#090d12;
+  --panel:#101720;
+  --panel-2:#142030;
+  --line:#22303f;
+  --fg:#e5ecf3;
+  --muted:#8c9cb0;
+  --warm:#ffb347;   /* compresión */
+  --cool:#4fb4ff;   /* rarefacción */
+  --rest:#56677c;   /* medio en reposo */
+  --font-display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--bg);color:var(--fg)}
+body{font-family:var(--font-display);font-size:15px;line-height:1.5}
+.app{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;padding-inline:16px;padding-block:16px;max-width:1500px;margin:0 auto}
+@media(min-width:960px){
+  html,body{height:100%}
+  .app{grid-template-columns:minmax(0,1fr) 370px;height:100%;box-sizing:border-box}
+  .stage{height:100%;min-height:0}
+  .panel{overflow-y:auto;min-height:0}
+}
+.stage{position:relative;border-radius:14px;overflow:hidden;background:radial-gradient(120% 90% at 50% 45%,#0f1a26 0%,var(--bg) 70%);border:1px solid var(--line);height:62svh;min-height:340px}
+#gl{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.hud-top{position:absolute;top:12px;left:14px;right:14px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;pointer-events:none}
+.legend{display:flex;gap:14px;font-family:var(--font-mono);font-size:11.5px;color:var(--muted);background:rgba(9,13,18,.72);padding:6px 10px;border-radius:8px;border:1px solid var(--line)}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.slow{font-family:var(--font-mono);font-size:11.5px;color:var(--muted);background:rgba(9,13,18,.72);padding:6px 10px;border-radius:8px;border:1px solid var(--line)}
+.hud-bottom{position:absolute;left:12px;right:12px;bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--line);background:rgba(16,23,32,.88);color:var(--fg);padding:9px 14px;font-weight:600;font-size:14px}
+button:hover{border-color:var(--muted)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--warm);outline-offset:2px}
+#btnSound{background:var(--warm);color:#1a1205;border-color:var(--warm);font-weight:700}
+#btnSound.on{background:transparent;color:var(--warm)}
+.hint{margin-left:auto;font-family:var(--font-mono);font-size:11px;color:var(--muted)}
+@media(max-width:560px){.hint{display:none}}
+
+.panel{display:flex;flex-direction:column;gap:14px;min-width:0}
+header h1{font-stretch:78%;font-weight:800;font-size:28px;line-height:1.05;letter-spacing:-.01em;margin:0;text-wrap:balance}
+header p{margin:8px 0 0;color:var(--muted);font-size:14px;max-width:62ch}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:12px}
+.box h2{margin:0;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.ctl{display:flex;flex-direction:column;gap:6px}
+.ctl .row{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.ctl label{font-weight:600;font-size:14px}
+.ctl output{font-family:var(--font-mono);font-size:13px;color:var(--warm);font-variant-numeric:tabular-nums;white-space:nowrap}
+input[type=range]{width:100%;accent-color:var(--warm)}
+select{font:inherit;background:var(--panel-2);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:7px 10px;width:100%}
+.presets{display:flex;gap:6px;flex-wrap:wrap}
+.presets button{padding:5px 10px;font-size:12px;font-family:var(--font-mono);font-weight:500;background:var(--panel-2)}
+.seg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.seg button{padding:8px 10px;font-size:13.5px;font-weight:600;background:var(--panel-2);text-align:left;display:flex;flex-direction:column;gap:2px}
+.seg button small{font-family:var(--font-mono);font-weight:400;font-size:11px;color:var(--muted)}
+.seg button[aria-pressed="true"]{border-color:var(--warm);box-shadow:inset 0 0 0 1px var(--warm)}
+.seg button[aria-pressed="true"] small{color:var(--warm)}
+#spec{width:100%;height:110px;display:block}
+#btnStrike{border-color:var(--warm);color:var(--warm)}
+.check{display:flex;gap:8px;align-items:center;font-size:14px}
+.check input{accent-color:var(--warm);width:16px;height:16px}
+
+.readout{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
+.readout div{display:flex;flex-direction:column;gap:1px;min-width:0}
+.readout span{font-size:11.5px;color:var(--muted)}
+.readout b{font-family:var(--font-mono);font-weight:500;font-size:15px;font-variant-numeric:tabular-nums}
+.readout b sup{font-size:.68em}
+.readout .big b{color:var(--warm);font-size:19px}
+#strip{width:100%;height:110px;display:block}
+.note{font-size:12.5px;color:var(--muted);margin:0}
+.eq{font-family:var(--font-mono);font-size:12.5px;display:grid;grid-template-columns:auto 1fr;gap:4px 12px;color:var(--fg)}
+.eq span:nth-child(even){color:var(--muted)}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+
+<div class="app">
+  <section class="stage" aria-label="Simulación 3D de ondas sonoras esféricas">
+    <canvas id="gl"></canvas>
+    <div class="hud-top">
+      <div class="legend"><span><i style="background:var(--warm)"></i>compresión</span><span><i style="background:var(--cool)"></i>rarefacción</span><span><i style="background:var(--rest)"></i>en reposo</span></div>
+      <div class="slow" id="slowTxt">Cámara lenta ×700</div>
+    </div>
+    <div class="hud-bottom">
+      <button id="btnSound" type="button">▶ Encender sonido</button>
+      <button id="btnStrike" type="button" hidden>Golpear</button>
+      <button id="btnPause" type="button">Pausar</button>
+      <button id="btnReset" type="button">Reiniciar emisión</button>
+      <span class="hint">Arrastra para girar · rueda o pellizco para acercar</span>
+    </div>
+  </section>
+
+  <aside class="panel">
+    <header>
+      <h1>Ondas sonoras esféricas</h1>
+      <p>Una fuente comprime y expande el medio. La perturbación viaja en todas direcciones como esferas concéntricas. Se quitó un octante para ver el interior.</p>
+    </header>
+
+    <div class="box">
+      <h2>Fuente</h2>
+      <div class="ctl">
+        <label id="instLbl">Instrumento</label>
+        <div class="seg" role="group" aria-labelledby="instLbl">
+          <button type="button" data-inst="pure" aria-pressed="true">Fuente puntual<small>tono puro</small></button>
+          <button type="button" data-inst="fork" aria-pressed="false">Diapasón<small>La₄ · 440 Hz</small></button>
+          <button type="button" data-inst="string" aria-pressed="false">Cuerda<small>sonómetro · Sol₃</small></button>
+          <button type="button" data-inst="violin" aria-pressed="false">Violín<small>cuerda La · arco</small></button>
+        </div>
+        <p class="note" id="instNote"></p>
+      </div>
+      <div class="ctl">
+        <div class="row"><label for="freq">Frecuencia</label><output id="freqOut"></output></div>
+        <input id="freq" type="range" min="0" max="1000" step="1">
+        <div class="presets">
+          <button type="button" data-f="131">Do₃ 131</button>
+          <button type="button" data-f="262">Do₄ 262</button>
+          <button type="button" data-f="440">La₄ 440</button>
+          <button type="button" data-f="1000">1000</button>
+        </div>
+      </div>
+      <div class="ctl">
+        <div class="row"><label for="power">Potencia acústica</label><output id="powerOut"></output></div>
+        <input id="power" type="range" min="-6" max="0" step="0.05">
+      </div>
+    </div>
+
+    <div class="box">
+      <h2>Medio</h2>
+      <div class="ctl">
+        <label for="medium">Material</label>
+        <select id="medium">
+          <option value="air">Aire</option>
+          <option value="he">Helio</option>
+          <option value="water">Agua</option>
+          <option value="steel">Acero</option>
+          <option value="al">Aluminio</option>
+        </select>
+      </div>
+      <div class="ctl">
+        <div class="row"><label for="temp">Temperatura</label><output id="tempOut"></output></div>
+        <input id="temp" type="range" min="-20" max="100" step="1">
+      </div>
+      <p class="note" id="mediumNote"></p>
+    </div>
+
+    <div class="box">
+      <h2>Micrófono</h2>
+      <div class="ctl">
+        <div class="row"><label for="probe">Distancia a la fuente r</label><output id="probeOut"></output></div>
+        <input id="probe" type="range" min="0.25" max="2.5" step="0.05">
+      </div>
+      <p class="note">El sonido que escuchas tiene el nivel que mide el micrófono (punto blanco).</p>
+      <div class="readout">
+        <div class="big"><span>Intensidad I(r)</span><b id="rI"></b></div>
+        <div class="big"><span>Nivel β(r)</span><b id="rB"></b></div>
+      </div>
+    </div>
+
+    <div class="box">
+      <h2>Magnitudes</h2>
+      <div class="readout">
+        <div><span>Rapidez v</span><b id="rV"></b></div>
+        <div><span>Longitud de onda λ</span><b id="rL"></b></div>
+        <div><span>Periodo T</span><b id="rT"></b></div>
+        <div><span>Número de onda k</span><b id="rK"></b></div>
+        <div><span>Nivel a 1 m</span><b id="rB1"></b></div>
+        <div><span>Frentes visibles</span><b id="rN"></b></div>
+      </div>
+    </div>
+
+    <div class="box">
+      <h2>Presión a lo largo de un radio</h2>
+      <canvas id="strip"></canvas>
+      <p class="note">La amplitud cae como 1/r y la intensidad como 1/r², porque la misma potencia se reparte sobre una esfera de área 4πr².</p>
+    </div>
+
+    <div class="box">
+      <h2>Timbre · espectro de armónicos</h2>
+      <canvas id="spec"></canvas>
+      <p class="note">Con la misma nota fundamental, cada fuente mezcla armónicos (2f, 3f, 4f…) en proporciones distintas. Esa mezcla es el timbre, y cambia la forma de la onda de presión de arriba.</p>
+    </div>
+
+    <div class="box">
+      <h2>Ecuaciones</h2>
+      <div class="eq">
+        <span>v = λ·f</span><span>relación fundamental</span>
+        <span>v = √(γRT/M)</span><span>gas ideal</span>
+        <span>I = P / 4πr²</span><span>onda esférica</span>
+        <span>β = 10·log(I/I₀)</span><span>I₀ = 10⁻¹² W/m²</span>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function(){
+const SLOW = 700;           // factor de cámara lenta
+const R_MAX = 2.5;          // radio del dominio (m)
+const I0 = 1e-12;
+const reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const css = getComputedStyle(document.documentElement);
+const tok = n => css.getPropertyValue(n).trim();
+const C = {warm:tok('--warm'),cool:tok('--cool'),rest:tok('--rest'),fg:tok('--fg'),muted:tok('--muted'),line:tok('--line')};
+
+/* ---------- Estado ---------- */
+const S = {f:440, P:1e-3, medium:'air', T:20, r:1.0, front:1.6, playing:!reduced, sound:false, inst:'pure'};
+
+/* ---------- Instrumentos y timbre ---------- */
+const NH=10;
+function harmonics(inst,f){
+  const a=new Array(NH).fill(0);
+  if(inst==='pure'||inst==='fork'){ a[0]=1; }
+  else if(inst==='string'){ const b=0.18; for(let n=1;n<=NH;n++) a[n-1]=Math.abs(Math.sin(n*Math.PI*b))/(n*n); }
+  else if(inst==='violin'){
+    for(let n=1;n<=NH;n++){
+      const L=Math.log2(n*f);
+      const w=0.6+1.1*Math.exp(-Math.pow(L-Math.log2(450),2)/0.5)+1.3*Math.exp(-Math.pow(L-Math.log2(2800),2)/0.35);
+      a[n-1]=w/n;
+    }
+  }
+  const s=a.reduce((x,y)=>x+y,0); return a.map(x=>x/s);
+}
+const INST={
+  pure:  {f:440, mode:'sustain', strike:'',
+          note:'Esfera pulsante ideal: emite una sola frecuencia (onda sinusoidal) por igual en todas direcciones.'},
+  fork:  {f:440, mode:'strike', tau:()=>3.2, repeat:4500, strike:'Golpear diapasón',
+          note:'Las dos ramas vibran en oposición. Casi toda la energía está en la fundamental; el «clang» agudo del golpe (≈ 6,3 f, no armónico) se apaga en décimas de segundo. Modelo ampliado.'},
+  string:{f:196, mode:'strike', tau:n=>1.8/(1+0.45*(n-1)), repeat:2800, strike:'Pulsar cuerda',
+          note:'Cuerda tensa pulsada cerca de un extremo: vibra a la vez en sus modos fₙ = n·v/2L. Los armónicos altos se apagan antes. Sola, una cuerda radia poco; en un instrumento la caja de resonancia acopla la vibración al aire.'},
+  violin:{f:440, mode:'sustain', strike:'',
+          note:'El arco mantiene la cuerda vibrando (movimiento de Helmholtz, casi diente de sierra) y la caja refuerza algunas frecuencias. Vibrato ≈ 5,5 Hz. Cerca del violín la radiación no es esférica; lejos se aproxima a una esfera.'}
+};
+
+const MEDIA = {
+  air:  {name:'Aire', v:T=>Math.sqrt(1.4*8.314*(T+273.15)/0.02897),
+         note:'En un gas la rapidez crece con la temperatura: v ≈ 331 + 0,6·T m/s.'},
+  he:   {name:'Helio', v:T=>Math.sqrt((5/3)*8.314*(T+273.15)/0.004),
+         note:'Gas muy liviano (M = 4 g/mol): el sonido viaja casi 3 veces más rápido que en el aire.'},
+  water:{name:'Agua', v:T=>1402.4+5.04*T-0.0581*T*T,
+         note:'En el agua el módulo volumétrico es enorme comparado con su densidad: v ≈ 1480 m/s a 20 °C.'},
+  steel:{name:'Acero', v:T=>5960*(1-1.0e-4*(T-20)),
+         note:'En los metales la rapidez baja levemente al calentarse (≈ −0,01 %/°C, valor aproximado). Con la misma f, λ es unas 17 veces mayor que en el aire.'},
+  al:   {name:'Aluminio', v:T=>6420*(1-1.5e-4*(T-20)),
+         note:'Metal rígido y liviano: unos 6400 m/s. Al calentarse, el módulo elástico cae y la rapidez disminuye un poco (valor aproximado).'}
+};
+
+/* ---------- Formato ---------- */
+const fmt=(x,d)=>x.toLocaleString('es-CO',{minimumFractionDigits:d,maximumFractionDigits:d});
+function sci(x){const e=Math.floor(Math.log10(x));const m=x/Math.pow(10,e);return fmt(m,2)+' × 10<sup>'+(e<0?'−'+(-e):e)+'</sup>';}
+function wattsTxt(P){ if(P>=1) return fmt(P,2)+' W'; if(P>=1e-3) return fmt(P*1e3,P>=1e-2?0:1)+' mW'; return fmt(P*1e6,P>=1e-5?0:1)+' µW'; }
+
+/* ---------- Three.js ---------- */
+const canvas=document.getElementById('gl');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+renderer.localClippingEnabled=true;
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(45,1,0.05,100);
+camera.position.set(4.6,3.3,5.6);
+const controls=new THREE.OrbitControls(camera,canvas);
+controls.enableDamping=true; controls.minDistance=2; controls.maxDistance=14; controls.enablePan=false;
+
+// Partículas del medio: retícula con jitter, sin el octante x>0,y>0,z>0
+const pts=[]; const step=0.1;
+for(let x=-R_MAX;x<=R_MAX;x+=step)for(let y=-R_MAX;y<=R_MAX;y+=step)for(let z=-R_MAX;z<=R_MAX;z+=step){
+  const px=x+(Math.random()-.5)*step*.8, py=y+(Math.random()-.5)*step*.8, pz=z+(Math.random()-.5)*step*.8;
+  const r=Math.hypot(px,py,pz); if(r>R_MAX) continue;
+  if(px>0&&py>0&&pz>0) continue;
+  pts.push(px,py,pz);
+}
+const geo=new THREE.BufferGeometry();
+geo.setAttribute('position',new THREE.Float32BufferAttribute(pts,3));
+const U={uH:{value:[1,0,0,0,0,0,0,0,0,0]},uK:{value:1},uFront:{value:1},uAmp:{value:.05},uGain:{value:1},uScale:{value:400},uSize:{value:.04},
+  uWarm:{value:new THREE.Color(C.warm)},uCool:{value:new THREE.Color(C.cool)},uRest:{value:new THREE.Color(C.rest)}};
+const mat=new THREE.ShaderMaterial({uniforms:U,transparent:true,depthWrite:false,
+vertexShader:`
+uniform float uK,uFront,uAmp,uScale,uSize;
+uniform float uH[10];
+varying float vP; varying float vA; varying float vOn;
+void main(){
+  vec3 p=position; float r=length(p);
+  vec3 dir = r>1e-4 ? p/r : vec3(0.0);
+  float on = 1.0 - smoothstep(uFront-0.03, uFront+0.03, r);
+  float ph = uK*(r-uFront);
+  float att = 0.4/max(r,0.4);
+  float pr=0.0, dx=0.0;
+  for(int i=0;i<10;i++){ float n=float(i+1); pr+=uH[i]*cos(n*ph); dx+=uH[i]*sin(n*ph)/n; }
+  p += dir * (-uAmp*dx*att*on);
+  vP = pr; vA = att; vOn = on;
+  vec4 mv = modelViewMatrix*vec4(p,1.0);
+  gl_PointSize = uSize*uScale*(1.0+0.7*on*att*max(vP,0.0))/(-mv.z);
+  gl_Position = projectionMatrix*mv;
+}`,
+fragmentShader:`
+uniform vec3 uWarm,uCool,uRest; uniform float uGain;
+varying float vP; varying float vA; varying float vOn;
+void main(){
+  float d=length(gl_PointCoord-0.5); if(d>0.5) discard;
+  float soft=smoothstep(0.5,0.12,d);
+  float e=clamp(vA*abs(vP)*uGain*1.6,0.0,1.0)*vOn;
+  vec3 wave=mix(uCool,uWarm,0.5+0.5*vP);
+  vec3 col=mix(uRest,wave,clamp(e+0.25*vOn,0.0,1.0));
+  float a=soft*(0.16+0.75*e);
+  gl_FragColor=vec4(col,a);
+}`});
+scene.add(new THREE.Points(geo,mat));
+
+// Cascarones esféricos en las compresiones
+const clip=[new THREE.Plane(new THREE.Vector3(-1,0,0),0),new THREE.Plane(new THREE.Vector3(0,-1,0),0),new THREE.Plane(new THREE.Vector3(0,0,-1),0)];
+const shellGeo=new THREE.SphereGeometry(1,48,24);
+const shells=[];
+for(let i=0;i<20;i++){
+  const m=new THREE.MeshBasicMaterial({color:new THREE.Color(C.warm),transparent:true,opacity:.1,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,clippingPlanes:clip,clipIntersection:true});
+  const mesh=new THREE.Mesh(shellGeo,m); mesh.visible=false; scene.add(mesh); shells.push(mesh);
+}
+const wireMat=new THREE.MeshBasicMaterial({color:new THREE.Color(C.warm),wireframe:true,transparent:true,opacity:.25,depthWrite:false,clippingPlanes:clip,clipIntersection:true});
+const frontMesh=new THREE.Mesh(new THREE.SphereGeometry(1,32,16),wireMat); scene.add(frontMesh);
+
+// Luces (solo afectan a los instrumentos)
+scene.add(new THREE.AmbientLight(0xffffff,0.55));
+const sun=new THREE.DirectionalLight(0xffffff,0.95); sun.position.set(3,5,4); scene.add(sun);
+const rim=new THREE.DirectionalLight(0x88bbff,0.35); rim.position.set(-4,1,-3); scene.add(rim);
+
+function tubeMesh(pts,radius,mat){ return new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),pts.length,radius,6,false),mat); }
+function setTube(mesh,pts,radius){ mesh.geometry.dispose(); mesh.geometry=new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),pts.length,radius,6,false); }
+function modeShape(a,phi,u){ let y=0; for(let n=1;n<=NH;n++) y+=a[n-1]*Math.sin(n*Math.PI*u)*Math.cos(n*phi); return y; }
+
+const models={};
+
+// Fuente puntual
+models.pure=new THREE.Group();
+const src=new THREE.Mesh(new THREE.SphereGeometry(.07,24,16),new THREE.MeshBasicMaterial({color:new THREE.Color(C.warm)}));
+const halo=new THREE.Mesh(new THREE.SphereGeometry(.13,24,16),new THREE.MeshBasicMaterial({color:new THREE.Color(C.warm),transparent:true,opacity:.25,depthWrite:false}));
+models.pure.add(src,halo); scene.add(models.pure);
+
+// Diapasón
+const steel=new THREE.MeshStandardMaterial({color:0xc9d2dc,metalness:.85,roughness:.28});
+models.fork=new THREE.Group();
+const prongGeo=new THREE.BoxGeometry(.026,.34,.026); prongGeo.translate(0,.17,0);
+const prongL=new THREE.Mesh(prongGeo,steel); prongL.position.set(-.045,-.08,0);
+const prongR=new THREE.Mesh(prongGeo,steel); prongR.position.set(.045,-.08,0);
+const bend=new THREE.Mesh(new THREE.TorusGeometry(.045,.013,10,24,Math.PI),steel); bend.rotation.z=Math.PI; bend.position.y=-.08;
+const stem=new THREE.Mesh(new THREE.CylinderGeometry(.013,.013,.2,16),steel); stem.position.y=-.08-.045-.1;
+const knob=new THREE.Mesh(new THREE.SphereGeometry(.022,16,12),steel); knob.position.y=-.08-.045-.2;
+models.fork.add(prongL,prongR,bend,stem,knob); scene.add(models.fork);
+
+// Cuerda en un sonómetro
+const wood=new THREE.MeshStandardMaterial({color:0x7a4a26,roughness:.6,metalness:.05});
+const wire=new THREE.MeshStandardMaterial({color:0xe8d9b0,roughness:.3,metalness:.7,emissive:0x3a2a08});
+models.string=new THREE.Group();
+const SL=0.8;
+const board=new THREE.Mesh(new THREE.BoxGeometry(SL+.14,.035,.08),wood); board.position.y=-.1;
+const postA=new THREE.Mesh(new THREE.BoxGeometry(.02,.1,.06),wood); postA.position.set(-SL/2,-.04,0);
+const postB=postA.clone(); postB.position.x=SL/2;
+const strPts=()=>{const p=[];for(let i=0;i<=60;i++)p.push(new THREE.Vector3(-SL/2+SL*i/60,0,0));return p;};
+const strMesh=tubeMesh(strPts(),.0045,wire);
+models.string.add(board,postA,postB,strMesh); scene.add(models.string);
+
+// Violín
+models.violin=new THREE.Group();
+const varnish=new THREE.MeshStandardMaterial({color:0x9a4a17,roughness:.38,metalness:.08});
+const ebony=new THREE.MeshStandardMaterial({color:0x17120e,roughness:.5});
+const half=[[.08,.295],[.14,.27],[.158,.22],[.148,.17],[.12,.13],[.1,.075],[.094,.02],[.1,-.035],[.128,-.075],[.168,-.115],[.182,-.18],[.166,-.25],[.12,-.292],[.06,-.308]];
+const outline=[...half.map(([x,y])=>new THREE.Vector2(x,y)),new THREE.Vector2(0,-.312),...half.slice().reverse().map(([x,y])=>new THREE.Vector2(-x,y)),new THREE.Vector2(0,.3)];
+const vShape=new THREE.Shape(); vShape.moveTo(0,.3); vShape.splineThru(outline);
+const bodyGeo=new THREE.ExtrudeGeometry(vShape,{depth:.07,bevelEnabled:true,bevelThickness:.012,bevelSize:.008,bevelSegments:3,curveSegments:80});
+bodyGeo.translate(0,0,-.035);
+const vBody=new THREE.Mesh(bodyGeo,varnish);
+const neck=new THREE.Mesh(new THREE.BoxGeometry(.042,.3,.03),varnish); neck.position.set(0,.45,.02);
+const fboard=new THREE.Mesh(new THREE.BoxGeometry(.05,.44,.012),ebony); fboard.position.set(0,.3,.058);
+const scroll=new THREE.Mesh(new THREE.TorusGeometry(.028,.012,10,24),varnish); scroll.rotation.y=Math.PI/2; scroll.position.set(0,.64,.02);
+const pegbox=new THREE.Mesh(new THREE.BoxGeometry(.04,.08,.035),varnish); pegbox.position.set(0,.6,.02);
+const bridge=new THREE.Mesh(new THREE.BoxGeometry(.085,.008,.05),new THREE.MeshStandardMaterial({color:0xd9b98a,roughness:.7})); bridge.position.set(0,-.07,.06);
+const tail=new THREE.Mesh(new THREE.BoxGeometry(.05,.13,.01),ebony); tail.position.set(0,-.21,.05);
+const fholeMat=new THREE.MeshBasicMaterial({color:0x0b0806});
+const fh1=new THREE.Mesh(new THREE.BoxGeometry(.008,.11,.002),fholeMat); fh1.position.set(.06,-.06,.049); fh1.rotation.z=.12;
+const fh2=fh1.clone(); fh2.position.x=-.06; fh2.rotation.z=-.12;
+models.violin.add(vBody,neck,fboard,scroll,pegbox,bridge,tail,fh1,fh2);
+const xB=[-.027,-.009,.009,.027], xN=[-.012,-.004,.004,.012];
+const vStrings=xB.map((xb,i)=>{
+  const g=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(xb*.7,-.26,.056),new THREE.Vector3(xb,-.07,.087),new THREE.Vector3(xN[i],.52,.066)]);
+  const l=new THREE.Line(g,new THREE.LineBasicMaterial({color:0xd8d2c4})); models.violin.add(l); return l;
+});
+const aStrPts=()=>{const p=[];for(let i=0;i<=40;i++){const u=i/40;p.push(new THREE.Vector3(xB[2]+(xN[2]-xB[2])*u,-.07+.59*u,.087-.021*u));}return p;};
+vStrings[2].visible=false;
+const aString=tubeMesh(aStrPts(),.0025,wire); models.violin.add(aString);
+const bow=new THREE.Group();
+const stick=new THREE.Mesh(new THREE.CylinderGeometry(.005,.004,.74,10),new THREE.MeshStandardMaterial({color:0x5a2e12,roughness:.5}));
+stick.rotation.z=Math.PI/2; stick.position.set(0,0,.03);
+const hair=new THREE.Mesh(new THREE.BoxGeometry(.7,.003,.012),new THREE.MeshStandardMaterial({color:0xf2ede2,roughness:.9}));
+const frog=new THREE.Mesh(new THREE.BoxGeometry(.04,.012,.035),ebony); frog.position.set(-.35,0,.015);
+bow.add(stick,hair,frog); bow.position.set(0,-.02,.1); bow.rotation.z=.08;
+models.violin.add(bow); scene.add(models.violin);
+
+models.fork.scale.setScalar(1.6); models.string.scale.setScalar(1.4); models.violin.scale.setScalar(1.4);
+Object.entries(models).forEach(([k,m])=>m.visible=k===S.inst);
+
+// Micrófono
+const probe=new THREE.Mesh(new THREE.SphereGeometry(.05,20,12),new THREE.MeshBasicMaterial({color:new THREE.Color(C.fg)}));
+scene.add(probe);
+const probeLineGeo=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0),new THREE.Vector3(1,0,0)]);
+const probeLine=new THREE.Line(probeLineGeo,new THREE.LineDashedMaterial({color:new THREE.Color(C.fg),dashSize:.05,gapSize:.05,transparent:true,opacity:.6}));
+scene.add(probeLine);
+
+// Piso con anillos cada 0,5 m
+const grid=new THREE.PolarGridHelper(R_MAX,8,5,64,new THREE.Color(C.line),new THREE.Color(C.line));
+grid.position.y=-R_MAX-0.05; scene.add(grid);
+
+function resize(){
+  const r=canvas.parentElement.getBoundingClientRect();
+  renderer.setSize(r.width,r.height,false);
+  camera.aspect=r.width/Math.max(r.height,1); camera.updateProjectionMatrix();
+  U.uScale.value=r.height*renderer.getPixelRatio()*0.5/Math.tan(THREE.MathUtils.degToRad(camera.fov/2))*0.5;
+}
+new ResizeObserver(resize).observe(canvas.parentElement); resize();
+
+/* ---------- Audio ---------- */
+let actx=null, eng=null;
+const CLANG=6.27;
+function audioGain(beta){ return Math.min(0.35,Math.max(0.0004,0.22*Math.pow(10,(beta-90)/20))); }
+function masterLevel(){ return Math.min(0.4,audioGain(derived().betaR)*1.4); }
+function startSound(){
+  if(!actx){ const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return false; actx=new AC(); }
+  if(actx.state==='suspended') actx.resume();
+  const I=INST[S.inst], t=actx.currentTime, a=harmonics(S.inst,S.f);
+  const master=actx.createGain(); master.gain.value=0; master.connect(actx.destination);
+  master.gain.setTargetAtTime(masterLevel(),t,0.03);
+  let lfo=null,lfoG=null;
+  if(S.inst==='violin'){
+    lfo=actx.createOscillator(); lfo.frequency.value=5.5; lfoG=actx.createGain(); lfoG.gain.value=0;
+    lfo.connect(lfoG); lfo.start(); lfoG.gain.setTargetAtTime(14,t+0.35,0.3);   // vibrato ±14 cents
+  }
+  const nh=(S.inst==='pure'||S.inst==='fork')?1:NH, oscs=[], gains=[];
+  for(let n=1;n<=nh;n++){
+    const o=actx.createOscillator(); o.type='sine'; o.frequency.value=n*S.f;
+    const g=actx.createGain(); g.gain.value=0; o.connect(g).connect(master);
+    if(lfoG) lfoG.connect(o.detune);
+    o.start(); oscs.push(o); gains.push(g);
+  }
+  let xo=null,xg=null;
+  if(S.inst==='fork'){ xo=actx.createOscillator(); xo.frequency.value=CLANG*S.f; xg=actx.createGain(); xg.gain.value=0; xo.connect(xg).connect(master); xo.start(); }
+  eng={master,oscs,gains,lfo,xo,xg,timer:null,lastStrike:-1e9};
+  if(I.mode==='sustain') gains.forEach((g,i)=>g.gain.setTargetAtTime(a[i],t,S.inst==='violin'?0.07:0.02));
+  else { strike(); eng.timer=setInterval(strike,I.repeat); }
+  return true;
+}
+function strike(){
+  if(!eng) return; const I=INST[S.inst]; if(I.mode!=='strike') return;
+  const t=actx.currentTime, a=harmonics(S.inst,S.f);
+  eng.gains.forEach((g,i)=>{
+    g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value,t);
+    g.gain.linearRampToValueAtTime(a[i],t+0.004); g.gain.setTargetAtTime(0,t+0.004,I.tau(i+1));
+  });
+  if(eng.xg){ const g=eng.xg.gain; g.cancelScheduledValues(t); g.setValueAtTime(g.value,t); g.linearRampToValueAtTime(0.3,t+0.003); g.setTargetAtTime(0,t+0.003,0.11); }
+  eng.lastStrike=t;
+}
+function restrike(){ if(!eng) return; strike(); clearInterval(eng.timer); eng.timer=setInterval(strike,INST[S.inst].repeat); }
+function stopSound(){
+  if(!eng) return; const e=eng; eng=null; clearInterval(e.timer);
+  const t=actx.currentTime; e.master.gain.cancelScheduledValues(t); e.master.gain.setTargetAtTime(0,t,0.04);
+  setTimeout(()=>{ [...e.oscs,e.lfo,e.xo].forEach(o=>{ if(o) try{o.stop();}catch(_){} }); e.master.disconnect(); },300);
+}
+function updateAudio(){
+  if(!eng) return; const t=actx.currentTime;
+  eng.master.gain.setTargetAtTime(masterLevel(),t,0.06);
+  eng.oscs.forEach((o,i)=>o.frequency.setTargetAtTime((i+1)*S.f,t,0.03));
+  if(eng.xo) eng.xo.frequency.setTargetAtTime(CLANG*S.f,t,0.03);
+  if(S.inst==='violin'){ const a=harmonics('violin',S.f); eng.gains.forEach((g,i)=>g.gain.setTargetAtTime(a[i],t,0.05)); }
+}
+function envNow(){
+  if(!eng) return 1; const I=INST[S.inst]; if(I.mode!=='strike') return 1;
+  return Math.exp(-Math.max(0,actx.currentTime-eng.lastStrike)/I.tau(1));
+}
+
+/* ---------- Cálculos ---------- */
+function derived(){
+  const v=MEDIA[S.medium].v(S.T);
+  const lam=v/S.f, k=2*Math.PI/lam;
+  const I1=S.P/(4*Math.PI), beta1=10*Math.log10(I1/I0);
+  const IR=S.P/(4*Math.PI*S.r*S.r), betaR=10*Math.log10(IR/I0);
+  return {v,lam,k,I1,beta1,IR,betaR};
+}
+
+/* ---------- UI ---------- */
+const $=id=>document.getElementById(id);
+const fFromSlider=x=>100*Math.pow(20,x/1000);
+const sliderFromF=f=>Math.round(1000*Math.log(f/100)/Math.log(20));
+$('freq').value=sliderFromF(S.f); $('power').value=Math.log10(S.P); $('temp').value=S.T; $('probe').value=S.r; $('medium').value=S.medium;
+
+function update(){
+  const d=derived();
+  $('freqOut').textContent=fmt(S.f,0)+' Hz';
+  $('powerOut').textContent=wattsTxt(S.P);
+  $('tempOut').textContent=fmt(S.T,0)+' °C';
+  $('probeOut').textContent=fmt(S.r,2)+' m';
+  $('rV').textContent=fmt(d.v,1)+' m/s';
+  $('rL').textContent=d.lam<1?fmt(d.lam*100,1)+' cm':fmt(d.lam,2)+' m';
+  $('rT').textContent=fmt(1000/S.f,2)+' ms';
+  $('rK').textContent=fmt(d.k,2)+' rad/m';
+  $('rB1').textContent=fmt(d.beta1,1)+' dB';
+  $('rI').innerHTML=sci(d.IR)+' W/m²';
+  $('rB').textContent=fmt(d.betaR,1)+' dB';
+  $('rN').textContent=fmt(Math.max(0,Math.floor(Math.min(S.front,R_MAX)/d.lam)),0)+' (cada '+(d.lam<1?fmt(d.lam*100,0)+' cm':fmt(d.lam,2)+' m')+')';
+  $('mediumNote').textContent=MEDIA[S.medium].note;
+  const tReal=1/SLOW;
+  $('slowTxt').textContent='Cámara lenta ×'+SLOW+' · 1 s aquí = '+fmt(tReal*1000,2)+' ms reales';
+  probe.position.set(S.r,0,0);
+  probeLine.geometry.setFromPoints([new THREE.Vector3(0,0,0),new THREE.Vector3(S.r,0,0)]); probeLine.computeLineDistances();
+  updateAudio(); drawSpec();
+}
+function setInstrument(id,init){
+  S.inst=id; const I=INST[id];
+  if(!init){ S.f=I.f; $('freq').value=sliderFromF(S.f); S.front=0; }
+  document.querySelectorAll('[data-inst]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.inst===id)));
+  Object.entries(models).forEach(([k,m])=>m.visible=k===id);
+  $('btnStrike').hidden=I.mode!=='strike'; $('btnStrike').textContent=I.strike;
+  $('instNote').textContent=I.note;
+  if(S.sound){ stopSound(); startSound(); }
+  update();
+}
+document.querySelectorAll('[data-inst]').forEach(b=>b.addEventListener('click',()=>setInstrument(b.dataset.inst)));
+$('btnStrike').addEventListener('click',()=>{ if(!S.sound) $('btnSound').click(); else restrike(); });
+$('freq').addEventListener('input',e=>{S.f=fFromSlider(+e.target.value);update();});
+$('power').addEventListener('input',e=>{S.P=Math.pow(10,+e.target.value);update();});
+$('temp').addEventListener('input',e=>{S.T=+e.target.value;update();});
+$('probe').addEventListener('input',e=>{S.r=+e.target.value;update();});
+$('medium').addEventListener('change',e=>{S.medium=e.target.value;update();});
+document.querySelectorAll('[data-f]').forEach(b=>b.addEventListener('click',()=>{S.f=+b.dataset.f;$('freq').value=sliderFromF(S.f);update();}));
+$('btnSound').addEventListener('click',()=>{
+  const b=$('btnSound');
+  if(S.sound){stopSound();S.sound=false;b.classList.remove('on');b.textContent='▶ Encender sonido';}
+  else if(startSound()){S.sound=true;b.classList.add('on');b.textContent='■ Silenciar';S.front=0;S.playing=true;$('btnPause').textContent='Pausar';}
+});
+$('btnPause').addEventListener('click',()=>{S.playing=!S.playing;$('btnPause').textContent=S.playing?'Pausar':'Continuar';});
+$('btnReset').addEventListener('click',()=>{S.front=0;});
+$('btnPause').textContent=S.playing?'Pausar':'Continuar';
+
+/* ---------- Gráfica de presión ---------- */
+const strip=$('strip'); const sctx=strip.getContext('2d');
+function drawStrip(d,ampGain){
+  const dpr=window.devicePixelRatio||1, w=strip.clientWidth, h=strip.clientHeight;
+  if(strip.width!==Math.round(w*dpr)){strip.width=Math.round(w*dpr);strip.height=Math.round(h*dpr);}
+  sctx.setTransform(dpr,0,0,dpr,0,0); sctx.clearRect(0,0,w,h);
+  const L=28,Rp=8,top=10,bot=h-22, mid=(top+bot)/2, half=(bot-top)/2;
+  const X=r=>L+(w-L-Rp)*r/R_MAX;
+  sctx.strokeStyle=C.line; sctx.lineWidth=1;
+  sctx.beginPath(); sctx.moveTo(L,mid); sctx.lineTo(w-Rp,mid); sctx.stroke();
+  sctx.fillStyle=C.muted; sctx.font='10px "IBM Plex Mono",monospace'; sctx.textAlign='center';
+  for(let r=0;r<=R_MAX+1e-6;r+=0.5){ sctx.fillText(fmt(r,1),X(r),h-6); sctx.beginPath();sctx.moveTo(X(r),bot);sctx.lineTo(X(r),bot+3);sctx.stroke(); }
+  sctx.textAlign='left'; sctx.fillText('p',4,top+8); sctx.fillText('r (m)',w-Rp-34,top+8);
+  // envolvente 1/r
+  sctx.strokeStyle=C.muted; sctx.setLineDash([3,3]); sctx.beginPath();
+  for(let i=0;i<=200;i++){const r=0.05+i*(R_MAX-0.05)/200;const a=0.4/Math.max(r,0.4);const y=mid-a*half*.92;i?sctx.lineTo(X(r),y):sctx.moveTo(X(r),y);} sctx.stroke();
+  sctx.beginPath();
+  for(let i=0;i<=200;i++){const r=0.05+i*(R_MAX-0.05)/200;const a=0.4/Math.max(r,0.4);const y=mid+a*half*.92;i?sctx.lineTo(X(r),y):sctx.moveTo(X(r),y);} sctx.stroke();
+  sctx.setLineDash([]);
+  // onda
+  const grad=sctx.createLinearGradient(0,top,0,bot); grad.addColorStop(0,C.warm); grad.addColorStop(1,C.cool);
+  sctx.strokeStyle=grad; sctx.lineWidth=2; sctx.beginPath();
+  const aH=harmonics(S.inst,S.f);
+  const N=Math.min(5000,Math.max(300,Math.ceil(R_MAX/d.lam*24*NH)));
+  for(let i=0;i<=N;i++){
+    const r=i*R_MAX/N; const on=r<=S.front?1:0;
+    let s=0; if(on) for(let n=1;n<=NH;n++) if(aH[n-1]) s+=aH[n-1]*Math.cos(n*d.k*(r-S.front));
+    const a=0.4/Math.max(r,0.4); const p=on*s*a*.92;
+    const y=mid-p*half; i?sctx.lineTo(X(r),y):sctx.moveTo(X(r),y);
+  } sctx.stroke();
+  // micrófono
+  sctx.strokeStyle=C.fg; sctx.globalAlpha=.7; sctx.beginPath(); sctx.moveTo(X(S.r),top); sctx.lineTo(X(S.r),bot); sctx.stroke(); sctx.globalAlpha=1;
+  // frente
+  if(S.front<R_MAX){ sctx.fillStyle=C.warm; sctx.beginPath(); sctx.arc(X(S.front),mid,3,0,Math.PI*2); sctx.fill(); }
+}
+
+/* ---------- Espectro ---------- */
+const spec=$('spec'); const pctx=spec.getContext('2d');
+function drawSpec(){
+  const dpr=window.devicePixelRatio||1, w=spec.clientWidth, h=spec.clientHeight; if(!w) return;
+  if(spec.width!==Math.round(w*dpr)||spec.height!==Math.round(h*dpr)){spec.width=Math.round(w*dpr);spec.height=Math.round(h*dpr);}
+  pctx.setTransform(dpr,0,0,dpr,0,0); pctx.clearRect(0,0,w,h);
+  const a=harmonics(S.inst,S.f), mx=Math.max(...a);
+  const L=6,R=6,top=16,bot=h-30, slot=(w-L-R)/NH, bw=Math.min(22,slot*.55);
+  const X=n=>L+slot*(n-0.5);
+  pctx.strokeStyle=C.line; pctx.lineWidth=1; pctx.beginPath(); pctx.moveTo(L,bot+.5); pctx.lineTo(w-R,bot+.5); pctx.stroke();
+  pctx.font='10px "IBM Plex Mono",monospace'; pctx.textAlign='center';
+  for(let n=1;n<=NH;n++){
+    const hgt=(bot-top)*a[n-1]/mx;
+    if(a[n-1]>0.002){ pctx.fillStyle=n===1?C.warm:C.cool; pctx.globalAlpha=n===1?1:.85; pctx.fillRect(X(n)-bw/2,bot-hgt,bw,hgt); pctx.globalAlpha=1; }
+    pctx.fillStyle=C.fg; pctx.fillText(n===1?'f':n+'f',X(n),bot+12);
+    pctx.fillStyle=C.muted; const F=n*S.f; pctx.fillText(F>=1000?fmt(F/1000,1)+'k':fmt(F,0),X(n),bot+24);
+  }
+  if(S.inst==='fork'){
+    const x=X(CLANG), hgt=(bot-top)*0.3;
+    pctx.strokeStyle=C.warm; pctx.setLineDash([3,3]); pctx.strokeRect(x-bw/2,bot-hgt,bw,hgt); pctx.setLineDash([]);
+    pctx.fillStyle=C.warm; pctx.fillText('clang',x,bot-hgt-4);
+  }
+  pctx.textAlign='left'; pctx.fillStyle=C.muted; pctx.fillText('amplitud relativa · Hz',L,10);
+}
+new ResizeObserver(drawSpec).observe(spec);
+
+/* ---------- Bucle ---------- */
+const clock=new THREE.Clock();
+function frame(){
+  const dt=Math.min(clock.getDelta(),0.05);
+  const d=derived();
+  const vVis=d.v/SLOW;
+  if(S.playing) S.front+=vVis*dt;
+  const lvl=Math.min(1,Math.max(0,(d.beta1-50)/60));
+  U.uK.value=d.k; U.uFront.value=S.front;
+  U.uAmp.value=Math.min(0.03+0.08*lvl,0.18*d.lam);
+  U.uGain.value=0.45+0.75*lvl;
+  // cascarones
+  let n=0; const rmin=S.inst==='pure'?0.06:0.6;
+  for(let i=0;i<shells.length;i++){
+    const r=S.front-i*d.lam; const m=shells[i];
+    if(r>rmin&&r<=R_MAX+0.02){
+      m.visible=true; m.scale.setScalar(r);
+      m.material.opacity=(0.05+0.22*(0.4/Math.max(r,0.4)))*U.uGain.value; n++;
+    } else m.visible=false;
+  }
+  frontMesh.visible=S.front>rmin&&S.front<R_MAX; frontMesh.scale.setScalar(Math.max(S.front,0.01));
+  // timbre en el campo: solo armónicos que la retícula de partículas puede resolver
+  const aH=harmonics(S.inst,S.f), lim=Math.max(1,d.lam/0.22);
+  const vis=aH.map((x,i)=>(i+1)<=lim?x:0), sv=vis.reduce((x,y)=>x+y,0)||1;
+  U.uH.value=vis.map(x=>x/sv);
+  // fuente
+  const phi=d.k*S.front, env=0.15+0.85*envNow(), ps=Math.cos(phi);
+  if(S.inst==='pure'){
+    src.scale.setScalar(1+0.25*ps*U.uGain.value);
+    halo.scale.setScalar(1+0.5*Math.max(ps,0)*U.uGain.value);
+  } else if(S.inst==='fork'){
+    const th=0.07*env*ps; prongL.rotation.z=th; prongR.rotation.z=-th;
+  } else if(S.inst==='string'){
+    const p=[]; for(let i=0;i<=60;i++){const u=i/60; p.push(new THREE.Vector3(-SL/2+SL*u,0.09*env*modeShape(aH,phi,u),0));}
+    setTube(strMesh,p,.0045);
+  } else if(S.inst==='violin'){
+    const base=aStrPts(); base.forEach((q,i)=>{q.x+=0.012*modeShape(aH,phi,i/40);});
+    setTube(aString,base,.0025);
+    if(S.playing) bow.position.x=0.2*Math.sin(clock.elapsedTime*2*Math.PI/3.6);
+  }
+  controls.update();
+  renderer.render(scene,camera);
+  drawStrip(d);
+  if(Math.random()<0.1) $('rN').textContent=fmt(Math.max(0,Math.floor(Math.min(S.front,R_MAX)/d.lam)),0)+' (cada '+(d.lam<1?fmt(d.lam*100,0)+' cm':fmt(d.lam,2)+' m')+')';
+  requestAnimationFrame(frame);
+}
+setInstrument(S.inst,true); frame();
+})();
+</script>
