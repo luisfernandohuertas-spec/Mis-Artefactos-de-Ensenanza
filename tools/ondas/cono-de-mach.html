@@ -1,0 +1,475 @@
+<title>Cono de Mach</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: cabina nocturna — escena 3D con HUD a la izquierda, panel de instrumentos a la derecha (apilado en móvil) */
+:root{
+  --bg:#070b14;
+  --panel:#0d1424;
+  --panel-2:#121c31;
+  --line:#1f2b44;
+  --fg:#e3e9f5;
+  --muted:#8391ad;
+  --wave:#5fd4ff;    /* frentes de onda */
+  --shock:#ff7a4d;   /* cono de Mach / choque */
+  --ground:#1a2236;
+  --font-hud:"Chakra Petch","Arial Narrow",Arial,sans-serif;
+  --font-body:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--bg);color:var(--fg)}
+body{font-family:var(--font-body);font-size:15px;line-height:1.5}
+.app{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;padding-inline:16px;padding-block:16px;max-width:1500px;margin:0 auto}
+@media(min-width:960px){
+  html,body{height:100%}
+  .app{grid-template-columns:minmax(0,1fr) 370px;height:100%;box-sizing:border-box}
+  .stage{height:100%;min-height:0}
+  .panel{overflow-y:auto;min-height:0}
+}
+.stage{position:relative;border-radius:14px;overflow:hidden;background:linear-gradient(180deg,#0b1430 0%,#0a1122 55%,var(--bg) 100%);border:1px solid var(--line);height:64svh;min-height:360px}
+#gl{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+
+.hud{position:absolute;top:12px;left:14px;right:14px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;pointer-events:none}
+.mach{font-family:var(--font-hud);line-height:.9;display:flex;flex-direction:column;gap:6px}
+.mach .num{font-size:clamp(40px,6vw,64px);font-weight:700;letter-spacing:.01em;font-variant-numeric:tabular-nums;text-shadow:0 0 18px rgba(255,122,77,.25)}
+.mach .num small{font-size:.42em;color:var(--muted);font-weight:600;margin-right:6px;letter-spacing:.08em}
+.chip{display:inline-block;align-self:flex-start;font-family:var(--font-hud);font-weight:600;font-size:12px;letter-spacing:.14em;text-transform:uppercase;padding:4px 9px;border-radius:5px;border:1px solid currentColor}
+.chip.sub{color:var(--wave)} .chip.trans{color:#ffd166} .chip.sup{color:var(--shock)}
+.hud-r{font-family:var(--font-mono);font-size:12px;color:var(--muted);background:rgba(7,11,20,.72);border:1px solid var(--line);border-radius:8px;padding:7px 10px;display:flex;flex-direction:column;gap:2px;text-align:right}
+.hud-r b{color:var(--fg);font-weight:500}
+.hud-r .mu b{color:var(--shock);font-size:15px}
+
+.tag{position:absolute;transform:translate(-50%,-100%);font-family:var(--font-hud);font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--fg);background:rgba(7,11,20,.8);border:1px solid var(--line);padding:2px 7px;border-radius:5px;pointer-events:none;white-space:nowrap}
+#boomTag{color:var(--shock);border-color:var(--shock);font-size:18px;padding:4px 10px;opacity:0;transition:opacity .25s}
+#boomTag.on{opacity:1}
+
+.bar{position:absolute;left:12px;right:12px;bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button{font:inherit;cursor:pointer;border-radius:9px;border:1px solid var(--line);background:rgba(13,20,36,.9);color:var(--fg);padding:8px 13px;font-weight:600;font-size:14px}
+button:hover{border-color:var(--muted)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--shock);outline-offset:2px}
+#btnSound{background:var(--shock);border-color:var(--shock);color:#1d0a03}
+#btnSound.on{background:transparent;color:var(--shock)}
+.views{display:flex;gap:4px;margin-left:auto;background:rgba(13,20,36,.9);border:1px solid var(--line);border-radius:9px;padding:3px}
+.views button{border:0;background:transparent;padding:5px 9px;font-size:13px;font-weight:500;color:var(--muted)}
+.views button[aria-pressed="true"]{background:var(--panel-2);color:var(--fg)}
+@media(max-width:640px){.views{margin-left:0}}
+
+.panel{display:flex;flex-direction:column;gap:14px;min-width:0}
+header h1{font-family:var(--font-hud);font-weight:700;font-size:30px;line-height:1.05;letter-spacing:.01em;margin:0;text-wrap:balance}
+header p{margin:8px 0 0;color:var(--muted);font-size:14px;max-width:62ch}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:12px}
+.box h2{margin:0;font-family:var(--font-hud);font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.ctl{display:flex;flex-direction:column;gap:6px}
+.ctl .row{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.ctl label{font-weight:600;font-size:14px}
+.ctl output{font-family:var(--font-mono);font-size:13px;color:var(--shock);font-variant-numeric:tabular-nums;white-space:nowrap}
+input[type=range]{width:100%;accent-color:var(--shock)}
+.presets{display:flex;gap:6px;flex-wrap:wrap}
+.presets button{padding:5px 9px;font-size:12px;font-family:var(--font-mono);font-weight:500;background:var(--panel-2)}
+.checks{display:flex;flex-wrap:wrap;gap:8px 16px}
+.check{display:flex;gap:7px;align-items:center;font-size:14px}
+.check input{accent-color:var(--shock);width:16px;height:16px}
+.readout{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
+.readout div{display:flex;flex-direction:column;gap:1px;min-width:0}
+.readout span{font-size:11.5px;color:var(--muted)}
+.readout b{font-family:var(--font-mono);font-weight:500;font-size:15px;font-variant-numeric:tabular-nums}
+.readout .hl b{color:var(--shock);font-size:18px}
+.note{font-size:13px;color:var(--muted);margin:0}
+.regime{font-size:14px;margin:0}
+.log{font-family:var(--font-mono);font-size:12.5px;color:var(--fg);background:var(--panel-2);border-radius:8px;padding:8px 10px;margin:0;min-height:1.5em}
+.eq{font-family:var(--font-mono);font-size:12.5px;display:grid;grid-template-columns:auto 1fr;gap:4px 12px}
+.eq span:nth-child(even){color:var(--muted)}
+svg.geo{width:100%;height:auto;display:block}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+
+<div class="app">
+  <section class="stage" aria-label="Simulación 3D del cono de Mach">
+    <canvas id="gl"></canvas>
+    <div class="hud">
+      <div class="mach">
+        <div class="num"><small>MACH</small><span id="hudM">2,00</span></div>
+        <span class="chip sup" id="hudChip">Supersónico</span>
+      </div>
+      <div class="hud-r">
+        <span class="mu">μ = <b id="hudMu">30,0°</b></span>
+        <span>v = <b id="hudV"></b></span>
+        <span>c = <b id="hudC"></b></span>
+        <span id="hudT"></span>
+      </div>
+    </div>
+    <div class="tag" id="obsTag">Observador</div>
+    <div class="tag" id="boomTag">¡BOOM!</div>
+    <div class="bar">
+      <button id="btnSound" type="button">▶ Activar sonido</button>
+      <button id="btnPause" type="button">Pausar</button>
+      <button id="btnReset" type="button">Nueva pasada</button>
+      <div class="views" role="group" aria-label="Vista de cámara">
+        <button type="button" data-view="3d" aria-pressed="true">3D</button>
+        <button type="button" data-view="side" aria-pressed="false">Lateral</button>
+        <button type="button" data-view="ground" aria-pressed="false">Desde el suelo</button>
+        <button type="button" data-view="follow" aria-pressed="false">Seguir</button>
+      </div>
+    </div>
+  </section>
+
+  <aside class="panel">
+    <header>
+      <h1>Cono de Mach</h1>
+      <p>El avión emite ondas sonoras esféricas en cada instante. Si vuela más rápido que el sonido, se adelanta a sus propias ondas y sus envolventes forman un cono: la onda de choque que oímos como estampido sónico.</p>
+    </header>
+
+    <div class="box">
+      <h2>Vuelo</h2>
+      <div class="ctl">
+        <div class="row"><label for="mach">Número de Mach  M = v / c</label><output id="machOut"></output></div>
+        <input id="mach" type="range" min="0.3" max="4" step="0.01" value="2">
+        <div class="presets">
+          <button type="button" data-m="0.6">Hélice 0,6</button>
+          <button type="button" data-m="0.85">Comercial 0,85</button>
+          <button type="button" data-m="1">Barrera 1,00</button>
+          <button type="button" data-m="2.04">Concorde 2,04</button>
+          <button type="button" data-m="3.2">SR-71 3,2</button>
+        </div>
+      </div>
+      <div class="ctl">
+        <div class="row"><label for="alt">Altitud de vuelo</label><output id="altOut"></output></div>
+        <input id="alt" type="range" min="1" max="15" step="0.5" value="8">
+      </div>
+      <div class="ctl">
+        <div class="row"><label for="speed">Velocidad de la simulación</label><output id="speedOut"></output></div>
+        <input id="speed" type="range" min="1" max="30" step="1" value="8">
+      </div>
+      <div class="checks">
+        <label class="check"><input type="checkbox" id="cut" checked>Cortar a la mitad</label>
+        <label class="check"><input type="checkbox" id="showWaves" checked>Frentes de onda</label>
+        <label class="check"><input type="checkbox" id="showCone" checked>Cono</label>
+      </div>
+    </div>
+
+    <div class="box">
+      <h2>Régimen</h2>
+      <p class="regime" id="regimeTxt"></p>
+    </div>
+
+    <div class="box">
+      <h2>Magnitudes</h2>
+      <div class="readout">
+        <div class="hl"><span>Ángulo de Mach μ</span><b id="rMu"></b></div>
+        <div class="hl"><span>Rapidez del avión v</span><b id="rV"></b></div>
+        <div><span>Rapidez del sonido c</span><b id="rC"></b></div>
+        <div><span>Temperatura a esa altitud</span><b id="rT"></b></div>
+        <div><span>Boom llega tras pasar encima</span><b id="rDelay"></b></div>
+        <div><span>Distancia horizontal al oírlo</span><b id="rDist"></b></div>
+      </div>
+      <p class="log" id="log">Esperando la pasada del avión…</p>
+    </div>
+
+    <div class="box">
+      <h2>Geometría del cono</h2>
+      <svg class="geo" viewBox="0 0 300 150" role="img" aria-label="Triángulo del cono de Mach: el avión recorre v·t mientras la onda emitida recorre c·t, de modo que sen μ = c/v = 1/M">
+        <line x1="20" y1="75" x2="285" y2="75" stroke="var(--line)" stroke-width="1"/>
+        <circle cx="90" cy="75" r="70" fill="none" stroke="var(--wave)" stroke-width="1.5" opacity=".8"/>
+        <circle cx="160" cy="75" r="35" fill="none" stroke="var(--wave)" stroke-width="1.2" opacity=".5"/>
+        <line x1="230" y1="75" x2="100" y2="0" stroke="var(--shock)" stroke-width="2"/>
+        <line x1="230" y1="75" x2="100" y2="150" stroke="var(--shock)" stroke-width="2"/>
+        <line x1="90" y1="75" x2="125" y2="14.4" stroke="var(--fg)" stroke-width="1.2" stroke-dasharray="3 3"/>
+        <line x1="90" y1="75" x2="230" y2="75" stroke="var(--fg)" stroke-width="1.2"/>
+        <polyline points="131.9,18.4 127.9,25.3 121,21.3" fill="none" stroke="var(--fg)" stroke-width="1"/>
+        <circle cx="90" cy="75" r="3" fill="var(--wave)"/>
+        <circle cx="230" cy="75" r="4" fill="var(--shock)"/>
+        <path d="M 205 75 A 25 25 0 0 0 208.3 62.5" fill="none" stroke="var(--shock)" stroke-width="1.2"/>
+        <text x="196" y="69" fill="var(--shock)" font-family="IBM Plex Mono, monospace" font-size="12">μ</text>
+        <text x="160" y="92" fill="var(--fg)" font-family="IBM Plex Mono, monospace" font-size="12" text-anchor="middle">v·t</text>
+        <text x="96" y="44" fill="var(--fg)" font-family="IBM Plex Mono, monospace" font-size="12">c·t</text>
+        <text x="90" y="95" fill="var(--muted)" font-family="IBM Plex Mono, monospace" font-size="10" text-anchor="middle">emisión</text>
+        <text x="236" y="70" fill="var(--muted)" font-family="IBM Plex Mono, monospace" font-size="10">avión</text>
+      </svg>
+      <div class="eq">
+        <span>sen μ = c·t / v·t = 1/M</span><span>semiángulo del cono</span>
+        <span>c = √(γRT/M<sub>aire</sub>)</span><span>≈ 20,05·√T (K) m/s</span>
+        <span>Δt = h·√(M²−1) / v</span><span>retraso del boom</span>
+      </div>
+    </div>
+
+    <div class="box">
+      <h2>Simplificaciones</h2>
+      <p class="note">La rapidez del sonido se toma constante e igual a la de la altitud de vuelo (atmósfera estándar). En la atmósfera real la temperatura cambia con la altura y el cono se curva por refracción. El avión está ampliado unas 30 veces para que se vea; la escena mide unos 70 km.</p>
+    </div>
+  </aside>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function(){
+const reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const css=getComputedStyle(document.documentElement), tok=n=>css.getPropertyValue(n).trim();
+const C={wave:tok('--wave'),shock:tok('--shock'),fg:tok('--fg'),muted:tok('--muted'),line:tok('--line'),ground:tok('--ground')};
+const $=id=>document.getElementById(id);
+const fmt=(x,d)=>x.toLocaleString('es-CO',{minimumFractionDigits:d,maximumFractionDigits:d});
+
+/* ---------- Estado (unidades de escena: km) ---------- */
+const X0=-34, X1=36, XO=0;            // inicio, fin de la pasada, posición del observador
+const EMIT_DT=2.5, MAX_AGE=75, POOL=34; // s reales
+const S={M:2, h:8, speed:8, playing:!reduced, x:X0, t:0, lastEmit:-1e9, overheadT:null, boomed:false, sound:false, view:'3d', cut:true};
+
+function atm(hkm){ const T = hkm<=11 ? 15-6.5*hkm : -56.5; return {T, c:Math.sqrt(1.4*287.05*(T+273.15))}; }
+function derived(){ const a=atm(S.h), v=S.M*a.c, sup=S.M>1.0005;
+  const mu=sup?Math.asin(1/S.M):null;
+  const dist=sup?S.h*Math.sqrt(S.M*S.M-1):null;      // km
+  const delay=sup?dist*1000/v:null;                  // s
+  return {...a, v, sup, mu, dist, delay}; }
+
+/* ---------- Three.js ---------- */
+const canvas=$('gl');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+renderer.localClippingEnabled=true;
+const scene=new THREE.Scene();
+scene.fog=new THREE.Fog(0x070b14,90,190);
+const camera=new THREE.PerspectiveCamera(45,1,0.05,500);
+const controls=new THREE.OrbitControls(camera,canvas);
+controls.enableDamping=true; controls.maxDistance=160; controls.minDistance=1;
+controls.maxPolarAngle=Math.PI*0.495;
+
+scene.add(new THREE.HemisphereLight(0xbfd4ff,0x101522,0.75));
+const sun=new THREE.DirectionalLight(0xffffff,0.8); sun.position.set(10,30,20); scene.add(sun);
+
+// Suelo
+const groundMat=new THREE.MeshStandardMaterial({color:new THREE.Color(C.ground),roughness:1});
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(200,140),groundMat); ground.rotation.x=-Math.PI/2; ground.position.y=-0.01; scene.add(ground);
+const grid=new THREE.GridHelper(140,28,new THREE.Color(C.line),new THREE.Color(C.line)); grid.position.y=0.005; scene.add(grid);
+
+// Planos de corte
+const keepUp=new THREE.Plane(new THREE.Vector3(0,1,0),0);
+const keepBack=new THREE.Plane(new THREE.Vector3(0,0,-1),0);
+const clipsFor=()=>S.cut?[keepUp,keepBack]:[keepUp];
+
+// Frentes de onda: cascarón + anillo en el plano de vuelo
+const shellGeo=new THREE.SphereGeometry(1,48,24);
+const ringPts=[]; for(let i=0;i<=128;i++){const a=i/128*Math.PI*2; ringPts.push(new THREE.Vector3(Math.cos(a),Math.sin(a),0));}
+const ringGeo=new THREE.BufferGeometry().setFromPoints(ringPts);
+const waves=[];
+for(let i=0;i<POOL;i++){
+  const sm=new THREE.MeshBasicMaterial({color:new THREE.Color(C.wave),transparent:true,opacity:.06,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,clippingPlanes:clipsFor()});
+  const shell=new THREE.Mesh(shellGeo,sm);
+  const rm=new THREE.LineBasicMaterial({color:new THREE.Color(C.wave),transparent:true,opacity:.7,clippingPlanes:[keepUp]});
+  const ring=new THREE.Line(ringGeo,rm);
+  shell.visible=ring.visible=false; scene.add(shell,ring);
+  waves.push({shell,ring,alive:false,te:0,x:0,y:0});
+}
+
+// Cono de Mach (vértice en el origen, abre hacia −x)
+const coneGeo=new THREE.ConeGeometry(1,1,96,1,true); coneGeo.rotateZ(-Math.PI/2); coneGeo.translate(-0.5,0,0);
+const coneMat=new THREE.MeshBasicMaterial({color:new THREE.Color(C.shock),transparent:true,opacity:.18,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,clippingPlanes:clipsFor()});
+const cone=new THREE.Mesh(coneGeo,coneMat); scene.add(cone);
+const genGeo=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-1,1,0),new THREE.Vector3(0,0,0),new THREE.Vector3(-1,-1,0)]);
+const gen=new THREE.Line(genGeo,new THREE.LineBasicMaterial({color:new THREE.Color(C.shock),clippingPlanes:[keepUp]})); scene.add(gen);
+
+// Huella del boom en el suelo (hipérbola)
+const NC=200;
+const carpetGeo=new THREE.BufferGeometry(); carpetGeo.setAttribute('position',new THREE.Float32BufferAttribute(new Float32Array((2*NC+1)*3),3));
+const carpet=new THREE.Line(carpetGeo,new THREE.LineBasicMaterial({color:new THREE.Color(C.shock)})); scene.add(carpet);
+
+// Avión (nariz en el origen local, cuerpo hacia −x)
+const plane=new THREE.Group();
+const skin=new THREE.MeshStandardMaterial({color:0xd5dbe6,metalness:.6,roughness:.35});
+const dark=new THREE.MeshStandardMaterial({color:0x2a3346,metalness:.3,roughness:.6});
+const fus=new THREE.Mesh(new THREE.CylinderGeometry(.05,.06,.75,20),skin); fus.rotation.z=Math.PI/2; fus.position.x=-.625;
+const nose=new THREE.Mesh(new THREE.ConeGeometry(.05,.25,20),skin); nose.rotation.z=-Math.PI/2; nose.position.x=-.125;
+const wingShape=new THREE.Shape(); wingShape.moveTo(-.32,0); wingShape.lineTo(-.9,.44); wingShape.lineTo(-.95,.44); wingShape.lineTo(-.95,-.44); wingShape.lineTo(-.9,-.44); wingShape.closePath();
+const wingGeo=new THREE.ExtrudeGeometry(wingShape,{depth:.014,bevelEnabled:false}); wingGeo.rotateX(Math.PI/2); wingGeo.translate(0,.007,0);
+const wing=new THREE.Mesh(wingGeo,skin);
+const finShape=new THREE.Shape(); finShape.moveTo(-.68,0); finShape.lineTo(-.95,0); finShape.lineTo(-.97,.26); finShape.lineTo(-.9,.26); finShape.closePath();
+const finGeo=new THREE.ExtrudeGeometry(finShape,{depth:.012,bevelEnabled:false}); finGeo.translate(0,.03,-.006);
+const fin=new THREE.Mesh(finGeo,skin);
+const cockpit=new THREE.Mesh(new THREE.SphereGeometry(.035,16,10),dark); cockpit.scale.set(2.2,1,1); cockpit.position.set(-.3,.045,0);
+const glow=new THREE.Mesh(new THREE.SphereGeometry(.06,16,10),new THREE.MeshBasicMaterial({color:new THREE.Color(C.shock),transparent:true,opacity:.8,blending:THREE.AdditiveBlending,depthWrite:false})); glow.position.x=-1.03; glow.scale.set(1.6,1,1);
+plane.add(fus,nose,wing,fin,cockpit,glow); plane.scale.setScalar(2.2); scene.add(plane);
+
+// Observador
+const obs=new THREE.Group();
+const pole=new THREE.Mesh(new THREE.CylinderGeometry(.06,.06,1.4,10),new THREE.MeshBasicMaterial({color:new THREE.Color(C.fg)})); pole.position.y=.7;
+const head=new THREE.Mesh(new THREE.SphereGeometry(.22,16,10),new THREE.MeshBasicMaterial({color:new THREE.Color(C.fg)})); head.position.y=1.55;
+const obsRing=new THREE.Mesh(new THREE.RingGeometry(.7,.85,48),new THREE.MeshBasicMaterial({color:new THREE.Color(C.shock),transparent:true,opacity:.0,side:THREE.DoubleSide,depthWrite:false}));
+obsRing.rotation.x=-Math.PI/2; obsRing.position.y=.02;
+obs.add(pole,head,obsRing); obs.position.set(XO,0,0); scene.add(obs);
+
+function resize(){ const r=canvas.parentElement.getBoundingClientRect(); renderer.setSize(r.width,r.height,false); camera.aspect=r.width/Math.max(r.height,1); camera.updateProjectionMatrix(); }
+new ResizeObserver(resize).observe(canvas.parentElement); resize();
+
+/* ---------- Vistas ---------- */
+const VIEWS={
+  '3d':  ()=>({pos:new THREE.Vector3(30,22,48),tgt:new THREE.Vector3(0,5,0)}),
+  side:  ()=>({pos:new THREE.Vector3(0,S.h*0.6,78),tgt:new THREE.Vector3(0,S.h*0.6,0)}),
+  ground:()=>({pos:new THREE.Vector3(XO+3,1.6,9),tgt:new THREE.Vector3(XO-6,S.h,0)}),
+  follow:()=>({pos:new THREE.Vector3(S.x-9,S.h+3.5,13),tgt:new THREE.Vector3(S.x-3,S.h-1,0)})
+};
+let camAnim=null;
+function setView(v,instant){
+  S.view=v; document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.view===v)));
+  const {pos,tgt}=VIEWS[v]();
+  if(instant||reduced){camera.position.copy(pos);controls.target.copy(tgt);camAnim=null;}
+  else camAnim={p0:camera.position.clone(),t0:controls.target.clone(),p1:pos,t1:tgt,k:0};
+}
+document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));
+setView('3d',true);
+
+/* ---------- Audio: estampido (onda N) ---------- */
+let actx=null, boomBuf=null;
+function makeBoom(){
+  const sr=actx.sampleRate, len=Math.floor(sr*2.2), buf=actx.createBuffer(1,len,sr), d=buf.getChannelData(0);
+  const Tn=0.17, n0=Math.floor(0.02*sr); let lp=0;
+  for(let i=0;i<len;i++){
+    const t=(i-n0)/sr; let s=0;
+    if(t>=0&&t<=Tn) s=0.9*(1-2*t/Tn);            // onda N: subida brusca, rampa, subida brusca
+    const noise=Math.random()*2-1; lp+=0.04*(noise-lp);
+    if(t>0) s+=lp*2.2*Math.exp(-t/0.55);           // retumbo
+    d[i]=s;
+  }
+  return buf;
+}
+function playBoom(){
+  if(!S.sound||!actx) return;
+  if(!boomBuf) boomBuf=makeBoom();
+  const src=actx.createBufferSource(); src.buffer=boomBuf;
+  const lpf=actx.createBiquadFilter(); lpf.type='lowpass'; lpf.frequency.value=900;
+  const g=actx.createGain(); g.gain.value=0.75;
+  src.connect(lpf).connect(g).connect(actx.destination); src.start();
+}
+$('btnSound').addEventListener('click',()=>{
+  const b=$('btnSound');
+  if(S.sound){ S.sound=false; b.classList.remove('on'); b.textContent='▶ Activar sonido'; return; }
+  const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
+  if(!actx) actx=new AC(); if(actx.state==='suspended') actx.resume();
+  S.sound=true; b.classList.add('on'); b.textContent='■ Silenciar';
+});
+
+/* ---------- UI ---------- */
+function regime(M){
+  if(M<0.8) return {cls:'sub',name:'Subsónico',txt:'El avión va más lento que el sonido. Los frentes de onda viajan por delante de él, más apretados adelante y más separados atrás (efecto Doppler). No hay cono ni estampido.'};
+  if(M<=1.0005) return {cls:'trans',name:M>=0.995?'Sónico · M = 1':'Transónico',txt:'Cerca de M = 1 los frentes se acumulan justo en la nariz y forman una pared de presión: la «barrera del sonido». El cono se abre hasta 90° y se vuelve un plano.'};
+  if(M<1.2) return {cls:'trans',name:'Transónico',txt:'Apenas supera a c: el avión alcanza sus propias ondas y aparece un cono muy abierto. Pequeños cambios de M cambian mucho el ángulo.'};
+  return {cls:'sup',name:'Supersónico',txt:'El avión se adelanta a todas sus ondas. Sus envolventes forman el cono de Mach, con sen μ = 1/M: cuanto más rápido, más cerrado el cono. Donde el cono toca el suelo se oye el estampido.'};
+}
+function update(){
+  const d=derived(), R=regime(S.M);
+  $('machOut').textContent='M '+fmt(S.M,2);
+  $('altOut').textContent=fmt(S.h,1)+' km';
+  $('speedOut').textContent='×'+S.speed;
+  $('hudM').textContent=fmt(S.M,2);
+  const chip=$('hudChip'); chip.className='chip '+R.cls; chip.textContent=R.name;
+  $('regimeTxt').textContent=R.txt;
+  $('hudMu').textContent=d.sup?fmt(d.mu*180/Math.PI,1)+'°':'—';
+  $('hudV').textContent=fmt(d.v,0)+' m/s · '+fmt(d.v*3.6,0)+' km/h';
+  $('hudC').textContent=fmt(d.c,1)+' m/s';
+  $('hudT').textContent='h = '+fmt(S.h,1)+' km · tiempo ×'+S.speed;
+  $('rMu').textContent=d.sup?fmt(d.mu*180/Math.PI,1)+'°':'no hay cono';
+  $('rV').textContent=fmt(d.v,0)+' m/s';
+  $('rC').textContent=fmt(d.c,1)+' m/s';
+  $('rT').textContent=fmt(d.T,1)+' °C';
+  $('rDelay').textContent=d.sup?fmt(d.delay,1)+' s':'—';
+  $('rDist').textContent=d.sup?fmt(d.dist,1)+' km':'—';
+  plane.position.y=S.h;
+}
+$('mach').addEventListener('input',e=>{S.M=+e.target.value;update();});
+$('alt').addEventListener('input',e=>{S.h=+e.target.value;update();});
+$('speed').addEventListener('input',e=>{S.speed=+e.target.value;update();});
+document.querySelectorAll('[data-m]').forEach(b=>b.addEventListener('click',()=>{S.M=+b.dataset.m;$('mach').value=S.M;update();resetPass();}));
+$('cut').addEventListener('change',e=>{S.cut=e.target.checked; waves.forEach(w=>{w.shell.material.clippingPlanes=clipsFor();w.shell.material.needsUpdate=true;}); coneMat.clippingPlanes=clipsFor(); coneMat.needsUpdate=true;});
+$('btnPause').addEventListener('click',()=>{S.playing=!S.playing;$('btnPause').textContent=S.playing?'Pausar':'Continuar';});
+$('btnReset').addEventListener('click',resetPass);
+$('btnPause').textContent=S.playing?'Pausar':'Continuar';
+
+function resetPass(){
+  S.x=X0; S.t=0; S.lastEmit=-1e9; S.overheadT=null; S.boomed=false;
+  waves.forEach(w=>{w.alive=false;w.shell.visible=w.ring.visible=false;});
+  $('log').textContent='Esperando la pasada del avión…';
+}
+
+/* ---------- Etiquetas HTML ---------- */
+const vtmp=new THREE.Vector3();
+function placeTag(el,pos){
+  vtmp.copy(pos).project(camera);
+  const r=canvas.getBoundingClientRect();
+  if(vtmp.z>1){el.style.display='none';return;} el.style.display='';
+  el.style.left=((vtmp.x+1)/2*r.width)+'px'; el.style.top=((1-vtmp.y)/2*r.height)+'px';
+}
+
+/* ---------- Bucle ---------- */
+const clock=new THREE.Clock(); let boomFlash=0;
+function frame(){
+  const dt=Math.min(clock.getDelta(),0.05), d=derived();
+  if(S.playing){
+    const ds=dt*S.speed;                      // segundos reales simulados
+    S.t+=ds; S.x+=d.v*ds/1000;
+    if(S.t-S.lastEmit>=EMIT_DT && S.x<X1){
+      const w=waves.find(w=>!w.alive) || waves.reduce((a,b)=>a.te<b.te?a:b);
+      w.alive=true; w.te=S.t; w.x=S.x; w.y=S.h; S.lastEmit=S.t;
+    }
+    if(S.overheadT===null && S.x>=XO){ S.overheadT=S.t-(S.x-XO)*1000/d.v; $('log').textContent=d.sup?'El avión pasó sobre el observador… todavía no se oye nada.':'El avión pasó encima: se oye el motor, sin estampido.'; }
+    if(d.sup && !S.boomed && S.x-XO>=d.dist){
+      S.boomed=true; boomFlash=1; playBoom();
+      const tb=S.t-(S.x-XO-d.dist)*1000/d.v, meas=S.overheadT!==null?tb-S.overheadT:null;
+      $('log').textContent='¡Boom! Llegó '+(meas!==null?fmt(meas,1)+' s':'')+' después de que el avión pasó encima (teoría: '+fmt(d.delay,1)+' s).';
+    }
+    if(S.x>X1+d.v*20/1000 || (S.x>X1 && !waves.some(w=>w.alive))) resetPass();
+  }
+  // ondas
+  let oldestX=S.x;
+  waves.forEach(w=>{
+    if(!w.alive) return;
+    const age=S.t-w.te, r=d.c*age/1000;
+    if(age>MAX_AGE){ w.alive=false; w.shell.visible=w.ring.visible=false; return; }
+    const fade=1-age/MAX_AGE;
+    w.shell.position.set(w.x,w.y,0); w.shell.scale.setScalar(Math.max(r,0.001));
+    w.ring.position.set(w.x,w.y,0); w.ring.scale.setScalar(Math.max(r,0.001));
+    w.shell.material.opacity=0.055*fade+0.01; w.ring.material.opacity=0.75*fade+0.05;
+    const show=$('showWaves').checked; w.shell.visible=show; w.ring.visible=show;
+    if(w.x<oldestX) oldestX=w.x;
+  });
+  // avión
+  plane.position.set(S.x,S.h,0); plane.visible=S.x<=X1+2;
+  glow.material.opacity=0.6+0.3*Math.sin(clock.elapsedTime*30);
+  // cono y huella
+  const D=S.x-oldestX, showCone=d.sup&&D>0.2&&$('showCone').checked;
+  cone.visible=gen.visible=showCone; carpet.visible=false;
+  if(showCone){
+    const R=D*Math.tan(d.mu);
+    cone.position.set(S.x,S.h,0); cone.scale.set(D,R,R);
+    gen.position.set(S.x,S.h,0); gen.scale.set(D,R,1);
+    const s0=S.h/Math.tan(d.mu);
+    if(D>s0){
+      const pos=carpetGeo.attributes.position.array; let k=0;
+      for(let i=NC;i>=-NC;i--){
+        const s=s0+(D-s0)*Math.abs(i)/NC, z=Math.sqrt(Math.max(0,Math.pow(s*Math.tan(d.mu),2)-S.h*S.h))*(i<0?-1:1);
+        pos[k++]=S.x-s; pos[k++]=0.03; pos[k++]=z;
+      }
+      carpetGeo.attributes.position.needsUpdate=true; carpetGeo.computeBoundingSphere(); carpet.visible=true;
+    }
+  }
+  // observador
+  boomFlash=Math.max(0,boomFlash-dt*0.8);
+  obsRing.material.opacity=boomFlash; obsRing.scale.setScalar(1+4*(1-boomFlash));
+  $('boomTag').classList.toggle('on',boomFlash>0.25);
+  // cámara
+  if(camAnim){ camAnim.k=Math.min(1,camAnim.k+dt*1.6); const e=1-Math.pow(1-camAnim.k,3);
+    camera.position.lerpVectors(camAnim.p0,camAnim.p1,e); controls.target.lerpVectors(camAnim.t0,camAnim.t1,e); if(camAnim.k>=1) camAnim=null; }
+  else if(S.view==='follow'){ const {pos,tgt}=VIEWS.follow(); camera.position.lerp(pos,0.08); controls.target.lerp(tgt,0.12); }
+  controls.update();
+  renderer.render(scene,camera);
+  placeTag($('obsTag'),new THREE.Vector3(XO,2.2,0));
+  placeTag($('boomTag'),new THREE.Vector3(XO,4.2,0));
+  requestAnimationFrame(frame);
+}
+// arranque: pasada ya en curso para que la primera vista muestre el cono
+update();
+(function prewarm(){ const d=derived(); for(let i=0;i<300;i++){ const ds=0.25; S.t+=ds; S.x+=d.v*ds/1000;
+  if(S.t-S.lastEmit>=EMIT_DT){const w=waves.find(w=>!w.alive); if(w){w.alive=true;w.te=S.t;w.x=S.x;w.y=S.h;S.lastEmit=S.t;}}
+  if(S.x>=XO-14) break; } })();
+frame();
+})();
+</script>
