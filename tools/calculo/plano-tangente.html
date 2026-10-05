@@ -1,0 +1,370 @@
+<title>Plano tangente interactivo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: panel de control a la izquierda (fórmula, punto, resultados), lienzo 3D a la derecha; apilado en móvil */
+:root{
+  --bg:#f3f5f7; --panel:#ffffff; --fg:#17202b; --muted:#5b6878; --line:#d8dee6;
+  --surf-a:#1f5f8b; --surf-b:#9fd3c7; --plane:#e8a33d; --normal:#c2410c; --grad:#7c3aed; --point:#111827;
+  --chip:#eef2f6;
+  --f-display:"Fraunces",Georgia,"Times New Roman",serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f141a; --panel:#161d25; --fg:#e6ebf0; --muted:#94a2b3; --line:#2a3440;
+  --surf-a:#2b6f9e; --surf-b:#a8e3d4; --plane:#f2b552; --normal:#fb7a3c; --grad:#a78bfa; --point:#f8fafc;
+  --chip:#1e2731; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f141a; --panel:#161d25; --fg:#e6ebf0; --muted:#94a2b3; --line:#2a3440;
+  --surf-a:#2b6f9e; --surf-b:#a8e3d4; --plane:#f2b552; --normal:#fb7a3c; --grad:#a78bfa; --point:#f8fafc;
+  --chip:#1e2731; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.5;padding:0 16px;padding-block:20px 32px}
+.wrap{max-width:1360px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+header h1{font-family:var(--f-display);font-weight:650;font-size:clamp(1.6rem,3vw,2.2rem);margin:0;letter-spacing:-.01em;text-wrap:balance}
+header h1 .by{font-family:var(--f-body);font-weight:500;font-size:.95rem;color:var(--grad);letter-spacing:.04em;margin-left:8px;white-space:nowrap}
+header p{margin:4px 0 0;color:var(--muted);max-width:70ch}
+.grid{display:grid;grid-template-columns:minmax(300px,380px) 1fr;gap:18px;align-items:start}
+@media (max-width:900px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.sec{display:flex;flex-direction:column;gap:8px}
+.lbl{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+.frow{display:flex;align-items:center;gap:8px}
+.frow .fx{font-family:var(--f-display);font-style:italic;font-size:1.1rem;white-space:nowrap}
+input[type=text],input[type=number],select{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:7px 9px;min-width:0;width:100%}
+input[type=text]{font-family:var(--f-mono);font-size:.95rem}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--grad);outline-offset:1px}
+.err{color:var(--normal);font-size:.85rem;min-height:1.2em}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:inherit;font-family:var(--f-mono);font-size:.78rem;background:var(--chip);color:var(--fg);border:1px solid var(--line);border-radius:999px;padding:3px 10px;cursor:pointer}
+.chip:hover{border-color:var(--muted)}
+.slider{display:grid;grid-template-columns:28px 1fr 84px;align-items:center;gap:8px}
+.slider span{font-family:var(--f-display);font-style:italic;font-size:1.05rem}
+.slider input[type=range]{width:100%;accent-color:var(--grad)}
+.dom{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.dom label{font-size:.72rem;color:var(--muted);display:flex;flex-direction:column;gap:2px}
+.toggles{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.88rem}
+.toggles label{display:flex;align-items:center;gap:6px;cursor:pointer}
+.hint{font-size:.8rem;color:var(--muted)}
+.plotbox{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0;display:flex;flex-direction:column}
+#plot{width:100%;height:min(74vh,700px);min-height:380px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;padding:10px 14px;border-top:1px solid var(--line);font-size:.82rem;color:var(--muted)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.results{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.card h3{margin:0;font-family:var(--f-display);font-weight:500;font-size:1.05rem;display:flex;align-items:center;gap:8px}
+.card h3 .sw{width:10px;height:10px;border-radius:50%}
+.math{font-family:var(--f-mono);font-size:.92rem;overflow-x:auto;white-space:nowrap;font-variant-numeric:tabular-nums}
+.big{font-size:1.05rem;font-weight:500}
+.sub{font-size:.8rem;color:var(--muted);overflow-x:auto;white-space:nowrap;font-family:var(--f-mono)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-family:var(--f-mono);font-size:.9rem;font-variant-numeric:tabular-nums}
+.kv dt{color:var(--muted)} .kv dd{margin:0;overflow-x:auto;white-space:nowrap}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Plano tangente a z = f(x, y) <span class="by">by: Fernando Huertas</span></h1>
+    <p>Escribe una función, mueve el punto (x₀, y₀) con los deslizadores o haz clic sobre la superficie. Se dibujan el plano tangente, el vector normal y el gradiente sobre el plano xy, junto a las curvas de nivel.</p>
+  </header>
+
+  <div class="grid">
+    <aside class="panel">
+      <div class="sec">
+        <div class="lbl">Superficie</div>
+        <div class="frow"><span class="fx">f(x, y) =</span><input id="fexpr" type="text" value="sin(x)*cos(y)" spellcheck="false" autocomplete="off"></div>
+        <div class="err" id="ferr"></div>
+        <div class="chips" id="presets"></div>
+        <div class="hint">Usa <code>^</code> para potencias, <code>exp</code>, <code>sin</code>, <code>sqrt</code>, <code>log</code>, <code>pi</code>, <code>e</code>.</div>
+      </div>
+
+      <div class="sec">
+        <div class="lbl">Punto de tangencia</div>
+        <div class="slider"><span>x₀</span><input id="x0r" type="range" step="any"><input id="x0n" type="number" step="0.1"></div>
+        <div class="slider"><span>y₀</span><input id="y0r" type="range" step="any"><input id="y0n" type="number" step="0.1"></div>
+      </div>
+
+      <div class="sec">
+        <div class="lbl">Dominio</div>
+        <div class="dom">
+          <label>x mín<input id="xmin" type="number" step="0.5" value="-3"></label>
+          <label>x máx<input id="xmax" type="number" step="0.5" value="3"></label>
+          <label>y mín<input id="ymin" type="number" step="0.5" value="-3"></label>
+          <label>y máx<input id="ymax" type="number" step="0.5" value="3"></label>
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="lbl">Mostrar</div>
+        <div class="toggles">
+          <label><input id="tPlane" type="checkbox" checked> Plano tangente</label>
+          <label><input id="tNormal" type="checkbox" checked> Vector normal</label>
+          <label><input id="tGrad" type="checkbox" checked> Gradiente</label>
+          <label><input id="tCont" type="checkbox" checked> Curvas de nivel</label>
+          <label><input id="tTrue" type="checkbox" checked> Escala real</label>
+        </div>
+        <div class="slider" style="grid-template-columns:auto 1fr 48px"><label for="vlen" style="font-size:.88rem">Tamaño de flechas</label><input id="vlen" type="range" min="0.04" max="0.4" step="0.01" value="0.14"><output id="vlenOut" class="hint"></output></div>
+        <div class="hint">Con escala real los ejes usan la misma unidad, así el normal se ve perpendicular al plano.</div>
+      </div>
+    </aside>
+
+    <section class="plotbox">
+      <div id="plot"></div>
+      <div class="legend">
+        <span><i style="background:linear-gradient(90deg,var(--surf-a),var(--surf-b))"></i>Superficie</span>
+        <span><i style="background:var(--plane)"></i>Plano tangente</span>
+        <span><i style="background:var(--normal)"></i>Normal n (longitud escalada)</span>
+        <span><i style="background:var(--grad)"></i>∇f en el plano xy (longitud escalada)</span>
+      </div>
+    </section>
+  </div>
+
+  <div class="results">
+    <div class="card">
+      <h3>Punto</h3>
+      <div class="math big" id="rPoint"></div>
+      <div class="sub" id="rPointSub"></div>
+    </div>
+    <div class="card">
+      <h3><span class="sw" style="background:var(--grad)"></span>Gradiente</h3>
+      <div class="math big" id="rGrad"></div>
+      <dl class="kv">
+        <dt>f<sub>x</sub> =</dt><dd id="rFxS"></dd>
+        <dt>f<sub>y</sub> =</dt><dd id="rFyS"></dd>
+        <dt>‖∇f‖ =</dt><dd id="rGradN"></dd>
+      </dl>
+    </div>
+    <div class="card">
+      <h3><span class="sw" style="background:var(--normal)"></span>Vector normal</h3>
+      <div class="math big" id="rN"></div>
+      <div class="math" id="rNhat"></div>
+      <div class="sub">n = ⟨−f<sub>x</sub>, −f<sub>y</sub>, 1⟩ (apunta hacia arriba; −n también es normal)</div>
+    </div>
+    <div class="card">
+      <h3><span class="sw" style="background:var(--plane)"></span>Plano tangente</h3>
+      <div class="math big" id="rPlane"></div>
+      <div class="math" id="rPlane2"></div>
+      <div class="sub" id="rLine"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mathjs@12.4.3/lib/browser/math.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const PRESETS = [
+  {f:"sin(x)*cos(y)", d:[-3,3,-3,3], p:[1,0.5]},
+  {f:"x^2 + y^2", d:[-2,2,-2,2], p:[1,0.5]},
+  {f:"x^2 - y^2", d:[-2,2,-2,2], p:[0.8,-0.6]},
+  {f:"4 - x^2 - 2*y^2", d:[-2,2,-2,2], p:[0.7,0.4]},
+  {f:"x*y", d:[-2,2,-2,2], p:[1,-0.5]},
+  {f:"exp(-(x^2+y^2))", d:[-2,2,-2,2], p:[0.5,0.3]},
+  {f:"sin(sqrt(x^2+y^2))", d:[-6,6,-6,6], p:[2,1]},
+];
+const state = {f:null, fx:null, fy:null, fxStr:"", fyStr:"", grid:null, x0:1, y0:0.5};
+
+function fmt(v, d=3){
+  if(!isFinite(v)) return "—";
+  if(Math.abs(v) < 5e-12) v = 0;
+  let s = v.toFixed(d).replace(/\.?0+$/,"");
+  if(s === "-0") s = "0";
+  return s.replace("-", "−");
+}
+function signed(v){ const s = fmt(Math.abs(v)); return (v < 0 && fmt(v)!=="0") ? ` − ${s}` : ` + ${s}`; }
+function pretty(s){ return s.replace(/\s*\*\s*/g,"·").replace(/-/g,"−"); }
+
+function compileFunction(src){
+  const node = math.parse(src);
+  const code = node.compile();
+  const test = code.evaluate({x:0.3712, y:-0.2219});
+  if(typeof test !== "number" && !(test && typeof test.re === "number")) throw new Error("La expresión debe depender sólo de x e y.");
+  const f = (x,y) => { const v = code.evaluate({x,y}); return typeof v === "number" ? v : (Math.abs(v.im)<1e-12 ? v.re : NaN); };
+  let fx, fy, fxStr, fyStr;
+  try{
+    const dx = math.simplify(math.derivative(node,"x")), dy = math.simplify(math.derivative(node,"y"));
+    const cx = dx.compile(), cy = dy.compile();
+    const wrap = c => (x,y)=>{ const v=c.evaluate({x,y}); return typeof v==="number"?v:(Math.abs(v.im)<1e-12?v.re:NaN); };
+    fx = wrap(cx); fy = wrap(cy); fxStr = pretty(dx.toString()); fyStr = pretty(dy.toString());
+  }catch(e){
+    const h = 1e-5;
+    fx = (x,y)=>(f(x+h,y)-f(x-h,y))/(2*h); fy = (x,y)=>(f(x,y+h)-f(x,y-h))/(2*h);
+    fxStr = "(derivada numérica)"; fyStr = "(derivada numérica)";
+  }
+  return {f, fx, fy, fxStr, fyStr};
+}
+
+function domain(){
+  let a=+$("xmin").value, b=+$("xmax").value, c=+$("ymin").value, d=+$("ymax").value;
+  if(!(b>a)) b=a+1; if(!(d>c)) d=c+1;
+  return {xmin:a,xmax:b,ymin:c,ymax:d};
+}
+
+function buildGrid(){
+  const D = domain(), N = 70, xs=[], ys=[], zs=[];
+  for(let i=0;i<N;i++) xs.push(D.xmin + (D.xmax-D.xmin)*i/(N-1));
+  for(let j=0;j<N;j++) ys.push(D.ymin + (D.ymax-D.ymin)*j/(N-1));
+  const vals=[];
+  for(let j=0;j<N;j++){ const row=[]; for(let i=0;i<N;i++){ let v; try{v=state.f(xs[i],ys[j]);}catch(e){v=NaN;} row.push(isFinite(v)?v:null); if(isFinite(v)) vals.push(v);} zs.push(row); }
+  vals.sort((a,b)=>a-b);
+  let lo = vals.length? vals[Math.floor(vals.length*0.01)] : -1, hi = vals.length? vals[Math.ceil(vals.length*0.99)-1] : 1;
+  if(hi-lo < 1e-9){ lo -= 1; hi += 1; }
+  // clip outliers so poles don't flatten the view
+  const span = hi-lo; const cl = lo-0.15*span, ch = hi+0.15*span;
+  for(const row of zs) for(let i=0;i<row.length;i++) if(row[i]!==null && (row[i]<cl || row[i]>ch)) row[i]=null;
+  state.grid = {xs, ys, zs, zlo:lo, zhi:hi, D};
+}
+
+function setupSliders(){
+  const D = domain();
+  for(const [r,n,mn,mx] of [["x0r","x0n",D.xmin,D.xmax],["y0r","y0n",D.ymin,D.ymax]]){
+    $(r).min=mn; $(r).max=mx; $(r).step=(mx-mn)/400; $(n).min=mn; $(n).max=mx;
+  }
+  state.x0 = Math.min(Math.max(state.x0,D.xmin),D.xmax);
+  state.y0 = Math.min(Math.max(state.y0,D.ymin),D.ymax);
+  syncInputs();
+}
+function syncInputs(){
+  $("x0r").value=state.x0; $("y0r").value=state.y0;
+  $("x0n").value=+state.x0.toFixed(3); $("y0n").value=+state.y0.toFixed(3);
+}
+
+function css(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+function basis(d){
+  const a = Math.abs(d[0])<0.9 ? [1,0,0] : [0,1,0];
+  let u=[d[1]*a[2]-d[2]*a[1], d[2]*a[0]-d[0]*a[2], d[0]*a[1]-d[1]*a[0]];
+  const ul=Math.hypot(...u); u=u.map(c=>c/ul);
+  const v=[d[1]*u[2]-d[2]*u[1], d[2]*u[0]-d[0]*u[2], d[0]*u[1]-d[1]*u[0]];
+  return [u,v];
+}
+function arrow(P, dir, len, color, name, sx=1,sy=1,sz=1){
+  // dir in data units; draw shaft + cone head (mesh3d). s* rescale for non-equal aspect
+  const L = Math.hypot(dir[0]*sx,dir[1]*sy,dir[2]*sz) || 1;
+  const d=[dir[0]*sx/L,dir[1]*sy/L,dir[2]*sz/L]; // unit in display space
+  const T=[P[0]+d[0]*len/sx, P[1]+d[1]*len/sy, P[2]+d[2]*len/sz];
+  const h=len*0.22, r=len*0.07;
+  const B=[T[0]-d[0]*h/sx, T[1]-d[1]*h/sy, T[2]-d[2]*h/sz];
+  const [u,v]=basis(d);
+  const X=[T[0]],Y=[T[1]],Z=[T[2]],I=[],J=[],K=[]; const n=16;
+  for(let k=0;k<n;k++){ const t=2*Math.PI*k/n, c=Math.cos(t)*r, s=Math.sin(t)*r;
+    X.push(B[0]+(u[0]*c+v[0]*s)/sx); Y.push(B[1]+(u[1]*c+v[1]*s)/sy); Z.push(B[2]+(u[2]*c+v[2]*s)/sz); }
+  X.push(B[0]);Y.push(B[1]);Z.push(B[2]); const ctr=n+1;
+  for(let k=0;k<n;k++){ const a=1+k, b=1+(k+1)%n; I.push(0,ctr);J.push(a,b);K.push(b,a); }
+  return [
+    {type:"scatter3d",mode:"lines",x:[P[0],B[0]],y:[P[1],B[1]],z:[P[2],B[2]],line:{color,width:7},name,hoverinfo:"skip",showlegend:false},
+    {type:"mesh3d",x:X,y:Y,z:Z,i:I,j:J,k:K,color,opacity:1,flatshading:true,hoverinfo:"skip",showlegend:false,lighting:{ambient:0.9,diffuse:0.3}}
+  ];
+}
+
+function render(){
+  if(!state.f || !state.grid) return;
+  const g=state.grid, D=g.D, x0=state.x0, y0=state.y0;
+  const z0=state.f(x0,y0), fx=state.fx(x0,y0), fy=state.fy(x0,y0);
+  const ok = isFinite(z0)&&isFinite(fx)&&isFinite(fy);
+  const fg=css("--fg"), muted=css("--muted"), line=css("--line"), bg=css("--panel");
+  const xspan=D.xmax-D.xmin, yspan=D.ymax-D.ymin, zspan=g.zhi-g.zlo;
+  const span=Math.max(xspan,yspan);
+  const zlo=g.zlo-0.12*zspan-0.05*span, zhi=g.zhi+0.12*zspan;
+  const trueScale=$("tTrue").checked;
+  // aspect
+  let ar;
+  if(trueScale){ const m=Math.max(xspan,yspan,zhi-zlo); ar={x:xspan/m,y:yspan/m,z:(zhi-zlo)/m}; }
+  else ar={x:1,y:yspan/xspan,z:0.8};
+  // display scale factors (display units per data unit), used so arrows keep their look
+  const sx=ar.x/xspan, sy=ar.y/yspan, sz=ar.z/(zhi-zlo);
+  const traces=[];
+  traces.push({type:"surface",x:g.xs,y:g.ys,z:g.zs,name:"f(x,y)",
+    colorscale:[[0,css("--surf-a")],[1,css("--surf-b")]],showscale:false,opacity:0.92,
+    contours:{z:{show:$("tCont").checked,usecolormap:true,project:{z:true},width:2,
+      start:g.zlo,end:g.zhi,size:(g.zhi-g.zlo)/14}},
+    lighting:{ambient:0.65,diffuse:0.6,specular:0.15,roughness:0.8},
+    hovertemplate:"x=%{x:.3f}<br>y=%{y:.3f}<br>z=%{z:.3f}<extra>clic para elegir</extra>"});
+  if(ok){
+    if($("tPlane").checked){
+      const r=0.28*span, n=12, px=[],py=[],pz=[];
+      for(let i=0;i<n;i++) px.push(x0-r+2*r*i/(n-1));
+      for(let j=0;j<n;j++) py.push(y0-r+2*r*j/(n-1));
+      for(let j=0;j<n;j++){ const row=[]; for(let i=0;i<n;i++){ const z=z0+fx*(px[i]-x0)+fy*(py[j]-y0); row.push(z<zlo||z>zhi?null:z);} pz.push(row); }
+      const pc=css("--plane");
+      traces.push({type:"surface",x:px,y:py,z:pz,colorscale:[[0,pc],[1,pc]],showscale:false,opacity:0.6,
+        hovertemplate:"plano tangente<br>x=%{x:.3f}<br>y=%{y:.3f}<br>z=%{z:.3f}<extra></extra>",contours:{z:{show:false}}});
+    }
+    if($("tNormal").checked){
+      const len = +$("vlen").value; // display units
+      traces.push(...arrow([x0,y0,z0],[-fx,-fy,1],len,css("--normal"),"normal",sx,sy,sz));
+    }
+    if($("tGrad").checked){
+      // drop line + gradient on floor
+      traces.push({type:"scatter3d",mode:"lines",x:[x0,x0],y:[y0,y0],z:[z0,zlo],line:{color:muted,width:3,dash:"dash"},hoverinfo:"skip",showlegend:false});
+      traces.push({type:"scatter3d",mode:"markers",x:[x0],y:[y0],z:[zlo],marker:{size:4,color:css("--grad")},hoverinfo:"skip",showlegend:false});
+      if(Math.hypot(fx,fy)>1e-10) traces.push(...arrow([x0,y0,zlo],[fx,fy,0],+$("vlen").value,css("--grad"),"gradiente",sx,sy,sz));
+    }
+    traces.push({type:"scatter3d",mode:"markers",x:[x0],y:[y0],z:[z0],marker:{size:5,color:css("--point"),line:{color:bg,width:2}},
+      hovertemplate:`P = (${fmt(x0)}, ${fmt(y0)}, ${fmt(z0)})<extra></extra>`,showlegend:false});
+  }
+  const ax = t=>({title:{text:t,font:{color:fg,family:"IBM Plex Mono, monospace"}},color:muted,gridcolor:line,zerolinecolor:muted,showbackground:false,tickfont:{color:muted,size:10}});
+  const layout={uirevision:"keep",margin:{l:0,r:0,t:0,b:0},paper_bgcolor:bg,plot_bgcolor:bg,showlegend:false,
+    font:{family:"IBM Plex Sans, sans-serif",color:fg},
+    scene:{xaxis:{...ax("x"),range:[D.xmin,D.xmax]},yaxis:{...ax("y"),range:[D.ymin,D.ymax]},zaxis:{...ax("z"),range:[zlo,zhi]},
+      aspectmode:"manual",aspectratio:ar,camera:{eye:{x:1.55,y:-1.55,z:0.95}}},
+    hoverlabel:{bgcolor:bg,bordercolor:line,font:{color:fg,family:"IBM Plex Mono, monospace"}}};
+  Plotly.react("plot",traces,layout,{responsive:true,displaylogo:false,modeBarButtonsToRemove:["toImage"]});
+  writeResults(x0,y0,z0,fx,fy,ok);
+}
+
+function writeResults(x0,y0,z0,fx,fy,ok){
+  $("rPoint").textContent = ok ? `P = (${fmt(x0)}, ${fmt(y0)}, ${fmt(z0)})` : "f no está definida en este punto";
+  $("rPointSub").textContent = `f(${fmt(x0)}, ${fmt(y0)}) = ${fmt(z0,5)}`;
+  $("rFxS").textContent = `${state.fxStr}  →  ${fmt(fx,5)}`;
+  $("rFyS").textContent = `${state.fyStr}  →  ${fmt(fy,5)}`;
+  if(!ok){ ["rGrad","rGradN","rN","rNhat","rPlane","rPlane2","rLine"].forEach(i=>$(i).textContent="—"); return; }
+  const gn=Math.hypot(fx,fy);
+  $("rGrad").textContent = `∇f(x₀, y₀) = ⟨${fmt(fx)}, ${fmt(fy)}⟩`;
+  $("rGradN").textContent = fmt(gn,5);
+  const nn=Math.hypot(fx,fy,1);
+  $("rN").textContent = `n = ⟨${fmt(-fx)}, ${fmt(-fy)}, 1⟩`;
+  $("rNhat").textContent = `n̂ = ⟨${fmt(-fx/nn)}, ${fmt(-fy/nn)}, ${fmt(1/nn)}⟩`;
+  $("rPlane").textContent = `z = ${fmt(z0)}${signed(fx)}(x${signed(-x0)})${signed(fy)}(y${signed(-y0)})`
+    .replace("(x + 0)","x").replace("(y + 0)","y");
+  const d = fx*x0+fy*y0-z0;
+  $("rPlane2").textContent = `${fmt(fx)}x${signed(fy)}y − z = ${fmt(d)}`;
+  $("rLine").textContent = `Recta normal: (x, y, z) = (${fmt(x0)}, ${fmt(y0)}, ${fmt(z0)}) + t⟨${fmt(-fx)}, ${fmt(-fy)}, 1⟩`;
+}
+
+function loadFunction(){
+  try{
+    Object.assign(state, compileFunction($("fexpr").value));
+    $("ferr").textContent="";
+    buildGrid(); setupSliders(); render();
+  }catch(e){ $("ferr").textContent = "No se pudo interpretar la función: " + e.message; }
+}
+
+// presets
+for(const p of PRESETS){
+  const b=document.createElement("button"); b.className="chip"; b.type="button"; b.textContent=p.f;
+  b.onclick=()=>{ $("fexpr").value=p.f; [$("xmin").value,$("xmax").value,$("ymin").value,$("ymax").value]=p.d; state.x0=p.p[0]; state.y0=p.p[1]; loadFunction(); };
+  $("presets").appendChild(b);
+}
+let tmr; $("fexpr").addEventListener("input",()=>{clearTimeout(tmr); tmr=setTimeout(loadFunction,350);});
+["xmin","xmax","ymin","ymax"].forEach(id=>$(id).addEventListener("change",()=>{ if(state.f){buildGrid();setupSliders();render();} }));
+$("x0r").addEventListener("input",e=>{state.x0=+e.target.value;syncInputs();render();});
+$("y0r").addEventListener("input",e=>{state.y0=+e.target.value;syncInputs();render();});
+$("x0n").addEventListener("change",e=>{if(isFinite(+e.target.value)){state.x0=+e.target.value;setupSliders();render();}});
+$("y0n").addEventListener("change",e=>{if(isFinite(+e.target.value)){state.y0=+e.target.value;setupSliders();render();}});
+["tPlane","tNormal","tGrad","tCont","tTrue"].forEach(id=>$(id).addEventListener("change",render));
+const showLen=()=>{$("vlenOut").textContent=Math.round(+$("vlen").value*100)+" %";};
+$("vlen").addEventListener("input",()=>{showLen();render();}); showLen();
+
+function init(){
+  loadFunction();
+  $("plot").on("plotly_click",ev=>{
+    const pt=ev.points&&ev.points[0]; if(!pt||pt.curveNumber!==0) return;
+    state.x0=pt.x; state.y0=pt.y; syncInputs(); render();
+  });
+  const mq=matchMedia("(prefers-color-scheme: dark)"); mq.addEventListener?.("change",render);
+  new MutationObserver(render).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+}
+if(window.Plotly && window.math) init(); else window.addEventListener("load",init);
+</script>
