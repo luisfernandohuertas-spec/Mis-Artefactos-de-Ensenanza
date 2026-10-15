@@ -1,0 +1,568 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head><body>
+<title>EDO de Segundo Orden</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,500;7..72,600&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: gráfica y(t) grande arriba con plano de fase y sistema masa-resorte debajo; controles a la derecha; luego resultados y proceso de solución paso a paso. */
+:root{
+  --bg:#EEF1F4; --surface:#FFFFFF; --surface-2:#F5F7FA; --ink:#141B27; --muted:#586377; --line:#D6DCE5; --grid:#E4E8EF; --focus:#3346C4;
+  --y:#3346C4; --yh:#0E8C7F; --yp:#D9480F; --num:#8A94A6; --tan:#C2255C; --field:#9AA6BA; --mass:#3346C4; --spring:#586377;
+  --serif:"Literata",Georgia,"Times New Roman",serif;
+  --sans:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0D121A; --surface:#141B26; --surface-2:#1A2230; --ink:#E4E9F1; --muted:#98A3B6; --line:#283243; --grid:#1F2837; --focus:#8EA0FF;
+    --y:#8EA0FF; --yh:#3CCFBF; --yp:#FF8A4C; --num:#7D889B; --tan:#F06595; --field:#556178; --mass:#8EA0FF; --spring:#98A3B6;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0D121A; --surface:#141B26; --surface-2:#1A2230; --ink:#E4E9F1; --muted:#98A3B6; --line:#283243; --grid:#1F2837; --focus:#8EA0FF;
+  --y:#8EA0FF; --yh:#3CCFBF; --yp:#FF8A4C; --num:#7D889B; --tan:#F06595; --field:#556178; --mass:#8EA0FF; --spring:#98A3B6;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5;padding-inline:16px;padding-block:20px 40px}
+.wrap{max-width:1320px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:8px 28px}
+h1{font-family:var(--serif);font-weight:600;font-size:clamp(1.5rem,2.6vw,2.05rem);margin:0;letter-spacing:-.01em;line-height:1.15;text-wrap:balance}
+header p{margin:0;color:var(--muted);max-width:64ch}
+.eqbox{font-family:var(--mono);font-size:15px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:9px 14px;overflow-x:auto;max-width:100%}
+.eqbox b{color:var(--y);font-weight:500}
+
+.top{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:18px;align-items:start}
+@media (max-width:1000px){.top{grid-template-columns:1fr}}
+.stage{display:flex;flex-direction:column;gap:14px;min-width:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 12px 8px;min-width:0;display:flex;flex-direction:column;gap:6px}
+.card h2{font-family:var(--serif);font-weight:500;font-size:17px;margin:0 4px}
+.card .hint{font-size:12.5px;color:var(--muted);margin:0 4px}
+.plot{width:100%;display:block}
+#pY{height:clamp(300px,44vh,440px)}
+.row2{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:14px}
+@media (max-width:700px){.row2{grid-template-columns:1fr}}
+#pF{height:300px} #pS{height:300px}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--muted);margin:0 4px 4px}
+.legend i{display:inline-block;width:18px;height:0;border-top:3px solid;vertical-align:middle;margin-right:6px}
+.player{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 14px}
+.player input[type=range]{flex:1;min-width:140px}
+.player .tv{font-family:var(--mono);font-size:13.5px;min-width:15ch;font-variant-numeric:tabular-nums}
+.btn{font:inherit;font-size:14px;font-weight:600;color:var(--ink);background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:6px 13px;cursor:pointer}
+.btn.primary{background:var(--y);border-color:var(--y);color:#fff}
+:root[data-theme="dark"] .btn.primary{color:#0D121A}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .btn.primary{color:#0D121A}}
+.btn:focus-visible,input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:16px}
+@media (max-width:1000px){.panel{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px 24px}}
+.group{display:flex;flex-direction:column;gap:7px;min-width:0}
+.label{font-size:11.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.ctl{display:grid;grid-template-columns:44px 1fr 74px;gap:8px;align-items:center;font-family:var(--mono);font-size:13.5px}
+input[type=range]{width:100%;min-width:0;accent-color:var(--y)}
+input[type=number],select{width:100%;min-width:0;font-family:var(--mono);font-size:13.5px;color:var(--ink);background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:5px 6px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:inherit;font-size:12.5px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);border-radius:999px;padding:3px 10px;cursor:pointer;text-align:left}
+.chip:hover{border-color:var(--focus)}
+.opts{display:flex;flex-direction:column;gap:6px;font-size:14px}
+.opts label{display:flex;align-items:center;gap:8px;cursor:pointer}
+.opts input{accent-color:var(--y);width:16px;height:16px}
+.hintp{font-size:12.5px;color:var(--muted);margin:0}
+.hintp code{font-family:var(--mono);font-size:12px;color:var(--ink);white-space:nowrap}
+.hintp.bad{color:var(--tan)}
+.err{font-size:13px;color:var(--tan);margin:0}
+
+.result{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.tile{background:var(--surface);padding:12px 16px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.tile .k{font-size:12.5px;color:var(--muted)}
+.tile .v{font-family:var(--mono);font-size:17px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.tile .sub{font-size:12px;color:var(--muted)}
+.pill{display:inline-block;font-family:var(--sans);font-size:12.5px;font-weight:600;border-radius:999px;padding:2px 10px;border:1px solid currentColor;margin-top:2px;width:max-content}
+
+.steps-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px 20px;min-width:0}
+.steps-card h2{font-family:var(--serif);font-weight:600;font-size:19px;margin:0 0 12px}
+ol.steps{list-style:none;margin:0;padding:0;counter-reset:st;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr));gap:0 28px}
+ol.steps li{counter-increment:st;display:grid;grid-template-columns:28px minmax(0,1fr);gap:4px 12px;padding:12px 0;border-top:1px dashed var(--line)}
+ol.steps li::before{content:counter(st);font-family:var(--mono);font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:50%;width:24px;height:24px;display:grid;place-items:center}
+.st-t{font-weight:600;font-size:14.5px}
+.math{grid-column:2;font-family:var(--mono);font-size:13.5px;line-height:1.9;overflow-wrap:anywhere;padding-bottom:2px}
+.math .y{color:var(--y);font-weight:500} .math .h{color:var(--yh)} .math .p{color:var(--yp)}
+.expl{grid-column:2;font-size:14px;color:var(--muted);margin:0;max-width:66ch}
+sup{font-size:.72em;line-height:0}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Solución gráfica de a·y″ + b·y′ + c·y = g(t)</h1>
+      <p>Ecuación diferencial lineal de segundo orden con coeficientes constantes y valores iniciales y(0), y′(0). La solución se obtiene con la ecuación característica y se compara con la integración numérica (Runge–Kutta 4).</p>
+    </div>
+    <div class="eqbox" id="eqTop">—</div>
+  </header>
+
+  <div class="top">
+    <div class="stage">
+      <section class="card">
+        <h2>Solución y(t)</h2>
+        <canvas id="pY" class="plot" aria-label="Gráfica de la solución y(t)"></canvas>
+        <div class="legend">
+          <span><i style="border-color:var(--y)"></i>y(t) solución</span>
+          <span id="lgH"><i style="border-color:var(--yh);border-top-style:dashed"></i>y<sub>h</sub> homogénea</span>
+          <span id="lgP"><i style="border-color:var(--yp);border-top-style:dashed"></i>y<sub>p</sub> particular</span>
+          <span><i style="border-color:var(--num);border-top-style:dotted"></i>RK4 numérica</span>
+          <span><i style="border-color:var(--tan)"></i>recta tangente (pendiente y′)</span>
+        </div>
+      </section>
+      <div class="player">
+        <button class="btn primary" id="play" type="button">Animar</button>
+        <input id="tS" type="range" min="0" max="1000" step="1" value="0" aria-label="Tiempo">
+        <span class="tv" id="tV">t = 0</span>
+      </div>
+      <div class="row2">
+        <section class="card">
+          <h2>Plano de fase (y, y′)</h2>
+          <canvas id="pF" class="plot" aria-label="Plano de fase con campo de direcciones y trayectoria"></canvas>
+          <p class="hint" id="fHint">Campo de direcciones del sistema y′ = v, v′ = (g(t) − b·v − c·y)/a.</p>
+        </section>
+        <section class="card">
+          <h2>Modelo masa–resorte</h2>
+          <canvas id="pS" class="plot" aria-label="Masa unida a un resorte y un amortiguador"></canvas>
+          <p class="hint">m = a, amortiguamiento = b, constante del resorte = c, fuerza externa = g(t).</p>
+        </section>
+      </div>
+    </div>
+
+    <aside class="panel" aria-label="Controles">
+      <div class="group">
+        <label class="label" for="eqIn">Escribir la ecuación</label>
+        <form id="eqForm" style="display:flex;gap:6px">
+          <input id="eqIn" type="text" spellcheck="false" autocomplete="off" style="flex:1;min-width:0;font-family:var(--mono);font-size:14px;color:var(--ink);background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:7px 8px" placeholder="y'' + 0.5y' + 4y = 0">
+          <button class="btn primary" type="submit">Aplicar</button>
+        </form>
+        <p class="hintp" id="eqMsg">Ejemplos: <code>2y'' - 3y' + y = 0</code>, <code>y'' + 4y = cos(2t)</code>, <code>y'' + y' + 4y = 3sen(1.5t)</code>, <code>y'' - y = 2e^(-t)</code>, <code>y'' + 2y' + 5y = 10</code>. Luego ajusta y(0) y y′(0) abajo.</p>
+      </div>
+      <div class="group">
+        <div class="label">Ejemplos</div>
+        <div class="chips" id="presets"></div>
+      </div>
+      <div class="group">
+        <div class="label">Coeficientes</div>
+        <div class="ctl"><label for="ar">a</label><input id="ar" type="range" min="0.1" max="5" step="0.1"><input id="a" type="number" step="0.1"></div>
+        <div class="ctl"><label for="br">b</label><input id="br" type="range" min="-3" max="10" step="0.1"><input id="b" type="number" step="0.1"></div>
+        <div class="ctl"><label for="cr">c</label><input id="cr" type="range" min="-10" max="30" step="0.1"><input id="c" type="number" step="0.1"></div>
+        <p class="err" id="err" hidden>El coeficiente a no puede ser 0: la ecuación dejaría de ser de segundo orden.</p>
+      </div>
+      <div class="group">
+        <div class="label">Valores iniciales</div>
+        <div class="ctl"><label for="y0r">y(0)</label><input id="y0r" type="range" min="-5" max="5" step="0.1"><input id="y0" type="number" step="0.1"></div>
+        <div class="ctl"><label for="v0r">y′(0)</label><input id="v0r" type="range" min="-10" max="10" step="0.1"><input id="v0" type="number" step="0.1"></div>
+      </div>
+      <div class="group">
+        <div class="label">Término forzante g(t)</div>
+        <select id="gType" aria-label="Tipo de término forzante">
+          <option value="none">0 · ecuación homogénea</option>
+          <option value="const">F₀ (constante)</option>
+          <option value="cos">F₀·cos(ωt)</option>
+          <option value="sin">F₀·sen(ωt)</option>
+          <option value="exp">F₀·e^(kt)</option>
+        </select>
+        <div class="ctl" id="rowF"><label for="Fr">F₀</label><input id="Fr" type="range" min="-10" max="10" step="0.1"><input id="F" type="number" step="0.1"></div>
+        <div class="ctl" id="rowW"><label for="wr">ω</label><input id="wr" type="range" min="0.1" max="6" step="0.01"><input id="w" type="number" step="0.01"></div>
+        <div class="ctl" id="rowK"><label for="kr">k</label><input id="kr" type="range" min="-3" max="2" step="0.1"><input id="k" type="number" step="0.1"></div>
+      </div>
+      <div class="group">
+        <div class="label">Intervalo</div>
+        <div class="ctl"><label for="Tr">t máx</label><input id="Tr" type="range" min="1" max="60" step="0.5"><input id="T" type="number" step="0.5"></div>
+      </div>
+      <div class="group">
+        <div class="label">Mostrar</div>
+        <div class="opts">
+          <label><input type="checkbox" id="oParts" checked> y<sub>h</sub> y y<sub>p</sub> por separado</label>
+          <label><input type="checkbox" id="oNum" checked> Solución numérica RK4</label>
+          <label><input type="checkbox" id="oTan" checked> Recta tangente en t</label>
+          <label><input type="checkbox" id="oField" checked> Campo de direcciones</label>
+          <label><input type="checkbox" id="oEnv" checked> Envolvente e<sup>αt</sup> (caso complejo)</label>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="result" aria-live="polite">
+    <div class="tile"><span class="k">Raíces características</span><span class="v" id="rR">—</span><span class="sub" id="rD">—</span></div>
+    <div class="tile"><span class="k">Tipo de respuesta</span><span class="v" id="rC" style="font-family:var(--sans);font-size:16px;font-weight:600">—</span><span class="pill" id="rS">—</span></div>
+    <div class="tile"><span class="k">Constantes</span><span class="v" id="rK">—</span><span class="sub">de los valores iniciales</span></div>
+    <div class="tile"><span class="k">y en el instante t</span><span class="v" id="rY">—</span><span class="sub" id="rYs">—</span></div>
+    <div class="tile"><span class="k">Error máx. analítica vs RK4</span><span class="v" id="rE">—</span><span class="sub">en [0, t máx]</span></div>
+  </div>
+
+  <section class="steps-card">
+    <h2>Proceso de solución</h2>
+    <ol class="steps" id="steps"></ol>
+  </section>
+</div>
+
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const P={a:1,b:0.5,c:4,y0:1,v0:0,gType:"none",F:1,w:2,k:-0.5,T:15};
+const PRESETS=[
+  ["Subamortiguado",{a:1,b:0.5,c:4,y0:1,v0:0,gType:"none",T:15}],
+  ["Críticamente amortiguado",{a:1,b:4,c:4,y0:1,v0:0,gType:"none",T:8}],
+  ["Sobreamortiguado",{a:1,b:5,c:4,y0:1,v0:0,gType:"none",T:8}],
+  ["Oscilador libre",{a:1,b:0,c:4,y0:1,v0:0,gType:"none",T:12}],
+  ["Inestable",{a:1,b:-1,c:-2,y0:1,v0:0,gType:"none",T:3}],
+  ["Forzado amortiguado",{a:1,b:0.4,c:4,y0:0,v0:0,gType:"cos",F:2,w:1.5,T:30}],
+  ["Resonancia",{a:1,b:0,c:4,y0:0,v0:0,gType:"cos",F:1,w:2,T:30}],
+  ["Escalón constante",{a:1,b:1,c:4,y0:0,v0:0,gType:"const",F:4,T:12}]
+];
+
+// ---------- number formatting ----------
+function f(x,d=4){ if(!isFinite(x)) return "∞"; let v=+x.toFixed(d); if(Object.is(v,-0)||Math.abs(v)<Math.pow(10,-d)) v=0; return String(v).replace(".",",").replace("-","−"); }
+function fs(x,d=4){ return (x<0?"− ":"+ ")+f(Math.abs(x),d); }                 // signed, for sums
+function cT(r){ const s=f(r); if(s==="0") return "0"; if(s==="1") return "t"; if(s==="−1") return "−t"; return s+"t"; }  // r·t
+function eB(r){ return Math.abs(r)<5e-5 ? "" : "e<sup>"+cT(r)+"</sup>"; }
+// build a sum of terms [coef, body]; body "" means a constant
+function sum(terms){
+  let out="";
+  terms.forEach(([c,body])=>{
+    if(Math.abs(c)<5e-5) return;
+    const a=Math.abs(c), mag = body ? (Math.abs(a-1)<5e-5?"":f(a)) : f(a);
+    const piece = mag + (mag&&body&&!/^[·(]/.test(body)?"":"") + body;
+    if(!out) out = (c<0?"−":"") + piece; else out += (c<0?" − ":" + ") + piece;
+  });
+  return out||"0";
+}
+
+// ---------- analytic solution ----------
+function solve(){
+  const {a,b,c,y0,v0,gType,F,w,k}=P;
+  const disc=b*b-4*a*c, tol=1e-9*(b*b+Math.abs(4*a*c)+1);
+  let kind, r1, r2, al, be, y1, y2, d1, d2, basisTxt, rootsTxt;
+  if(disc>tol){
+    kind="real"; const s=Math.sqrt(disc); r1=(-b-s)/(2*a); r2=(-b+s)/(2*a); if(r1>r2){const t=r1;r1=r2;r2=t;}
+    y1=t=>Math.exp(r1*t); d1=t=>r1*Math.exp(r1*t); y2=t=>Math.exp(r2*t); d2=t=>r2*Math.exp(r2*t);
+    rootsTxt="r₁ = "+f(r1)+", r₂ = "+f(r2);
+  } else if(disc>=-tol){
+    kind="double"; r1=r2=-b/(2*a);
+    y1=t=>Math.exp(r1*t); d1=t=>r1*Math.exp(r1*t); y2=t=>t*Math.exp(r1*t); d2=t=>(1+r1*t)*Math.exp(r1*t);
+    rootsTxt="r₁ = r₂ = "+f(r1)+" (doble)";
+  } else {
+    kind="complex"; al=-b/(2*a); be=Math.sqrt(-disc)/(2*Math.abs(a));
+    y1=t=>Math.exp(al*t)*Math.cos(be*t); d1=t=>Math.exp(al*t)*(al*Math.cos(be*t)-be*Math.sin(be*t));
+    y2=t=>Math.exp(al*t)*Math.sin(be*t); d2=t=>Math.exp(al*t)*(al*Math.sin(be*t)+be*Math.cos(be*t));
+    rootsTxt="r = "+f(al)+" ± "+f(be)+"i";
+  }
+  // particular solution
+  let yp=t=>0, dp=t=>0, pTxt="", pMethod="", resonant=false, g=t=>0, gTxt="0";
+  if(gType==="const"||gType==="exp"){
+    const kk= gType==="const"?0:k; g=t=>F*Math.exp(kk*t);
+    gTxt = gType==="const" ? f(F) : sum([[F,"e<sup>"+cT(kk)+"</sup>"]]);
+    const Pk=a*kk*kk+b*kk+c, Pd=2*a*kk+b, tl=1e-9*(Math.abs(a*kk*kk)+Math.abs(b*kk)+Math.abs(c)+1);
+    const eb=eB(kk);
+    if(Math.abs(Pk)>tl){ const A=F/Pk; yp=t=>A*Math.exp(kk*t); dp=t=>A*kk*Math.exp(kk*t);
+      pMethod="Se prueba y<sub>p</sub> = A"+eb+". Sustituyendo: A·(a·"+(kk===0?"0":"k²")+" + b·"+(kk===0?"0":"k")+" + c) = F₀ ⇒ A = F₀ / ("+f(Pk)+") = "+f(A);
+      pTxt=sum([[A,eb]]); }
+    else if(Math.abs(Pd)>tl){ resonant=true; const A=F/Pd; yp=t=>A*t*Math.exp(kk*t); dp=t=>A*(1+kk*t)*Math.exp(kk*t);
+      pMethod="k = "+f(kk)+" es raíz simple de la ecuación característica, así que se prueba y<sub>p</sub> = A·t"+eb+" ⇒ A = F₀/(2ak + b) = "+f(A);
+      pTxt=sum([[A,"t"+eb]]); }
+    else { resonant=true; const A=F/(2*a); yp=t=>A*t*t*Math.exp(kk*t); dp=t=>A*(2*t+kk*t*t)*Math.exp(kk*t);
+      pMethod="k = "+f(kk)+" es raíz doble, así que se prueba y<sub>p</sub> = A·t²"+eb+" ⇒ A = F₀/(2a) = "+f(A);
+      pTxt=sum([[A,"t²"+eb]]); }
+  } else if(gType==="cos"||gType==="sin"){
+    const isC=gType==="cos", fn=isC?"cos":"sen";
+    g=t=>F*(isC?Math.cos(w*t):Math.sin(w*t)); gTxt=sum([[F,fn+"("+cT(w)+")"]]);
+    const Pr=c-a*w*w, Pi=b*w, m2=Pr*Pr+Pi*Pi, tl=1e-9*(Math.abs(c)+Math.abs(a*w*w)+Math.abs(b*w)+1);
+    const cs="cos("+cT(w)+")", sn="sen("+cT(w)+")";
+    if(Math.sqrt(m2)>tl){
+      const Zr=F*Pr/m2, Zi=-F*Pi/m2;                       // Z = F / P(iω)
+      const A= isC? Zr : Zi, B= isC? -Zi : Zr;              // yp = A cos + B sin
+      yp=t=>A*Math.cos(w*t)+B*Math.sin(w*t); dp=t=>w*(-A*Math.sin(w*t)+B*Math.cos(w*t));
+      pMethod="Se prueba y<sub>p</sub> = A·"+cs+" + B·"+sn+". Al sustituir e igualar coeficientes: (c − aω²)A + bωB = "+(isC?"F₀":"0")+" y −bωA + (c − aω²)B = "+(isC?"0":"F₀")+" ⇒ A = "+f(A)+", B = "+f(B);
+      pTxt=sum([[A,cs],[B,sn]]);
+      P._amp=Math.hypot(A,B);
+    } else {
+      resonant=true; const K=F/(2*a*w);
+      const A= isC? 0 : -K, B= isC? K : 0;                 // yp = t(A cos + B sin)
+      yp=t=>t*(A*Math.cos(w*t)+B*Math.sin(w*t)); dp=t=>(A*Math.cos(w*t)+B*Math.sin(w*t))+t*w*(-A*Math.sin(w*t)+B*Math.cos(w*t));
+      pMethod="Resonancia: ω = "+f(w)+" coincide con la frecuencia natural √(c/a) y b = 0. Se prueba y<sub>p</sub> = t·(A·"+cs+" + B·"+sn+") ⇒ A = "+f(A)+", B = "+f(B);
+      pTxt=sum([[A,"t·"+cs],[B,"t·"+sn]]);
+      P._amp=Infinity;
+    }
+  }
+  // constants from initial conditions
+  const Y=y0-yp(0), V=v0-dp(0);
+  const a11=y1(0),a12=y2(0),a21=d1(0),a22=d2(0), det=a11*a22-a12*a21;
+  const C1=(Y*a22-a12*V)/det, C2=(a11*V-a21*Y)/det;
+  const yh=t=>C1*y1(t)+C2*y2(t), dh=t=>C1*d1(t)+C2*d2(t);
+  const y=t=>yh(t)+yp(t), dy=t=>dh(t)+dp(t);
+  // symbolic homogeneous forms
+  let hGen, hVal;
+  if(kind==="real"){ hGen="C₁"+eB(r1)+" + C₂"+eB(r2); hVal=sum([[C1,eB(r1)],[C2,eB(r2)]]); }
+  else if(kind==="double"){ hGen="C₁"+eB(r1)+" + C₂·t"+eB(r1); hVal=sum([[C1,eB(r1)],[C2,"t"+eB(r1)]]); }
+  else { const ex=eB(al), cs="cos("+cT(be)+")", sn="sen("+cT(be)+")";
+    hGen=(ex?ex:"")+"(C₁·"+cs+" + C₂·"+sn+")";
+    const inner=sum([[C1,cs],[C2,sn]]); hVal= ex ? ex+"("+inner+")" : inner; }
+  return {disc,kind,r1,r2,al,be,y1,y2,d1,d2,yp,dp,yh,dh,y,dy,g,gTxt,pTxt,pMethod,resonant,C1,C2,Y,V,a11,a12,a21,a22,hGen,hVal,rootsTxt};
+}
+
+// ---------- RK4 ----------
+function rk4(S,N){
+  const {a,b,c,T}=P, h=T/N; let t=0,y=P.y0,v=P.v0; const out=[[0,y,v]];
+  const fv=(t,y,v)=>(S.g(t)-b*v-c*y)/a;
+  for(let i=0;i<N;i++){
+    const k1y=v, k1v=fv(t,y,v);
+    const k2y=v+h/2*k1v, k2v=fv(t+h/2,y+h/2*k1y,v+h/2*k1v);
+    const k3y=v+h/2*k2v, k3v=fv(t+h/2,y+h/2*k2y,v+h/2*k2v);
+    const k4y=v+h*k3v, k4v=fv(t+h,y+h*k3y,v+h*k3v);
+    y+=h/6*(k1y+2*k2y+2*k3y+k4y); v+=h/6*(k1v+2*k2v+2*k3v+k4v); t+=h; out.push([t,y,v]);
+  }
+  return out;
+}
+
+// ---------- controls ----------
+const ctl=[["ar","a","a"],["br","b","b"],["cr","c","c"],["y0r","y0","y0"],["v0r","v0","v0"],["Fr","F","F"],["wr","w","w"],["kr","k","k"],["Tr","T","T"]];
+function syncInputs(){ ctl.forEach(([r,n,k])=>{ $(n).value=P[k]; $(r).value=P[k]; }); $("gType").value=P.gType; }
+ctl.forEach(([r,n,k])=>{
+  $(r).addEventListener("input",()=>{ P[k]=+$(r).value; $(n).value=$(r).value; recompute(); });
+  $(n).addEventListener("input",()=>{ if($(n).value==="") return; const v=+$(n).value; if(!isFinite(v)) return; P[k]=v; $(r).value=v; recompute(); });
+});
+$("gType").addEventListener("change",()=>{ P.gType=$("gType").value; recompute(); });
+$("presets").innerHTML=PRESETS.map((p,i)=>'<button class="chip" type="button" data-i="'+i+'">'+p[0]+'</button>').join("");
+$("presets").addEventListener("click",e=>{ const bt=e.target.closest("button"); if(!bt) return; Object.assign(P,{F:1,w:2,k:-0.5},PRESETS[+bt.dataset.i][1]); syncInputs(); tNow=0; recompute(); });
+["oParts","oNum","oTan","oField","oEnv"].forEach(id=>$(id).addEventListener("change",drawAll));
+
+// ---------- equation text input ----------
+function asciiNum(x){ return String(+(+x).toFixed(6)); }
+function eqAscii(){
+  const t=[[P.a,"y''"],[P.b,"y'"],[P.c,"y"]]; let out="";
+  t.forEach(([c,v])=>{ if(c===0) return; const m=Math.abs(c)===1?"":asciiNum(Math.abs(c)); out+= out? (c<0?" - ":" + ")+m+v : (c<0?"-":"")+m+v; });
+  let r="0"; const F=asciiNum(P.F), Fm = P.F===1?"":(P.F===-1?"-":F);
+  if(P.gType==="const") r=F; else if(P.gType==="cos") r=Fm+"cos("+asciiNum(P.w)+"t)"; else if(P.gType==="sin") r=Fm+"sen("+asciiNum(P.w)+"t)"; else if(P.gType==="exp") r=Fm+"e^("+asciiNum(P.k)+"t)";
+  return (out||"0")+" = "+r;
+}
+function parseEq(txt){
+  let s=txt.toLowerCase().replace(/\s+/g,"").replace(/,/g,".").replace(/[−–]/g,"-").replace(/[″"]/g,"''").replace(/[′’´]/g,"'").replace(/[·*]/g,"");
+  if(!s) throw "Escribe una ecuación, por ejemplo y'' + 0.5y' + 4y = 0.";
+  const parts=s.split("="); if(parts.length>2) throw "La ecuación tiene más de un signo =.";
+  const lhs=parts[0], rhs=parts.length>1?parts[1]:"0";
+  const NUM="(?:\\d+\\.?\\d*|\\.\\d+)(?:/(?:\\d+\\.?\\d*))?";
+  const re=new RegExp("([+-]?)("+NUM+")?y('{0,2})","y");
+  let pos=0, a=0,b=0,c=0, any=false;
+  const val=(sg,n)=>{ let v=1; if(n){ const q=n.split("/"); v= q.length>1? +q[0]/+q[1] : +n; } return sg==="-"?-v:v; };
+  while(pos<lhs.length){ re.lastIndex=pos; const m=re.exec(lhs); if(!m) throw "No entiendo el lado izquierdo cerca de «"+lhs.slice(pos)+"». Usa términos como 2y'', -3y' y 5y.";
+    const v=val(m[1],m[2]); if(m[3]==="''") a+=v; else if(m[3]==="'") b+=v; else c+=v; pos=re.lastIndex; any=true; }
+  if(!any) throw "El lado izquierdo debe tener términos en y'', y' o y.";
+  if(a===0) throw "Falta el término en y'': sin él la ecuación no es de segundo orden.";
+  const g={gType:"none"};
+  const r=rhs.replace(/sin/g,"sen").replace(/exp\(/g,"e^(");
+  let m;
+  const N="([+-]?(?:\\d+\\.?\\d*|\\.\\d+)?)";
+  if(r===""||/^[+-]?0+(\.0*)?$/.test(r)){ }
+  else if((m=r.match(new RegExp("^"+N+"(cos|sen)\\("+N+"t\\)$")))){ g.gType=m[2]==="cos"?"cos":"sin"; g.F=coef(m[1]); g.w=Math.abs(coef(m[3])); if(g.w===0) throw "La frecuencia ω debe ser distinta de 0."; }
+  else if((m=r.match(new RegExp("^"+N+"e\\^\\(?"+N+"t\\)?$")))){ g.gType="exp"; g.F=coef(m[1]); g.k=coef(m[2]); }
+  else if((m=r.match(/^[+-]?(\d+\.?\d*|\.\d+)$/))){ g.gType="const"; g.F=+r; }
+  else throw "No reconozco el lado derecho «"+rhs+"». Usa 0, una constante, F·cos(ωt), F·sen(ωt) o F·e^(kt).";
+  return {a,b,c,...g};
+}
+function coef(x){ if(x===""||x===undefined||x==="+") return 1; if(x==="-") return -1; return +x; }
+$("eqForm").addEventListener("submit",e=>{ e.preventDefault();
+  const msg=$("eqMsg");
+  try{ const q=parseEq($("eqIn").value); Object.assign(P,q); syncInputs(); tNow=0; recompute();
+    msg.classList.remove("bad"); msg.innerHTML="Ecuación aplicada: a = "+f(P.a)+", b = "+f(P.b)+", c = "+f(P.c)+". Ajusta y(0) y y′(0) abajo si lo necesitas.";
+  }catch(err){ msg.classList.add("bad"); msg.textContent=String(err); }
+});
+
+// ---------- state ----------
+let S=null, num=[], samples=[], tNow=0, playing=false, maxErr=0;
+function recompute(){
+  $("rowF").hidden=P.gType==="none"; $("rowW").hidden=!(P.gType==="cos"||P.gType==="sin"); $("rowK").hidden=P.gType!=="exp";
+  if(Math.abs(P.a)<1e-9){ $("err").hidden=false; return; } $("err").hidden=true;
+  P.T=Math.max(0.5,P.T); P.w=Math.max(0.01,P.w);
+  S=solve();
+  const N=1200; samples=[];
+  for(let i=0;i<=N;i++){ const t=P.T*i/N; samples.push([t,S.y(t),S.dy(t),S.yh(t),S.yp(t)]); }
+  num=rk4(S,2400); maxErr=0; num.forEach(([t,y])=>{ maxErr=Math.max(maxErr,Math.abs(y-S.y(t))); });
+  tNow=Math.min(tNow,P.T);
+  renderText(); drawAll();
+  if(document.activeElement!==$("eqIn")) $("eqIn").value=eqAscii();
+}
+
+// ---------- text ----------
+function eqStr(){
+  const {a,b,c}=P;
+  const lhs=sum([[a,"y″"],[b,"y′"],[c,"y"]]);
+  return lhs+" = "+S.gTxt;
+}
+function renderText(){
+  const {a,b,c,y0,v0}=P, s=S;
+  $("eqTop").innerHTML=eqStr()+" &nbsp;·&nbsp; y(0) = "+f(y0)+", y′(0) = "+f(v0);
+  $("rR").textContent=s.rootsTxt; $("rD").textContent="Δ = b² − 4ac = "+f(s.disc).replace(/<[^>]+>/g,"");
+  let caseTxt, stab, stabCol;
+  const reMax = s.kind==="complex"? s.al : Math.max(s.r1,s.r2);
+  if(s.kind==="real") caseTxt="Dos raíces reales: "+(Math.max(s.r1,s.r2)<0?"sobreamortiguado":"sin oscilación");
+  if(s.kind==="double") caseTxt="Raíz doble: "+(s.r1<0?"críticamente amortiguado":"sin oscilación");
+  if(s.kind==="complex") caseTxt= Math.abs(s.al)<5e-9 ? "Raíces imaginarias: oscilación sin amortiguar" : (s.al<0?"Raíces complejas: subamortiguado":"Raíces complejas: oscilación creciente");
+  if(reMax<-1e-9){ stab="Estable: y_h → 0"; stabCol="var(--yh)"; } else if(reMax<=1e-9){ stab="Marginal: y_h acotada"; stabCol="var(--muted)"; } else { stab="Inestable: y_h crece"; stabCol="var(--tan)"; }
+  if(s.resonant && (P.gType==="cos"||P.gType==="sin")){ stab="Resonancia: amplitud crece ∝ t"; stabCol="var(--tan)"; }
+  $("rC").textContent=caseTxt; const pl=$("rS"); pl.textContent=stab.replace("y_h","yₕ"); pl.style.color=stabCol;
+  $("rK").textContent="C₁ = "+f(s.C1)+" · C₂ = "+f(s.C2);
+  const SUP={"-":"⁻","0":"⁰","1":"¹","2":"²","3":"³","4":"⁴","5":"⁵","6":"⁶","7":"⁷","8":"⁸","9":"⁹"};
+  const [mE,eE]=maxErr.toExponential(2).split("e"); $("rE").textContent= maxErr<1e-12?"< 10⁻¹²": mE.replace(".",",")+" × 10"+String(+eE).split("").map(ch=>SUP[ch]).join("");
+  // steps
+  const st=[];
+  st.push(["Ecuación y valores iniciales", eqStr()+" &nbsp;&nbsp; y(0) = "+f(y0)+", &nbsp;y′(0) = "+f(v0),
+    P.gType==="none"?"Es homogénea (g(t) = 0), así que la solución es la de la homogénea.":"La solución general es y = y<sub>h</sub> + y<sub>p</sub>: la homogénea más una solución particular."]);
+  st.push(["Ecuación característica", "Se prueba y = e<sup>rt</sup>: &nbsp;"+sum([[a,"r²"],[b,"r"],[c,""]])+" = 0",
+    "Al sustituir y = e<sup>rt</sup>, y′ = r·e<sup>rt</sup>, y″ = r²·e<sup>rt</sup> y dividir entre e<sup>rt</sup> ≠ 0 queda un polinomio de grado 2."]);
+  st.push(["Discriminante y raíces", "Δ = b² − 4ac = ("+f(b)+")² − 4·("+f(a)+")·("+f(c)+") = "+f(s.disc)+" &nbsp;⇒&nbsp; "+s.rootsTxt,
+    s.kind==="real"?"Δ > 0: dos raíces reales distintas.":s.kind==="double"?"Δ = 0: una raíz real doble.":"Δ < 0: raíces complejas conjugadas α ± βi con α = −b/(2a) y β = √(−Δ)/(2|a|)."]);
+  st.push(["Solución homogénea", '<span class="h">y<sub>h</sub> = '+s.hGen+'</span>',
+    s.kind==="real"?"Cada raíz real aporta una exponencial.":s.kind==="double"?"Con raíz doble, la segunda solución independiente se obtiene multiplicando por t.":"Las raíces complejas producen una oscilación de frecuencia β con envolvente e<sup>αt</sup>."]);
+  if(P.gType!=="none"){
+    st.push(["Solución particular (coeficientes indeterminados)", '<span class="p">y<sub>p</sub> = '+s.pTxt+'</span>', s.pMethod]);
+  }
+  st.push(["Solución general", '<span class="y">y = '+s.hGen+(P.gType!=="none"?' '+(s.pTxt.startsWith("−")?"− "+s.pTxt.slice(1):"+ "+s.pTxt):'')+'</span>', null]);
+  const Yl=P.gType!=="none"?"y(0) − y<sub>p</sub>(0) = "+f(s.Y):"y(0) = "+f(s.Y);
+  const Vl=P.gType!=="none"?"y′(0) − y<sub>p</sub>′(0) = "+f(s.V):"y′(0) = "+f(s.V);
+  st.push(["Aplicar los valores iniciales",
+    sum([[s.a11,"C₁"],[s.a12,"C₂"]]).replace(/^$/,"0")+" = "+Yl+"<br>"+sum([[s.a21,"C₁"],[s.a22,"C₂"]])+" = "+Vl+"<br>⇒ C₁ = "+f(s.C1)+", &nbsp;C₂ = "+f(s.C2),
+    "Se evalúan y<sub>h</sub>(0) y y<sub>h</sub>′(0) y se resuelve el sistema 2×2 para C₁ y C₂."]);
+  st.push(["Solución del problema de valor inicial",
+    '<span class="y">y(t) = '+s.hVal+(P.gType!=="none"?' '+(s.pTxt.startsWith("−")?"− "+s.pTxt.slice(1):"+ "+s.pTxt):'')+'</span>',
+    "Es la curva azul de la gráfica. Los puntos grises son la integración numérica RK4; el error máximo entre ambas es "+$("rE").textContent+"."]);
+  let lt;
+  if(s.resonant && (P.gType==="cos"||P.gType==="sin")) lt="Hay resonancia: la amplitud crece linealmente con t y no se alcanza un estado estacionario.";
+  else if(reMax<-1e-9) lt= P.gType==="none"?"Todas las raíces tienen parte real negativa: la solución tiende a 0 (equilibrio estable).":"La parte homogénea es transitoria y desaparece; a largo plazo y(t) ≈ y<sub>p</sub>(t) (respuesta de estado estacionario).";
+  else if(reMax<=1e-9) lt="La parte homogénea no crece ni decae: queda una oscilación o un valor constante permanente.";
+  else lt="Hay una raíz con parte real positiva: la solución crece sin límite (equilibrio inestable).";
+  st.push(["Comportamiento a largo plazo", "máx Re(r) = "+f(reMax), lt]);
+  $("steps").innerHTML=st.map(x=>'<li><span class="st-t">'+x[0]+'</span><div class="math">'+x[1]+'</div>'+(x[2]?'<p class="expl">'+x[2]+'</p>':'')+'</li>').join("");
+}
+
+// ---------- canvas helpers ----------
+const C={};
+function readColors(){ const cs=getComputedStyle(document.documentElement); ["ink","muted","line","grid","y","yh","yp","num","tan","field","mass","spring","surface","surface-2"].forEach(k=>C[k]=cs.getPropertyValue("--"+k).trim()); }
+readColors();
+new MutationObserver(()=>{ readColors(); drawAll(); }).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+try{ matchMedia("(prefers-color-scheme: dark)").addEventListener("change",()=>{ readColors(); drawAll(); }); }catch(e){}
+function prep(cv){ const r=cv.getBoundingClientRect(), dpr=Math.min(2,devicePixelRatio||1); const W=Math.max(1,r.width), H=Math.max(1,r.height);
+  if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H*dpr)){ cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr); }
+  const ctx=cv.getContext("2d"); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H); return {ctx,W,H}; }
+function ticks(a,b,n){ const span=b-a||1; let st=Math.pow(10,Math.floor(Math.log10(span/n))); const e=span/n/st; st*= e>5?10:e>2?5:e>1?2:1; const out=[]; for(let v=Math.ceil(a/st)*st; v<=b+1e-9; v+=st) out.push(+v.toFixed(10)); return out; }
+function axes(ctx,W,H,box,xr,yr,xl,yl){
+  const X=x=>box.l+(x-xr[0])/(xr[1]-xr[0])*(W-box.l-box.r), Y=y=>H-box.b-(y-yr[0])/(yr[1]-yr[0])*(H-box.t-box.b);
+  ctx.font="11px 'JetBrains Mono', monospace"; ctx.fillStyle=C.muted; ctx.lineWidth=1;
+  ticks(xr[0],xr[1],7).forEach(v=>{ ctx.strokeStyle=C.grid; ctx.beginPath(); ctx.moveTo(X(v),box.t); ctx.lineTo(X(v),H-box.b); ctx.stroke(); ctx.textAlign="center"; ctx.textBaseline="top"; ctx.fillText(f(v,3),X(v),H-box.b+5); });
+  ticks(yr[0],yr[1],6).forEach(v=>{ ctx.strokeStyle=C.grid; ctx.beginPath(); ctx.moveTo(box.l,Y(v)); ctx.lineTo(W-box.r,Y(v)); ctx.stroke(); ctx.textAlign="right"; ctx.textBaseline="middle"; ctx.fillText(f(v,3),box.l-6,Y(v)); });
+  ctx.strokeStyle=C.muted; ctx.lineWidth=1.2;
+  if(yr[0]<0&&yr[1]>0){ ctx.beginPath(); ctx.moveTo(box.l,Y(0)); ctx.lineTo(W-box.r,Y(0)); ctx.stroke(); }
+  if(xr[0]<0&&xr[1]>0){ ctx.beginPath(); ctx.moveTo(X(0),box.t); ctx.lineTo(X(0),H-box.b); ctx.stroke(); }
+  ctx.fillStyle=C.muted; ctx.font="12px 'Figtree', sans-serif"; ctx.textAlign="right"; ctx.textBaseline="bottom"; ctx.fillText(xl,W-box.r,H-box.b-4);
+  ctx.textAlign="left"; ctx.textBaseline="top"; ctx.fillText(yl,box.l+6,box.t+2); ctx.textAlign="start";
+  return {X,Y};
+}
+function range(vals,pad=0.08,incl0=true){ let lo=Infinity,hi=-Infinity; vals.forEach(v=>{ if(isFinite(v)){ lo=Math.min(lo,v); hi=Math.max(hi,v);} }); if(incl0){lo=Math.min(lo,0);hi=Math.max(hi,0);} if(!(hi>lo)){lo-=1;hi+=1;} const p=(hi-lo)*pad; return [lo-p,hi+p]; }
+function line(ctx,pts,X,Y,col,w,dash){ ctx.strokeStyle=col; ctx.lineWidth=w; ctx.setLineDash(dash||[]); ctx.beginPath(); let pen=false; pts.forEach(([x,y])=>{ if(!isFinite(y)){pen=false;return;} if(!pen){ctx.moveTo(X(x),Y(y));pen=true;} else ctx.lineTo(X(x),Y(y)); }); ctx.stroke(); ctx.setLineDash([]); }
+function dot(ctx,x,y,r,col){ ctx.fillStyle=col; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); ctx.strokeStyle=C.surface; ctx.lineWidth=2; ctx.stroke(); }
+
+// ---------- plots ----------
+function drawY(){
+  const {ctx,W,H}=prep($("pY")); if(!S) return;
+  const showParts=$("oParts").checked && P.gType!=="none";
+  const vals=samples.map(s=>s[1]); if(showParts){ samples.forEach(s=>{vals.push(s[3],s[4]);}); }
+  const yr=range(vals); const box={l:52,r:14,t:12,b:26};
+  const {X,Y}=axes(ctx,W,H,box,[0,P.T],yr,"t","y");
+  ctx.save(); ctx.beginPath(); ctx.rect(box.l,box.t,W-box.l-box.r,H-box.t-box.b); ctx.clip();
+  if($("oEnv").checked && S.kind==="complex" && P.gType==="none"){
+    const A=Math.hypot(S.C1,S.C2); const env=samples.map(s=>[s[0],A*Math.exp(S.al*s[0])]);
+    line(ctx,env,X,Y,C.muted,1,[2,4]); line(ctx,env.map(([t,v])=>[t,-v]),X,Y,C.muted,1,[2,4]);
+  }
+  if(showParts){ line(ctx,samples.map(s=>[s[0],s[3]]),X,Y,C.yh,1.8,[6,4]); line(ctx,samples.map(s=>[s[0],s[4]]),X,Y,C.yp,1.8,[6,4]); }
+  line(ctx,samples.map(s=>[s[0],s[1]]),X,Y,C.y,2.8);
+  if($("oNum").checked){ ctx.fillStyle=C.num; const step=Math.max(1,Math.round(num.length/70)); for(let i=0;i<num.length;i+=step){ const [t,y]=num[i]; if(isFinite(y)){ ctx.beginPath(); ctx.arc(X(t),Y(y),2.2,0,Math.PI*2); ctx.fill(); } } }
+  // initial condition
+  dot(ctx,X(0),Y(P.y0),5,C.y);
+  // tangent at tNow
+  const yt=S.y(tNow), mt=S.dy(tNow);
+  if($("oTan").checked && isFinite(yt)){
+    const dt=P.T*0.08; ctx.strokeStyle=C.tan; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(X(tNow-dt),Y(yt-mt*dt)); ctx.lineTo(X(tNow+dt),Y(yt+mt*dt)); ctx.stroke();
+  }
+  ctx.strokeStyle=C.muted; ctx.lineWidth=1; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.moveTo(X(tNow),box.t); ctx.lineTo(X(tNow),H-box.b); ctx.stroke(); ctx.setLineDash([]);
+  if(isFinite(yt)) dot(ctx,X(tNow),Y(yt),5.5,C.tan);
+  ctx.restore();
+  ctx.fillStyle=C.ink; ctx.font="12px 'JetBrains Mono', monospace"; ctx.textBaseline="top";
+  const lbl="y("+f(tNow,2)+") = "+f(yt,3)+"   y′ = "+f(mt,3);
+  ctx.fillStyle=C.surface; const lw=ctx.measureText(lbl).width+12; ctx.globalAlpha=.85; ctx.fillRect(W-box.r-lw-2,box.t+2,lw,20); ctx.globalAlpha=1;
+  ctx.fillStyle=C.ink; ctx.fillText(lbl,W-box.r-lw+4,box.t+6);
+}
+function drawF(){
+  const {ctx,W,H}=prep($("pF")); if(!S) return;
+  const xr=range(samples.map(s=>s[1]),0.12), yr=range(samples.map(s=>s[2]),0.12);
+  const box={l:48,r:12,t:12,b:26};
+  const {X,Y}=axes(ctx,W,H,box,xr,yr,"y","y′");
+  ctx.save(); ctx.beginPath(); ctx.rect(box.l,box.t,W-box.l-box.r,H-box.t-box.b); ctx.clip();
+  if($("oField").checked){
+    const nx=16, ny=12, gt=S.g(tNow), L=Math.min((W-box.l-box.r)/nx,(H-box.t-box.b)/ny)*0.42;
+    ctx.strokeStyle=C.field; ctx.fillStyle=C.field; ctx.lineWidth=1.2;
+    for(let i=0;i<nx;i++) for(let j=0;j<ny;j++){
+      const yv=xr[0]+(xr[1]-xr[0])*(i+0.5)/nx, vv=yr[0]+(yr[1]-yr[0])*(j+0.5)/ny;
+      const du=vv, dv=(gt-P.b*vv-P.c*yv)/P.a;
+      // direction in screen space
+      const sx=du*(W-box.l-box.r)/(xr[1]-xr[0]), sy=-dv*(H-box.t-box.b)/(yr[1]-yr[0]); const n=Math.hypot(sx,sy); if(n<1e-12) continue;
+      const cx=X(yv), cy=Y(vv), ux=sx/n*L, uy=sy/n*L;
+      ctx.beginPath(); ctx.moveTo(cx-ux,cy-uy); ctx.lineTo(cx+ux,cy+uy); ctx.stroke();
+      const ang=Math.atan2(uy,ux); ctx.beginPath(); ctx.moveTo(cx+ux,cy+uy); ctx.lineTo(cx+ux-4*Math.cos(ang-0.5),cy+uy-4*Math.sin(ang-0.5)); ctx.lineTo(cx+ux-4*Math.cos(ang+0.5),cy+uy-4*Math.sin(ang+0.5)); ctx.closePath(); ctx.fill();
+    }
+  }
+  line(ctx,samples.map(s=>[s[1],s[2]]),X,Y,C.y,1.4,[4,3]);
+  const past=samples.filter(s=>s[0]<=tNow+1e-12); line(ctx,past.map(s=>[s[1],s[2]]),X,Y,C.y,2.8);
+  dot(ctx,X(P.y0),Y(P.v0),4.5,C.muted);
+  const yt=S.y(tNow), vt=S.dy(tNow); if(isFinite(yt)&&isFinite(vt)) dot(ctx,X(yt),Y(vt),5.5,C.tan);
+  ctx.restore();
+  $("fHint").innerHTML = P.gType==="none" ? "Campo de direcciones del sistema y′ = v, v′ = −(b·v + c·y)/a. La trayectoria parte de (y(0), y′(0))." : "Como g(t) depende del tiempo, el campo cambia: se muestra el campo en t = "+f(tNow,2)+".";
+}
+function drawS(){
+  const {ctx,W,H}=prep($("pS")); if(!S) return;
+  const maxAbs=Math.max(1e-9,...samples.map(s=>Math.abs(s[1])).filter(isFinite));
+  const cx=W*0.42, top=16, rest=H*0.5, amp=H*0.3;
+  const yt=S.y(tNow); const disp=isFinite(yt)?Math.max(-1,Math.min(1,yt/maxAbs))*amp:0;
+  const my=rest+disp, mh=40, mw=64;
+  // ceiling
+  ctx.fillStyle=C.line; ctx.fillRect(cx-70,top-8,140,8);
+  for(let x=cx-66;x<cx+70;x+=10){ ctx.strokeStyle=C.muted; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x,top-8); ctx.lineTo(x+6,top-14); ctx.stroke(); }
+  // spring (left) and dashpot (right)
+  const sx=cx-(P.b!==0?16:0), sTop=top, sBot=my-mh/2, coils=10, wz=12;
+  ctx.strokeStyle=C.spring; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(sx,sTop); ctx.lineTo(sx,sTop+8);
+  const seg=(sBot-sTop-16)/(coils*2); for(let i=0;i<coils*2;i++){ ctx.lineTo(sx+(i%2?-wz:wz),sTop+8+seg*(i+0.5)); } ctx.lineTo(sx,sBot-8); ctx.lineTo(sx,sBot); ctx.stroke();
+  if(P.b!==0){ const dx=cx+18, mid=top+(sBot-top)*0.45; ctx.strokeStyle=C.muted; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(dx,top); ctx.lineTo(dx,mid-14); ctx.stroke(); ctx.strokeRect(dx-9,mid-14,18,28);
+    ctx.beginPath(); ctx.moveTo(dx-6,Math.min(mid+10,sBot-14)); ctx.lineTo(dx+6,Math.min(mid+10,sBot-14)); ctx.moveTo(dx,Math.min(mid+10,sBot-14)); ctx.lineTo(dx,sBot); ctx.stroke(); }
+  // equilibrium line
+  ctx.strokeStyle=C.muted; ctx.setLineDash([4,4]); ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(cx-80,rest); ctx.lineTo(cx+100,rest); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle=C.muted; ctx.font="11px 'Figtree', sans-serif"; ctx.textBaseline="bottom"; ctx.fillText("y = 0",cx+62,rest-3);
+  // mass
+  ctx.fillStyle=C.mass; ctx.beginPath(); ctx.roundRect(cx-mw/2,my-mh/2,mw,mh,5); ctx.fill();
+  ctx.fillStyle=C.surface; ctx.font="600 14px 'Figtree', sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText("m = "+f(P.a,2),cx,my); ctx.textAlign="start";
+  // force arrow
+  if(P.gType!=="none"){ const gt=S.g(tNow), maxG=Math.max(1e-9,Math.abs(P.F)); const L=Math.max(-1,Math.min(1,gt/maxG))*40;
+    if(Math.abs(L)>2){ const x=cx-mw/2-18, y0=my; ctx.strokeStyle=C.yp; ctx.fillStyle=C.yp; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(x,y0); ctx.lineTo(x,y0+L); ctx.stroke();
+      const d=Math.sign(L); ctx.beginPath(); ctx.moveTo(x,y0+L+d*6); ctx.lineTo(x-5,y0+L-d*2); ctx.lineTo(x+5,y0+L-d*2); ctx.closePath(); ctx.fill();
+      ctx.font="12px 'JetBrains Mono', monospace"; ctx.textAlign="right"; ctx.textBaseline="middle"; ctx.fillText("g(t)",x-8,y0); ctx.textAlign="start"; } }
+  ctx.fillStyle=C.muted; ctx.font="11px 'Figtree', sans-serif"; ctx.textBaseline="bottom"; ctx.fillText("y positivo hacia abajo · escala normalizada",8,H-6);
+}
+function drawAll(){ if(!S) return; drawY(); drawF(); drawS(); $("tV").textContent="t = "+f(tNow,2)+" / "+f(P.T,2); $("tS").value=Math.round(tNow/P.T*1000);
+  const yt=S.y(tNow); $("rY").textContent="y = "+f(yt,3)+" · y′ = "+f(S.dy(tNow),3); $("rYs").textContent="t = "+f(tNow,2)+(P.gType!=="none"?" · y_h = "+f(S.yh(tNow),3)+" · y_p = "+f(S.yp(tNow),3):""); }
+
+// ---------- animation ----------
+$("tS").addEventListener("input",()=>{ tNow=P.T*(+$("tS").value)/1000; drawAll(); });
+$("play").onclick=()=>{ playing=!playing; if(playing && tNow>=P.T-1e-9) tNow=0; $("play").textContent=playing?"Pausar":"Animar"; last=performance.now(); };
+let last=performance.now();
+function tick(now){ const dt=Math.min(0.05,(now-last)/1000); last=now;
+  if(playing&&S){ tNow+=dt*P.T/8; if(tNow>=P.T){ tNow=P.T; playing=false; $("play").textContent="Animar"; } drawAll(); }
+  requestAnimationFrame(tick); }
+new ResizeObserver(()=>drawAll()).observe($("pY"));
+syncInputs(); recompute(); requestAnimationFrame(tick);
+})();
+</script>
+</body></html>
