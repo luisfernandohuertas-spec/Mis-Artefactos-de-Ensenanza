@@ -14,17 +14,17 @@
 /* Layout: lienzo principal del oído a la izquierda, panel de controles y lecturas a la derecha; cóclea desenrollada debajo */
 :root{
   --bg:#f2f5f4; --surface:#ffffff; --ink:#14211f; --muted:#5b6b68; --line:#d3dbd9;
-  --wave:#1f6f8b; --mech:#b7791f; --fluid:#1f8f82; --spike:#d6336c; --soft:#e7eeec;
+  --wave:#1f6f8b; --mech:#b7791f; --fluid:#1f8f82; --spike:#d6336c; --soft:#e7eeec; --skin:#f2c9a7; --skinline:#a8664a;
   --f-display:"Familjen Grotesk","Segoe UI",system-ui,sans-serif;
   --f-body:"Source Sans 3","Segoe UI",system-ui,sans-serif;
   --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#0e1615; --surface:#151f1e; --ink:#e4ecea; --muted:#93a5a1; --line:#2b3936;
-  --wave:#5fb6d3; --mech:#e0a84a; --fluid:#4fd1bf; --spike:#ff6b9a; --soft:#1c2826; color-scheme:dark}}
+  --wave:#5fb6d3; --mech:#e0a84a; --fluid:#4fd1bf; --spike:#ff6b9a; --soft:#1c2826; --skin:#9a6a50; --skinline:#e3b08f; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0e1615; --surface:#151f1e; --ink:#e4ecea; --muted:#93a5a1; --line:#2b3936;
-  --wave:#5fb6d3; --mech:#e0a84a; --fluid:#4fd1bf; --spike:#ff6b9a; --soft:#1c2826; color-scheme:dark}
+  --wave:#5fb6d3; --mech:#e0a84a; --fluid:#4fd1bf; --spike:#ff6b9a; --soft:#1c2826; --skin:#9a6a50; --skinline:#e3b08f; color-scheme:dark}
 
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.5;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
@@ -119,6 +119,9 @@ button[aria-pressed="true"]{background:var(--wave);color:var(--surface);border-c
           <label class="check" for="iface" style="text-transform:none;letter-spacing:0;font-weight:400;font-size:.88rem;color:var(--ink);justify-content:flex-start">
             <input type="checkbox" id="iface"> Pasar al aire del canal (pérdida en la interfaz)
           </label>
+          <label class="check" for="bud" style="text-transform:none;letter-spacing:0;font-weight:400;font-size:.88rem;color:var(--ink);justify-content:flex-start">
+            <input type="checkbox" id="bud"> Audífono puesto en la oreja (el sonido sale del audífono)
+          </label>
         </div>
         <div class="ctrl">
           <label for="amp">Intensidad <output id="ampOut"></output></label>
@@ -165,7 +168,7 @@ const MEDIA={
 };
 const FMIN=16,FMAX=24000, COCH_LEN=35; // mm
 const $=id=>document.getElementById(id);
-const state={f:440,medium:"air",iface:false,db:70,speed:1,paused:false,stage:"all",t:0};
+const state={f:440,medium:"air",iface:false,bud:false,db:70,speed:1,paused:false,stage:"all",t:0};
 
 const sliderToF=s=>FMIN*Math.pow(FMAX/FMIN,s/1000);
 const fToSlider=f=>1000*Math.log(f/FMIN)/Math.log(FMAX/FMIN);
@@ -193,6 +196,11 @@ function derived(){
   const ampIn=ampOut*(state.medium==="air"?1:Math.sqrt(T)); // amplitud en el canal
   const vCanal=state.iface?MEDIA.air.v:m.v;
   const lamPx=lam=>Math.min(900,22*Math.pow(lam/0.0143,0.36));
+  if(state.bud) return {
+    m,T,ampOut:ampOut*0.12,ampIn:ampOut,
+    lam:m.v/state.f, lamOutPx:lamPx(m.v/state.f), lamInPx:lamPx(MEDIA.air.v/state.f),
+    fvis:(0.45+2.4*logn(state.f)), pc:placeFromBase(state.f)
+  };
   return {
     m,T,ampOut,ampIn: state.iface?ampIn:ampOut,
     lam:m.v/state.f, lamOutPx:lamPx(m.v/state.f), lamInPx:lamPx(vCanal/state.f),
@@ -204,7 +212,7 @@ function derived(){
 // ---------- colores desde tokens ----------
 let C={};
 function readTokens(){const cs=getComputedStyle(document.documentElement);
-  ["bg","surface","ink","muted","line","wave","mech","fluid","spike","soft"].forEach(k=>C[k]=cs.getPropertyValue("--"+k).trim())}
+  ["bg","surface","ink","muted","line","wave","mech","fluid","spike","soft","skin","skinline"].forEach(k=>C[k]=cs.getPropertyValue("--"+k).trim())}
 function rgba(hex,a){let h=hex.replace("#",""); if(h.length===3)h=h.split("").map(c=>c+c).join("");
   const n=parseInt(h,16); return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`}
 readTokens();
@@ -225,7 +233,7 @@ function explainText(d){
   const xmm=(d.pc*COCH_LEN).toFixed(1);
   const map={
     all:`La fuente empuja moléculas del ${d.m.name}: cada molécula solo oscila alrededor de su posición, en la misma dirección en que viaja la onda. Lo que avanza es el patrón de <strong>compresiones</strong> (presión más alta) y <strong>expansiones</strong> (presión más baja). Toca una etapa para verla resaltada.`,
-    s1:`Con f = ${f} en ${d.m.name} (v = ${d.m.v} m/s), las compresiones están separadas λ = v/f = <strong>${lam}</strong>. La oreja canaliza la onda; el canal auditivo (≈2,5 cm, cerrado en un extremo) resuena cerca de 3–4 kHz y refuerza esas frecuencias.`,
+    s1:state.bud?`Con el audífono puesto, el sonido ya no viene de fuera: un pequeño parlante (diafragma) vibra ${Math.round(state.f).toLocaleString("es-CO")} veces por segundo justo a la entrada del canal y genera allí la onda longitudinal en el aire del canal (λ = ${fmtLen(MEDIA.air.v/state.f)}). La almohadilla de silicona sella el canal y atenúa el ruido exterior unos 20 dB. Como el volumen de aire es muy pequeño, basta muy poca potencia para producir presiones altas en el tímpano: por eso el volumen alto por tiempo prolongado puede dañar las células ciliadas.`:`Con f = ${f} en ${d.m.name} (v = ${d.m.v} m/s), las compresiones están separadas λ = v/f = <strong>${lam}</strong>. La oreja canaliza la onda; el canal auditivo (≈2,5 cm, cerrado en un extremo) resuena cerca de 3–4 kHz y refuerza esas frecuencias.`,
     s2:`El tímpano es una membrana de ≈0,6 cm². Se empuja hacia dentro en cada compresión y hacia fuera en cada expansión: vibra ${Math.round(state.f).toLocaleString("es-CO")} veces por segundo, una vez cada ${T}. Así la onda de presión se convierte en vibración mecánica.`,
     s3:`Martillo, yunque y estribo forman una palanca (≈1,3×) y concentran la fuerza del tímpano en la ventana oval, unas 17 veces más pequeña. La presión crece ≈22× (≈27 dB), lo que compensa el paso de aire a líquido en el oído interno.`,
     s4:`El estribo empuja el líquido de la cóclea y genera una onda viajera en la membrana basilar. Cada lugar resuena con una frecuencia: la base (rígida) con los agudos y el ápice (flexible) con los graves. ${f} produce el máximo a <strong>${xmm} mm de la base</strong>. Ahí los cilios de las células ciliadas se doblan, abren canales iónicos y la célula libera neurotransmisor.`,
@@ -299,19 +307,71 @@ function drawEar(d){
     ctx.beginPath();ctx.arc(x,y+jitter,1.6,0,7);ctx.fill()}
   // pared del cráneo
   ctx.strokeStyle=C.line; ctx.lineWidth=14; ctx.lineCap="round";
-  ctx.beginPath();ctx.moveTo(300,40);ctx.quadraticCurveTo(318,150,300,262);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(300,338);ctx.quadraticCurveTo(318,450,296,540);ctx.stroke();
-  // oreja
-  ctx.fillStyle=rgba(C.mech,0.16); ctx.strokeStyle=C.mech; ctx.lineWidth=3;
-  ctx.beginPath();ctx.moveTo(300,150);ctx.bezierCurveTo(230,120,205,220,248,262);ctx.lineTo(292,268);
-  ctx.lineTo(292,332);ctx.lineTo(262,338);ctx.bezierCurveTo(215,370,230,470,300,452);ctx.closePath();ctx.fill();ctx.stroke();
+  ctx.beginPath();ctx.moveTo(300,40);ctx.quadraticCurveTo(318,150,300,282);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(300,318);ctx.quadraticCurveTo(318,450,296,540);ctx.stroke();
+  // oreja (corte coronal): parte superior (hélice y antihélice), concha abierta hacia fuera y lóbulo
+  const up=new Path2D();
+  up.moveTo(298,112);
+  up.bezierCurveTo(272,60,204,56,176,104);       // hélice superior
+  up.bezierCurveTo(156,140,158,190,172,214);     // borde externo
+  up.bezierCurveTo(184,234,206,240,228,238);     // labio superior de la concha
+  up.bezierCurveTo(258,238,280,258,292,282);     // pared superior hacia el canal
+  up.lineTo(300,282); up.lineTo(300,124); up.closePath();
+  const low=new Path2D();
+  low.moveTo(292,318);
+  low.bezierCurveTo(280,342,256,364,228,364);    // suelo de la concha (antitrago)
+  low.bezierCurveTo(200,364,182,376,180,404);
+  low.bezierCurveTo(178,440,190,468,214,478);    // lóbulo
+  low.bezierCurveTo(242,490,278,482,298,454);
+  low.lineTo(300,318); low.closePath();
+  ctx.fillStyle=C.skin; ctx.fill(up); ctx.fill(low);
+  ctx.strokeStyle=C.skinline; ctx.lineWidth=2.2; ctx.lineJoin="round"; ctx.stroke(up); ctx.stroke(low);
+  // pliegues: borde enrollado de la hélice, antihélice y lóbulo
+  ctx.strokeStyle=rgba(C.skinline,0.75); ctx.lineWidth=1.6;
+  ctx.beginPath(); ctx.moveTo(270,82); ctx.bezierCurveTo(228,70,194,92,184,130); ctx.bezierCurveTo(176,162,178,190,188,208); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(268,146); ctx.bezierCurveTo(232,156,212,186,222,220); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(268,146); ctx.bezierCurveTo(258,120,236,112,214,120); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(198,396); ctx.bezierCurveTo(196,430,208,456,234,466); ctx.stroke();
+  // sombra de la concha (cavidad que conduce al canal)
+  ctx.fillStyle=rgba(C.skinline,0.18);
+  ctx.beginPath(); ctx.moveTo(228,238); ctx.bezierCurveTo(258,238,280,258,292,282); ctx.lineTo(292,272); ctx.bezierCurveTo(278,250,258,230,232,230); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(292,318); ctx.bezierCurveTo(280,342,256,364,228,364); ctx.lineTo(232,372); ctx.bezierCurveTo(260,372,282,350,292,328); ctx.closePath(); ctx.fill();
+  text(ctx,"Hélice",150,70,{size:11,color:C.muted});
+  if(!state.bud){ctx.fillStyle=rgba(C.surface,0.85); ctx.fillRect(208,291,48,18);
+  text(ctx,"Concha",232,300,{size:11,color:C.ink,align:"center"});}
+  text(ctx,"Lóbulo",150,488,{size:11,color:C.muted});
   // canal
-  ctx.fillStyle=C.soft; ctx.fillRect(292,268,228,64);
-  ctx.strokeStyle=C.muted; ctx.lineWidth=1.5; ctx.beginPath();ctx.moveTo(292,268);ctx.lineTo(520,264);ctx.moveTo(292,332);ctx.lineTo(520,336);ctx.stroke();
-  for(let x=294;x<518;x+=4){const p=presIn(x); if(p>0){ctx.fillStyle=rgba(C.wave,0.25*p*d.ampIn);ctx.fillRect(x,269,4,62)}}
+  ctx.fillStyle=C.soft; ctx.fillRect(292,284,228,32);
+  ctx.strokeStyle=C.muted; ctx.lineWidth=1.5; ctx.beginPath();ctx.moveTo(292,284);ctx.lineTo(520,282);ctx.moveTo(292,316);ctx.lineTo(520,318);ctx.stroke();
+  for(let x=294;x<518;x+=4){const p=presIn(x); if(p>0){ctx.fillStyle=rgba(C.wave,0.25*p*d.ampIn);ctx.fillRect(x,285,4,30)}}
   ctx.fillStyle=C.wave;
-  for(let x0=298;x0<514;x0+=dens) for(let y=276;y<328;y+=dens+3){
+  for(let x0=298;x0<514;x0+=dens) for(let y=289;y<314;y+=Math.max(7,dens-1)){
     const x=x0+dispIn(x0); ctx.beginPath();ctx.arc(x,y,1.6,0,7);ctx.fill()}
+  // audífono (in-ear) dentro de la concha
+  if(state.bud){
+    const pin=presIn(300)*d.ampIn;
+    // cable
+    ctx.strokeStyle=C.ink; ctx.lineWidth=3; ctx.lineCap="round";
+    ctx.beginPath(); ctx.moveTo(236,392); ctx.bezierCurveTo(232,440,250,480,236,548); ctx.stroke();
+    // vástago
+    ctx.fillStyle=C.surface; ctx.strokeStyle=C.ink; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.roundRect?ctx.roundRect(226,312,20,84,10):ctx.rect(226,312,20,84); ctx.fill(); ctx.stroke();
+    // cuerpo
+    ctx.beginPath(); ctx.ellipse(254,300,30,26,0,0,7); ctx.fill(); ctx.stroke();
+    ctx.fillStyle=C.soft; ctx.beginPath(); ctx.ellipse(250,300,15,13,0,0,7); ctx.fill();
+    // boquilla y almohadilla de silicona que sella el canal
+    ctx.fillStyle=C.surface; ctx.beginPath(); ctx.rect(278,292,14,16); ctx.fill(); ctx.stroke();
+    ctx.fillStyle=rgba(C.wave,0.35); ctx.strokeStyle=C.wave; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(286,286); ctx.quadraticCurveTo(300,284,306,290); ctx.lineTo(306,310); ctx.quadraticCurveTo(300,316,286,314); ctx.closePath(); ctx.fill(); ctx.stroke();
+    // diafragma que vibra
+    ctx.strokeStyle=C.spike; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.moveTo(307,291); ctx.quadraticCurveTo(311+8*pin,300,307,309); ctx.stroke();
+    // ondas de salida
+    ctx.strokeStyle=rgba(C.wave,0.5); ctx.lineWidth=1.2;
+    for(let k=0;k<3;k++){const r=8+((state.t*d.fvis+k/3)%1)*16; ctx.beginPath(); ctx.arc(306,300,r,-0.6,0.6); ctx.stroke()}
+    ctx.fillStyle=rgba(C.surface,0.9); ctx.fillRect(96,226,74,20); leader(ctx,228,282,170,240); text(ctx,"Audífono",100,236,{size:12,w:600});
+    text(ctx,"Ruido exterior atenuado",18,118,{size:11,color:C.muted});
+  }
   // etiquetas etapa 1
   text(ctx,"Onda longitudinal en "+d.m.name,18,100,{w:600,color:C.wave});
   // marcador de λ
@@ -320,15 +380,15 @@ function drawEar(d){
     text(ctx,"λ = "+fmtLen(d.lam),x1,512,{size:12,color:C.ink})}
   else text(ctx,"λ = "+fmtLen(d.lam)+" (mayor que el dibujo)",18,512,{size:12});
   text(ctx,"Compresión: presión alta",18,530,{size:11,color:C.muted});
-  text(ctx,"Oído externo",230,470,{size:12,color:C.muted});
-  text(ctx,"Canal auditivo",405,250,{size:12,align:"center",color:C.muted});
+  text(ctx,"Oído externo (oreja)",210,526,{size:12,color:C.muted});
+  text(ctx,"Canal auditivo",405,268,{size:12,align:"center",color:C.muted});
 
   // --- etapa 2: tímpano
   const pT=presIn(520)*d.ampIn; // >0 empuja hacia dentro
   ctx.globalAlpha=alphaFor("s2");
   ctx.strokeStyle=C.mech; ctx.lineWidth=4;
-  ctx.beginPath();ctx.moveTo(520,262);ctx.quadraticCurveTo(528+16*pT,300,520,338);ctx.stroke();
-  leader(ctx,522,340,500,392); text(ctx,"Tímpano",500,402,{size:12,align:"center"});
+  ctx.beginPath();ctx.moveTo(520,280);ctx.quadraticCurveTo(528+16*pT,300,520,320);ctx.stroke();
+  leader(ctx,522,322,500,392); text(ctx,"Tímpano",500,402,{size:12,align:"center"});
 
   // --- etapa 3: oído medio y huesecillos
   ctx.globalAlpha=alphaFor("s3");
@@ -339,7 +399,7 @@ function drawEar(d){
   text(ctx,"Trompa de Eustaquio",552,540,{size:11,color:C.muted});
   const dx=10*pT; ctx.fillStyle=C.mech; ctx.strokeStyle=C.mech; ctx.lineCap="round";
   // martillo
-  ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(524+dx*0.9,302);ctx.lineTo(548+dx*0.85,250);ctx.stroke();
+  ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(524+dx*0.9,300);ctx.lineTo(548+dx*0.85,250);ctx.stroke();
   ctx.beginPath();ctx.arc(552+dx*0.85,240,12,0,7);ctx.fill();
   // yunque
   ctx.beginPath();ctx.arc(578+dx*0.8,238,12,0,7);ctx.fill();
@@ -467,7 +527,7 @@ function updateText(){
     water:"El agua tiene una impedancia ≈3600 veces la del aire: casi toda la energía se refleja al pasar al aire del canal. Bajo el agua oímos sobre todo por conducción ósea.",
     steel:"En acero v ≈ 6 km/s y λ es enorme. Al pasar al aire casi todo se refleja; por eso sentimos más la vibración del riel que el sonido."
   };
-  $("mediumNote").textContent=notes[state.medium];
+  $("mediumNote").textContent=state.bud?"Audífono activo: la onda del canal la produce el audífono en aire. El medio elegido solo afecta al ruido exterior, que llega atenuado.":notes[state.medium];
   $("explain").innerHTML=explainText(d);
   $("cochNote").textContent=`Cada punto de la membrana oscila con la misma frecuencia, pero la amplitud crece desde la base hasta el lugar característico y luego cae bruscamente. ${state.f<=4000?"Por debajo de ≈4 kHz los disparos de la fibra se agrupan en las crestas del estímulo (bloqueo de fase).":"Por encima de ≈4 kHz los disparos ya no siguen cada ciclo: la frecuencia se reconoce solo por el lugar."}`;
   if(osc){osc.frequency.setTargetAtTime(state.f,actx.currentTime,0.02); gain.gain.setTargetAtTime(volume(),actx.currentTime,0.05)}
@@ -478,6 +538,7 @@ $("freq").value=fToSlider(state.f);
 $("freq").oninput=e=>{state.f=sliderToF(+e.target.value); onChange()};
 $("medium").onchange=e=>{state.medium=e.target.value; onChange()};
 $("iface").onchange=e=>{state.iface=e.target.checked; onChange()};
+$("bud").onchange=e=>{state.bud=e.target.checked; onChange()};
 $("amp").oninput=e=>{state.db=+e.target.value; onChange()};
 $("speed").oninput=e=>{state.speed=+e.target.value; onChange()};
 $("pause").onclick=()=>{state.paused=!state.paused; $("pause").textContent=state.paused?"Reanudar":"Pausar"; $("pause").setAttribute("aria-pressed",state.paused)};
