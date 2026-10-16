@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>body{margin:0}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Ecolocalización: delfín y murciélago</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800&family=Public+Sans:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: escena con ondas esféricas arriba a la izquierda, controles a la derecha; línea de tiempo ida/vuelta debajo */
+:root{
+  --bg:#eef2f5; --surface:#ffffff; --ink:#152230; --muted:#5a6878; --line:#d3dbe3; --soft:#e6ecf1;
+  --out:#0b7fb3; --echo:#d9730d; --hit:#c0265e; --ok:#2a8a5a;
+  --water1:#cfe7f3; --water2:#9ccbe3; --sky1:#d9dcef; --sky2:#aeb4d6;
+  --f-display:"Archivo","Segoe UI",system-ui,sans-serif;
+  --f-body:"Public Sans","Segoe UI",system-ui,sans-serif;
+  --f-mono:"DM Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0c131b; --surface:#131d28; --ink:#e3eaf1; --muted:#93a3b4; --line:#273546; --soft:#1a2633;
+  --out:#4cc3f5; --echo:#ffa24a; --hit:#ff5d93; --ok:#5cd394;
+  --water1:#0f3550; --water2:#081f33; --sky1:#1c1f3d; --sky2:#0b0d1f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0c131b; --surface:#131d28; --ink:#e3eaf1; --muted:#93a3b4; --line:#273546; --soft:#1a2633;
+  --out:#4cc3f5; --echo:#ffa24a; --hit:#ff5d93; --ok:#5cd394;
+  --water1:#0f3550; --water2:#081f33; --sky1:#1c1f3d; --sky2:#0b0d1f; color-scheme:dark}
+
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.wrap{max-width:1240px;margin:0 auto;display:grid;gap:20px}
+header{display:grid;gap:6px}
+h1{font-family:var(--f-display);font-weight:800;font-size:clamp(1.7rem,3.4vw,2.5rem);line-height:1.1;margin:0;text-wrap:balance;letter-spacing:-.01em}
+.lede{margin:0;color:var(--muted);max-width:70ch}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:20px;align-items:start}
+@media (max-width:960px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;display:grid;gap:12px;min-width:0}
+.ptitle{font-family:var(--f-display);font-weight:600;font-size:1.05rem;margin:0;display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap}
+.ptitle small{font-family:var(--f-mono);font-size:.72rem;color:var(--muted);font-weight:400}
+canvas{display:block;width:100%}
+#scene{aspect-ratio:16/9;max-width:100%;border-radius:8px;touch-action:none;cursor:grab}
+.scroll{overflow-x:auto}
+#timeline{height:190px;min-width:620px}
+.side{display:grid;gap:16px;min-width:0}
+.seg{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;border-radius:0;padding:9px 6px;font-weight:600}
+.ctrl{display:grid;gap:6px}
+label{font-size:.76rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;display:flex;justify-content:space-between;gap:8px}
+label output{font-family:var(--f-mono);text-transform:none;letter-spacing:0;color:var(--ink);font-weight:500}
+input[type=range]{width:100%;accent-color:var(--out)}
+input[type=number]{font:inherit;font-family:var(--f-mono);padding:6px 8px;border-radius:7px;border:1px solid var(--line);background:var(--bg);color:var(--ink);width:7.5em}
+button{font:inherit;font-size:.88rem;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:6px 13px;cursor:pointer}
+button:hover{border-color:var(--out)}
+button.primary{background:var(--out);border-color:var(--out);color:var(--surface);font-weight:700}
+button[aria-pressed="true"]{background:var(--out);border-color:var(--out);color:var(--surface)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--out);outline-offset:2px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.check{display:flex;gap:8px;align-items:flex-start;font-size:.92rem;cursor:pointer}
+.check input{margin-top:5px;accent-color:var(--out)}
+.times{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.times div{border-radius:8px;padding:10px 12px;display:grid;gap:2px;background:var(--soft);min-width:0}
+.times span{font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700}
+.times b{font-family:var(--f-mono);font-size:1.2rem;font-weight:500;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.t-ida b{color:var(--out)} .t-vuelta b{color:var(--echo)}
+@media (max-width:520px){.times{grid-template-columns:1fr}}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
+.stat{display:grid;gap:1px;min-width:0}
+.stat span{font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700}
+.stat b{font-family:var(--f-mono);font-weight:500;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.formula{font-family:var(--f-mono);font-size:.9rem;background:var(--soft);border-radius:8px;padding:10px 12px;line-height:1.85;overflow-x:auto}
+.formula em{font-style:normal;color:var(--muted)}
+.note{font-size:.86rem;color:var(--muted);margin:0}
+.fb{font-size:.92rem;font-weight:600;margin:0;min-height:1.4em}
+.fb.ok{color:var(--ok)} .fb.no{color:var(--hit)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:.8rem;color:var(--muted)}
+.legend span::before{content:"";display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:6px;vertical-align:3px;background:var(--c)}
+.hidden-val{filter:blur(6px)}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Ecolocalización: delfín y murciélago</h1>
+    <p class="lede">El animal emite un clic de alta frecuencia. La onda se propaga como una esfera centrada en su boca; al llegar a la presa, esta la refleja y produce una nueva onda esférica, el eco. Midiendo el tiempo entre el clic y el eco, el animal calcula la distancia: d = v · t / 2.</p>
+  </header>
+
+  <div class="grid">
+    <section class="panel">
+      <h2 class="ptitle">Escena <small id="sceneInfo"></small></h2>
+      <canvas id="scene" aria-label="Escena con el animal, la presa y las ondas esféricas"></canvas>
+      <div class="legend">
+        <span style="--c:var(--out)">Onda emitida (ida)</span>
+        <span style="--c:var(--echo)">Eco reflejado (vuelta)</span>
+        <span style="--c:var(--muted)">Arrastra el animal o la presa para moverlos</span>
+      </div>
+    </section>
+
+    <aside class="side">
+      <section class="panel">
+        <h2 class="ptitle">Controles</h2>
+        <div class="seg" role="group" aria-label="Animal">
+          <button id="aBat" aria-pressed="true">Murciélago · aire</button>
+          <button id="aDol" aria-pressed="false">Delfín · agua</button>
+        </div>
+        <div class="ctrl">
+          <label for="dist">Distancia a la presa <output id="distOut"></output></label>
+          <input type="range" id="dist" step="0.01">
+        </div>
+        <div class="ctrl">
+          <label for="freq">Frecuencia del clic <output id="freqOut"></output></label>
+          <input type="range" id="freq" step="1">
+        </div>
+        <div class="ctrl">
+          <label for="speed">Cámara lenta <output id="speedOut"></output></label>
+          <input type="range" id="speed" min="0.25" max="2" step="0.05" value="1">
+        </div>
+        <div class="row">
+          <button class="primary" id="emit">Emitir clic</button>
+          <button id="pause" aria-pressed="false">Pausar</button>
+        </div>
+        <label class="check" for="repeat" style="text-transform:none;letter-spacing:0;font-weight:400;color:var(--ink);font-size:.92rem;justify-content:flex-start"><input type="checkbox" id="repeat" checked> Repetir los clics automáticamente</label>
+      </section>
+
+      <section class="panel">
+        <h2 class="ptitle">Modo reto</h2>
+        <label class="check" for="challenge" style="text-transform:none;letter-spacing:0;font-weight:400;color:var(--ink);font-size:.92rem;justify-content:flex-start"><input type="checkbox" id="challenge"> Ocultar la distancia y calcularla con el tiempo de eco</label>
+        <div class="row">
+          <button id="rand">Presa al azar</button>
+          <input type="number" id="guess" step="0.01" min="0" placeholder="d en m" aria-label="Tu cálculo de la distancia en metros">
+          <button id="check">Comprobar</button>
+        </div>
+        <p class="fb" id="fb"></p>
+      </section>
+    </aside>
+  </div>
+
+  <section class="panel">
+    <h2 class="ptitle">Tiempos de ida y de vuelta <small>señal registrada en el animal</small></h2>
+    <div class="times">
+      <div class="t-ida"><span>Ida: boca → presa</span><b id="tIda"></b></div>
+      <div class="t-vuelta"><span>Vuelta: presa → oído</span><b id="tVuelta"></b></div>
+      <div><span>Total (lo que mide el animal)</span><b id="tTot"></b></div>
+    </div>
+    <div class="scroll"><canvas id="timeline" aria-label="Línea de tiempo con el clic emitido y el eco recibido"></canvas></div>
+  </section>
+
+  <div class="grid">
+    <section class="panel">
+      <h2 class="ptitle">Cálculo</h2>
+      <div class="formula" id="formula"></div>
+    </section>
+    <section class="panel">
+      <h2 class="ptitle">Datos del medio</h2>
+      <div class="stats">
+        <div class="stat"><span>Medio</span><b id="sM"></b></div>
+        <div class="stat"><span>Rapidez del sonido v</span><b id="sV"></b></div>
+        <div class="stat"><span>Longitud de onda λ = v/f</span><b id="sL"></b></div>
+        <div class="stat"><span>Rango del animal</span><b id="sR"></b></div>
+      </div>
+      <p class="note" id="mNote"></p>
+    </section>
+  </div>
+</div>
+
+<script>
+(()=>{
+const $=id=>document.getElementById(id);
+const ANIMALS={
+  bat:{name:"murciélago",medium:"aire (20 °C)",v:343,dmax:20,dmin:0.3,d0:6,fmin:20,fmax:120,f0:50,prey:"polilla",
+    note:"Los murciélagos emiten clics ultrasónicos de unos 20 a 120 kHz y reciben el eco con orejas grandes y móviles. Al acercarse a la presa acortan los clics y los emiten más seguido.",range:"≈ 0,3 – 20 m"},
+  dol:{name:"delfín",medium:"agua de mar",v:1500,dmax:120,dmin:1,d0:40,fmin:20,fmax:150,f0:100,prey:"pez",
+    note:"El delfín produce clics en la cabeza y los enfoca con el melón (tejido graso de la frente). El eco entra por la mandíbula inferior, que lo conduce al oído interno.",range:"≈ 1 – 120 m"}
+};
+const S={a:"bat",an:{x:0,y:0},obj:{x:6,y:0},dragWhat:null,f:50,speed:1,ts:-0.2,paused:false,repeat:true,challenge:false,drag:false,lastEcho:-9};
+const A=()=>ANIMALS[S.a];
+const dist=()=>Math.hypot(S.obj.x-S.an.x,S.obj.y-S.an.y);
+
+// ---------- formato ----------
+const nf=(x,d=2)=>x.toLocaleString("es-CO",{maximumFractionDigits:d,minimumFractionDigits:d});
+const fmtT=s=>s<1?nf(s*1000,s*1000<10?2:1)+" ms":nf(s,3)+" s";
+const fmtD=d=>nf(d,d<10?2:1)+" m";
+const fmtL=l=>l<0.01?nf(l*1000,2)+" mm":nf(l*100,2)+" cm";
+
+// ---------- tokens ----------
+let C={};
+function readTokens(){const cs=getComputedStyle(document.documentElement);
+  ["bg","surface","ink","muted","line","soft","out","echo","hit","ok","water1","water2","sky1","sky2"].forEach(k=>C[k]=cs.getPropertyValue("--"+k).trim());
+  C.font=getComputedStyle(document.body).fontFamily; C.mono=cs.getPropertyValue("--f-mono")}
+function rgba(hex,a){let h=hex.replace("#","");if(h.length===3)h=h.split("").map(c=>c+c).join("");const n=parseInt(h,16);return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`}
+readTokens();
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change",readTokens);
+new MutationObserver(readTokens).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+
+function fit(cv){const ctx=cv.getContext("2d");const o={ctx,w:0,h:0};
+  const rs=()=>{const dpr=Math.min(2,devicePixelRatio||1);o.w=cv.clientWidth;o.h=cv.clientHeight;cv.width=Math.round(o.w*dpr);cv.height=Math.round(o.h*dpr);ctx.setTransform(dpr,0,0,dpr,0,0)};
+  new ResizeObserver(rs).observe(cv);rs();return o}
+const SC=fit($("scene")), TL=fit($("timeline"));
+function txt(ctx,s,x,y,o={}){ctx.font=`${o.w||400} ${o.size||12}px ${o.mono?C.mono:C.font}`;ctx.fillStyle=o.color||C.ink;ctx.textAlign=o.align||"left";ctx.textBaseline=o.base||"middle";ctx.fillText(s,x,y)}
+
+// ---------- geometría de la escena ----------
+function geo(){const {w,h}=SC; const x0=Math.max(70,w*0.12), right=28;
+  const sc=(w-x0-right)/A().dmax; return {x0,y0:h/2,sc,w,h}}
+const toPx=(g,m)=>[g.x0+m.x*g.sc, g.y0-m.y*g.sc];
+
+// ---------- tiempos ----------
+const tIda=()=>dist()/A().v;
+const tTot=()=>2*dist()/A().v;
+// la animación ralentizada: el viaje más largo posible dura ≈4 s
+const slow=()=>(2*A().dmax/A().v)/4;
+
+// ---------- animales ----------
+function drawBat(ctx,x,y,s,flap){
+  ctx.save();ctx.translate(x,y);ctx.scale(s,Math.abs(s));
+  ctx.fillStyle=C.ink;
+  const f=Math.sin(flap)*6;
+  // alas
+  ctx.beginPath();ctx.moveTo(-4,-2);ctx.quadraticCurveTo(-18,-20-f,-36,-12-f);ctx.quadraticCurveTo(-30,-4,-32,4-f*0.3);ctx.quadraticCurveTo(-22,0,-18,8);ctx.quadraticCurveTo(-12,2,-4,6);ctx.closePath();ctx.fill();
+  ctx.beginPath();ctx.moveTo(4,-2);ctx.quadraticCurveTo(14,-20-f,30,-14-f);ctx.quadraticCurveTo(26,-4,28,2-f*0.3);ctx.quadraticCurveTo(20,0,16,8);ctx.quadraticCurveTo(10,2,4,6);ctx.closePath();ctx.fill();
+  // cuerpo y cabeza
+  ctx.beginPath();ctx.ellipse(0,2,6,9,0,0,7);ctx.fill();
+  ctx.beginPath();ctx.ellipse(6,-7,6,5,0,0,7);ctx.fill();
+  ctx.beginPath();ctx.moveTo(3,-11);ctx.lineTo(4,-19);ctx.lineTo(7,-11);ctx.moveTo(7,-11);ctx.lineTo(10,-18);ctx.lineTo(10,-10);ctx.fill();
+  ctx.restore()}
+function drawDolphin(ctx,x,y,s,t){
+  ctx.save();ctx.translate(x,y);ctx.scale(s,Math.abs(s));ctx.rotate(Math.sin(t*2)*0.03);
+  ctx.fillStyle=C.ink;
+  ctx.beginPath();
+  ctx.moveTo(14,-1);ctx.quadraticCurveTo(10,-10,-4,-11);ctx.quadraticCurveTo(-24,-11,-40,-4);
+  ctx.quadraticCurveTo(-50,0,-56,-8);ctx.lineTo(-60,6);ctx.lineTo(-50,4);
+  ctx.quadraticCurveTo(-30,10,-6,8);ctx.quadraticCurveTo(8,6,14,2);ctx.lineTo(22,1);ctx.lineTo(22,-1);ctx.closePath();ctx.fill();
+  ctx.beginPath();ctx.moveTo(-12,-10);ctx.quadraticCurveTo(-16,-22,-24,-24);ctx.quadraticCurveTo(-22,-14,-24,-8);ctx.fill();
+  ctx.beginPath();ctx.moveTo(-6,6);ctx.quadraticCurveTo(-10,14,-16,16);ctx.lineTo(-14,6);ctx.fill();
+  ctx.fillStyle=C.surface;ctx.beginPath();ctx.arc(6,-3,1.4,0,7);ctx.fill();
+  ctx.restore()}
+function drawPrey(ctx,x,y,s,t,glow){
+  ctx.save();ctx.translate(x,y);ctx.scale(s,s);
+  if(glow>0){ctx.fillStyle=rgba(C.hit,0.35*glow);ctx.beginPath();ctx.arc(0,0,20,0,7);ctx.fill()}
+  ctx.fillStyle=C.hit;
+  if(S.a==="bat"){const f=Math.sin(t*14)*4;
+    ctx.beginPath();ctx.ellipse(0,0,2.5,7,0,0,7);ctx.fill();
+    ctx.globalAlpha=0.8;ctx.beginPath();ctx.ellipse(-7,-3-f*0.3,8,5,-0.5+f*0.05,0,7);ctx.fill();ctx.beginPath();ctx.ellipse(7,-3-f*0.3,8,5,0.5-f*0.05,0,7);ctx.fill();ctx.globalAlpha=1}
+  else{ctx.rotate(Math.PI);ctx.beginPath();ctx.ellipse(0,0,11,5,0,0,7);ctx.fill();
+    ctx.beginPath();ctx.moveTo(9,0);ctx.lineTo(18,-6+Math.sin(t*8)*2);ctx.lineTo(18,6+Math.sin(t*8)*2);ctx.closePath();ctx.fill()}
+  ctx.restore()}
+
+// ---------- escena ----------
+function drawScene(now){
+  const {ctx}=SC, g=geo(), {w,h}=g; if(!w) return;
+  const v=A().v, d=dist(), t1=tIda(), t2=tTot(), ts=S.ts;
+  // fondo
+  const bg=ctx.createLinearGradient(0,0,0,h);
+  if(S.a==="dol"){bg.addColorStop(0,C.water1);bg.addColorStop(1,C.water2)} else {bg.addColorStop(0,C.sky2);bg.addColorStop(1,C.sky1)}
+  ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
+  // rejilla de distancia
+  const step=S.a==="bat"?2:10;
+  const [ax,ay]=toPx(g,S.an);
+  for(let m=-Math.ceil(ax/g.sc/step)*step;m<=A().dmax*1.2;m+=step){if(m===0) continue;const x=ax+m*g.sc;if(x<0||x>w) continue;ctx.strokeStyle=rgba(C.ink,m%(step*5)===0?0.16:0.07);ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();
+    if(m%(step*5)===0||(S.a==="bat"&&m%4===0)) txt(ctx,(S.challenge?"":Math.abs(m)+" m"),x,h-10,{size:10,align:"center",mono:true,color:rgba(C.ink,0.55)})}
+  const [px,py]=toPx(g,S.obj);
+  // ondas emitidas: tres frentes cercanos forman el clic
+  const ring=(cx,cy,R,color,a)=>{ if(R<=0) return; ctx.strokeStyle=rgba(color,a);ctx.beginPath();ctx.arc(cx,cy,R,0,7);ctx.stroke()};
+  const gap=7;
+  if(ts>0){const R=v*ts*g.sc; const a=Math.max(0.12,Math.min(1,1.6/(1+v*ts/(A().dmax*0.25))));
+    ctx.lineWidth=2.4; [0,1,2].forEach(k=>ring(ax,ay,R-k*gap,C.out,a*(1-k*0.28)));
+    ctx.fillStyle=rgba(C.out,a*0.05);ctx.beginPath();ctx.arc(ax,ay,Math.max(0,R),0,7);ctx.fill()}
+  // eco: nueva onda esférica centrada en la presa
+  if(ts>t1){const Re=v*(ts-t1)*g.sc; const a=Math.max(0.1,Math.min(0.9,1.1/(1+v*(ts-t1)/(A().dmax*0.2))))*Math.min(1,0.4+6/(1+d));
+    ctx.lineWidth=2;[0,1,2].forEach(k=>ring(px,py,Re-k*gap*0.8,C.echo,a*(1-k*0.3)));
+    ctx.fillStyle=rgba(C.echo,a*0.05);ctx.beginPath();ctx.arc(px,py,Math.max(0,Re),0,7);ctx.fill()}
+  // trayectoria
+  ctx.setLineDash([5,5]);ctx.lineWidth=1.3;ctx.strokeStyle=rgba(C.ink,0.45);ctx.beginPath();ctx.moveTo(ax+16,ay);ctx.lineTo(px,py);ctx.stroke();ctx.setLineDash([]);
+  // flechas ida/vuelta
+  const ang=Math.atan2(py-ay,px-ax), nx=-Math.sin(ang), ny=Math.cos(ang);
+  const arrow=(x1,y1,x2,y2,color,lab,off)=>{const ox=nx*off,oy=ny*off;ctx.strokeStyle=color;ctx.fillStyle=color;ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(x1+ox,y1+oy);ctx.lineTo(x2+ox,y2+oy);ctx.stroke();
+    const a2=Math.atan2(y2-y1,x2-x1);ctx.beginPath();ctx.moveTo(x2+ox,y2+oy);ctx.lineTo(x2+ox-9*Math.cos(a2-0.4),y2+oy-9*Math.sin(a2-0.4));ctx.lineTo(x2+ox-9*Math.cos(a2+0.4),y2+oy-9*Math.sin(a2+0.4));ctx.closePath();ctx.fill();
+    txt(ctx,lab,(x1+x2)/2+ox*2.2,(y1+y2)/2+oy*2.2,{size:12,w:700,color,align:"center"})};
+  const sx=ax+22*Math.cos(ang), sy=ay+22*Math.sin(ang), ex=px-18*Math.cos(ang), ey=py-18*Math.sin(ang);
+  if(Math.hypot(ex-sx,ey-sy)>40){
+    arrow(sx,sy,ex,ey,C.out,"ida · "+fmtT(t1),-14);
+    arrow(ex,ey,sx,sy,C.echo,"vuelta · "+fmtT(t1),14)}
+  // distancia
+  if(!S.challenge) txt(ctx,"d = "+fmtD(d),(ax+px)/2+nx*-40,(ay+py)/2+ny*-40,{size:13,w:700,align:"center"});
+  else txt(ctx,"d = ?",(ax+px)/2+nx*-40,(ay+py)/2+ny*-40,{size:13,w:700,align:"center"});
+  // presa
+  const hitGlow=ts>t1&&ts<t1+slow()*0.25?1-(ts-t1)/(slow()*0.25):0;
+  drawPrey(ctx,px,py,1.1,now/1000,hitGlow);
+  txt(ctx,A().prey,px,py+24,{size:11,align:"center",color:C.ink});
+  // animal
+  const face=px>=ax?1:-1;
+  if(S.a==="bat") drawBat(ctx,ax-18*face,ay+2,1.1*face,now/90); else drawDolphin(ctx,ax-24*face,ay+1,1.05*face,now/1000);
+  if(S.drag&&S.dragWhat==="an"){ctx.strokeStyle=rgba(C.out,0.6);ctx.setLineDash([3,3]);ctx.beginPath();ctx.arc(ax-12*face,ay,34,0,7);ctx.stroke();ctx.setLineDash([])}
+  // estado del animal
+  const echoAge=ts-t2;
+  if(ts>=0&&ts<0.12*slow()*4) txt(ctx,"¡clic!",ax,ay-36,{size:13,w:700,color:C.out,align:"center"});
+  if(echoAge>=0&&echoAge<slow()*0.9){ctx.strokeStyle=rgba(C.echo,1-echoAge/(slow()*0.9));ctx.lineWidth=3;ctx.beginPath();ctx.arc(ax-10,ay,26,0,7);ctx.stroke();
+    txt(ctx,"eco recibido",ax-10,ay+40,{size:12,w:700,color:C.echo,align:"center"})}
+  // reloj
+  const tt=Math.max(0,Math.min(ts,t2+0.3*slow()));
+  ctx.fillStyle=rgba(C.surface,0.82);ctx.fillRect(w-150,10,138,28);
+  txt(ctx,"t = "+fmtT(Math.max(0,ts)),w-81,24,{size:13,mono:true,align:"center",w:500});
+}
+
+// ---------- línea de tiempo ----------
+function drawTimeline(){
+  const {ctx,w,h}=TL; if(!w) return; ctx.clearRect(0,0,w,h);
+  const L=60,R=w-20, tmax=2*A().dmax/A().v*1.04, t1=tIda(), t2=tTot();
+  const X=t=>L+(R-L)*t/tmax, ys=118;
+  // ejes
+  ctx.strokeStyle=C.line;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(L,ys);ctx.lineTo(R,ys);ctx.stroke();
+  const nt=6; for(let i=0;i<=nt;i++){const t=tmax*i/nt,x=X(t);ctx.beginPath();ctx.moveTo(x,ys+40);ctx.lineTo(x,ys+46);ctx.stroke();txt(ctx,fmtT(t),x,ys+56,{size:10,mono:true,align:"center",color:C.muted})}
+  txt(ctx,"señal",L-8,ys,{size:11,align:"right",color:C.muted});
+  // traza: clic emitido y eco recibido (lo que el animal escucha)
+  const ampE=Math.max(0.12,Math.min(0.85,3.5/(2+dist()/(A().dmax*0.05))));
+  const pw=(R-L)*0.008+3;
+  const pulse=(x,cx,amp)=>{const u=(x-cx)/pw;return amp*Math.exp(-u*u)*Math.sin(u*7)};
+  ctx.beginPath();
+  for(let x=L;x<=R;x+=1){const t=(x-L)/(R-L)*tmax; let y=0;
+    if(t<=S.ts||S.ts>t2) {} // siempre se dibuja lo registrado hasta ahora
+    const cut=X(Math.max(0,Math.min(S.ts,tmax)));
+    if(x<=cut){y=pulse(x,X(0)+pw*1.6,1)+pulse(x,X(t2),ampE)}
+    const Y=ys-y*34; x===L?ctx.moveTo(x,Y):ctx.lineTo(x,Y)}
+  ctx.strokeStyle=C.ink;ctx.lineWidth=1.5;ctx.stroke();
+  // corchetes ida y vuelta
+  const br=(a,b,y,color,lab)=>{const xa=X(a),xb=X(b);ctx.strokeStyle=color;ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(xa,y+6);ctx.lineTo(xa,y);ctx.lineTo(xb,y);ctx.lineTo(xb,y+6);ctx.stroke();
+    txt(ctx,lab,(xa+xb)/2,y-11,{size:12,w:700,color,align:"center"})};
+  br(0,t1,40,C.out,"ida  "+fmtT(t1));
+  br(t1,t2,40,C.echo,"vuelta  "+fmtT(t1));
+  br(0,t2,74,C.ink,"total = 2d/v = "+fmtT(t2));
+  // eventos
+  ctx.setLineDash([3,3]);ctx.strokeStyle=C.muted;ctx.lineWidth=1;
+  [[0,"clic"],[t1,"llega a la presa"],[t2,"eco"]].forEach(([t,l],i)=>{const x=X(t);ctx.beginPath();ctx.moveTo(x,86);ctx.lineTo(x,ys+36);ctx.stroke();
+    txt(ctx,l,x+(i===0?4:0),ys+28,{size:10.5,align:i===0?"left":"center",color:C.muted})});
+  ctx.setLineDash([]);
+  // cursor
+  if(S.ts>=0&&S.ts<=tmax){const x=X(S.ts);ctx.strokeStyle=C.hit;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(x,20);ctx.lineTo(x,ys+40);ctx.stroke()}
+}
+
+// ---------- textos ----------
+function update(){
+  const a=A(), d=dist(), t1=tIda(), t2=tTot(), lam=a.v/(S.f*1000);
+  const dEl=$("distOut"); dEl.textContent=S.challenge?"oculta":fmtD(d);
+  $("dist").value=d;
+  $("freqOut").textContent=S.f+" kHz";
+  $("speedOut").textContent="×"+nf(S.speed,2)+" (≈ "+Math.round(1/(slow()/S.speed))+" veces más lento)";
+  $("tIda").textContent=fmtT(t1);$("tVuelta").textContent=fmtT(t1);$("tTot").textContent=fmtT(t2);
+  ["tIda","tVuelta"].forEach(id=>$(id).classList.toggle("hidden-val",S.challenge));
+  $("sM").textContent=a.medium; $("sV").textContent=a.v.toLocaleString("es-CO")+" m/s";
+  $("sL").textContent=fmtL(lam); $("sR").textContent=a.range; $("mNote").textContent=a.note+` Con λ = ${fmtL(lam)} puede detectar objetos de tamaño parecido o mayor; cuanto más alta la frecuencia, más pequeños los detalles que resuelve.`;
+  $("sceneInfo").textContent=`${a.name} en ${a.medium} · v = ${a.v.toLocaleString("es-CO")} m/s · animación ralentizada`;
+  $("formula").innerHTML=S.challenge?
+    `El animal mide t<sub>total</sub> = <b>${fmtT(t2)}</b><br>t<sub>ida</sub> = t<sub>vuelta</sub> = t<sub>total</sub> / 2<br>d = v · t<sub>total</sub> / 2 = ${a.v.toLocaleString("es-CO")} m/s · ${fmtT(t2)} / 2 = <b>?</b><br><em>Calcula d y escríbela en el modo reto.</em>`:
+    `t<sub>ida</sub> = d / v = ${fmtD(d)} / ${a.v.toLocaleString("es-CO")} m/s = <b>${fmtT(t1)}</b><br>t<sub>vuelta</sub> = d / v = <b>${fmtT(t1)}</b><br>t<sub>total</sub> = 2d / v = <b>${fmtT(t2)}</b><br><em>El animal invierte el cálculo:</em> d = v · t<sub>total</sub> / 2 = <b>${fmtD(d)}</b>`;
+}
+
+// ---------- controles ----------
+function setAnimal(k){S.a=k;const a=A();
+  $("aBat").setAttribute("aria-pressed",k==="bat");$("aDol").setAttribute("aria-pressed",k==="dol");
+  $("dist").min=a.dmin;$("dist").max=a.dmax;$("dist").step=a.dmax/1000;
+  $("freq").min=a.fmin;$("freq").max=a.fmax;S.f=a.f0;$("freq").value=S.f;
+  S.an={x:0,y:0};S.obj={x:a.d0,y:0};$("fb").textContent="";S.ts=-0.15*slow();update()}
+$("aBat").onclick=()=>setAnimal("bat");$("aDol").onclick=()=>setAnimal("dol");
+$("dist").oninput=e=>{const d=+e.target.value, dd=dist()||1; const ux=(S.obj.x-S.an.x)/dd, uy=(S.obj.y-S.an.y)/dd; S.obj={x:S.an.x+ux*d,y:S.an.y+uy*d}; S.obj=clampPt(S.obj); update()};
+$("freq").oninput=e=>{S.f=+e.target.value;update()};
+$("speed").oninput=e=>{S.speed=+e.target.value;update()};
+$("emit").onclick=()=>{S.ts=0;S.paused=false;$("pause").textContent="Pausar";$("pause").setAttribute("aria-pressed","false")};
+$("pause").onclick=()=>{S.paused=!S.paused;$("pause").textContent=S.paused?"Reanudar":"Pausar";$("pause").setAttribute("aria-pressed",S.paused)};
+$("repeat").onchange=e=>S.repeat=e.target.checked;
+$("challenge").onchange=e=>{S.challenge=e.target.checked;$("fb").textContent="";update()};
+$("rand").onclick=()=>{const a=A();const B=bounds();for(let k=0;k<60;k++){const q={x:B.x0+Math.random()*(B.x1-B.x0),y:(Math.random()*2-1)*B.y};S.obj=q;if(dist()>=Math.max(a.dmin*3,a.dmax*0.08))break}
+  S.challenge=true;$("challenge").checked=true;$("guess").value="";$("fb").textContent="";S.ts=0;update()};
+$("check").onclick=()=>{const gv=parseFloat(String($("guess").value).replace(",","."));const d=dist();const fb=$("fb");
+  if(!isFinite(gv)){fb.textContent="Escribe la distancia en metros.";fb.className="fb no";return}
+  const err=Math.abs(gv-d)/d;
+  if(err<=0.03){fb.textContent=`Correcto: d = ${fmtD(d)} (error ${nf(err*100,1)} %).`;fb.className="fb ok"}
+  else{fb.textContent=gv>d*1.6&&gv<d*2.4?"Revisa: ¿dividiste el tiempo total entre 2? El sonido va y vuelve.":`Aún no. Tu valor difiere ${nf(err*100,0)} %. Usa d = v · t / 2.`;fb.className="fb no"}};
+
+function bounds(){const g=geo();return {x0:-(g.x0-26)/g.sc,x1:(g.w-22-g.x0)/g.sc,y:(g.h/2-26)/g.sc}}
+function clampPt(p){const B=bounds();return {x:Math.max(B.x0,Math.min(B.x1,p.x)),y:Math.max(-B.y,Math.min(B.y,p.y))}}
+function clampObj(){S.obj=clampPt(S.obj);S.an=clampPt(S.an)}
+const cv=$("scene");
+function ptr(e){const r=cv.getBoundingClientRect();const g=geo();return {x:(e.clientX-r.left-g.x0)/g.sc,y:-(e.clientY-r.top-g.y0)/g.sc}}
+cv.addEventListener("pointerdown",e=>{const p=ptr(e);const g=geo();
+  const dObj=Math.hypot((p.x-S.obj.x)*g.sc,(p.y-S.obj.y)*g.sc);
+  const face=S.obj.x>=S.an.x?1:-1;
+  const dAn=Math.hypot((p.x-S.an.x)*g.sc+14*face,(p.y-S.an.y)*g.sc);
+  S.dragWhat=dObj<34?"obj":(dAn<44?"an":null);
+  if(S.dragWhat){S.drag=true;S.grab={x:p.x-S[S.dragWhat].x,y:p.y-S[S.dragWhat].y};cv.setPointerCapture(e.pointerId);cv.style.cursor="grabbing"}});
+cv.addEventListener("pointermove",e=>{const p=ptr(e);
+  if(!S.drag){const g=geo();const face=S.obj.x>=S.an.x?1:-1;
+    const near=Math.hypot((p.x-S.obj.x)*g.sc,(p.y-S.obj.y)*g.sc)<34||Math.hypot((p.x-S.an.x)*g.sc+14*face,(p.y-S.an.y)*g.sc)<44;
+    cv.style.cursor=near?"grab":"default";return}
+  const k=S.dragWhat; S[k]=clampPt({x:p.x-S.grab.x,y:p.y-S.grab.y});
+  if(dist()<A().dmin){const o=k==="obj"?S.an:S.obj;const dx=S[k].x-o.x,dy=S[k].y-o.y,l=Math.hypot(dx,dy)||1;S[k]={x:o.x+dx/l*A().dmin,y:o.y+dy/l*A().dmin}}
+  update()});
+const end=()=>{if(S.drag){S.drag=false;S.dragWhat=null;cv.style.cursor="grab";S.ts=0}};cv.addEventListener("pointerup",end);cv.addEventListener("pointercancel",end);
+
+// ---------- bucle ----------
+const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+if(reduce){S.paused=true;$("pause").textContent="Reanudar";$("pause").setAttribute("aria-pressed","true")}
+let last=performance.now();
+setAnimal("bat");
+// arranca a mitad del recorrido para que la escena se vea en acción
+S.ts=tIda()*1.4;
+function frame(now){const dt=Math.min(0.05,(now-last)/1000);last=now;
+  if(!S.paused){S.ts+=dt*slow()*S.speed;
+    if(S.ts>tTot()+slow()*1.2&&S.repeat) S.ts=0}
+  drawScene(now);drawTimeline();requestAnimationFrame(frame)}
+update();requestAnimationFrame(frame);
+})();
+</script>
+
+</body>
+</html>

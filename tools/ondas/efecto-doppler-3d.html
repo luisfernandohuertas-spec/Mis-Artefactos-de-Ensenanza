@@ -1,0 +1,469 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Efecto Doppler 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..800&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: misma familia que «Ondas sonoras esféricas» — escena 3D a la izquierda, banco de instrumentos a la derecha */
+:root{
+  --bg:#080c14;
+  --panel:#0f1622;
+  --panel-2:#141e2e;
+  --line:#22304a;
+  --fg:#e5ebf4;
+  --muted:#8b99b2;
+  --hi:#5aa9ff;     /* más agudo: λ corta */
+  --lo:#ff6a55;     /* más grave: λ larga */
+  --accent:#ffc857; /* controles */
+  --asphalt:#1a2030;
+  --font-display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--bg);color:var(--fg)}
+body{font-family:var(--font-display);font-size:15px;line-height:1.5}
+.app{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;padding-inline:16px;padding-block:16px;max-width:1500px;margin:0 auto}
+@media(min-width:960px){
+  html,body{height:100%}
+  .app{grid-template-columns:minmax(0,1fr) 370px;height:100%;box-sizing:border-box}
+  .left{height:100%;min-height:0;display:grid;grid-template-rows:minmax(0,1fr) auto;gap:16px}
+  .stage{height:auto;min-height:0}
+  .panel{overflow-y:auto;min-height:0}
+}
+.left{display:flex;flex-direction:column;gap:16px;min-width:0}
+.stage{position:relative;border-radius:14px;overflow:hidden;background:linear-gradient(180deg,#0c1528 0%,var(--bg) 100%);border:1px solid var(--line);height:58svh;min-height:340px}
+#gl{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.hud{position:absolute;top:12px;left:14px;right:14px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;pointer-events:none;align-items:flex-start}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-family:var(--font-mono);font-size:11.5px;color:var(--muted);background:rgba(8,12,20,.75);padding:6px 10px;border-radius:8px;border:1px solid var(--line)}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.heard{font-family:var(--font-mono);background:rgba(8,12,20,.75);padding:6px 12px;border-radius:8px;border:1px solid var(--line);text-align:right;display:flex;flex-direction:column}
+.heard span{font-size:11px;color:var(--muted)}
+.heard b{font-size:24px;font-weight:500;font-variant-numeric:tabular-nums;line-height:1.1}
+.heard em{font-style:normal;font-size:12px;font-variant-numeric:tabular-nums}
+.tag{position:absolute;transform:translate(-50%,-100%);font-family:var(--font-mono);font-size:11.5px;color:var(--fg);background:rgba(8,12,20,.85);border:1px solid var(--line);padding:2px 7px;border-radius:5px;pointer-events:none;white-space:nowrap}
+.bar{position:absolute;left:12px;right:12px;bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--line);background:rgba(15,22,34,.9);color:var(--fg);padding:8px 13px;font-weight:600;font-size:14px}
+button:hover{border-color:var(--muted)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#btnSound{background:var(--accent);border-color:var(--accent);color:#1d1503;font-weight:700}
+#btnSound.on{background:transparent;color:var(--accent)}
+.seg{display:flex;gap:3px;background:rgba(15,22,34,.9);border:1px solid var(--line);border-radius:10px;padding:3px}
+.seg button{border:0;background:transparent;padding:5px 9px;font-size:13px;font-weight:500;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--panel-2);color:var(--fg)}
+.views{margin-left:auto}
+@media(max-width:640px){.views{margin-left:0}}
+
+.chartbox{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.chartbox .head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline}
+.chartbox h2{margin:0;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.chartbox .key{font-family:var(--font-mono);font-size:11px;color:var(--muted);display:flex;gap:12px;flex-wrap:wrap}
+.chartbox .key i{display:inline-block;width:14px;height:0;border-top:2px solid;vertical-align:middle;margin-right:5px}
+#chart{width:100%;height:150px;display:block}
+
+.panel{display:flex;flex-direction:column;gap:14px;min-width:0}
+header h1{font-stretch:78%;font-weight:800;font-size:28px;line-height:1.05;letter-spacing:-.01em;margin:0;text-wrap:balance}
+header p{margin:8px 0 0;color:var(--muted);font-size:14px;max-width:62ch}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:12px}
+.box h2{margin:0;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.ctl{display:flex;flex-direction:column;gap:6px}
+.ctl .row{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.ctl label,.ctl .lbl{font-weight:600;font-size:14px}
+.ctl output{font-family:var(--font-mono);font-size:13px;color:var(--accent);font-variant-numeric:tabular-nums;white-space:nowrap}
+input[type=range]{width:100%;accent-color:var(--accent)}
+input[type=range]:disabled{opacity:.4}
+.presets{display:flex;gap:6px;flex-wrap:wrap}
+.presets button{padding:5px 9px;font-size:12px;font-family:var(--font-mono);font-weight:500;background:var(--panel-2)}
+.pills{display:flex;gap:6px;flex-wrap:wrap}
+.pills button{padding:6px 11px;font-size:13px;background:var(--panel-2)}
+.pills button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+.readout{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
+.readout div{display:flex;flex-direction:column;gap:1px;min-width:0}
+.readout span{font-size:11.5px;color:var(--muted)}
+.readout b{font-family:var(--font-mono);font-weight:500;font-size:15px;font-variant-numeric:tabular-nums}
+.readout .a b{color:var(--hi)} .readout .r b{color:var(--lo)}
+.note{font-size:13px;color:var(--muted);margin:0}
+.eq{font-family:var(--font-mono);font-size:12.5px;display:grid;grid-template-columns:auto 1fr;gap:5px 12px}
+.eq span:nth-child(even){color:var(--muted)}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+
+<div class="app">
+  <div class="left">
+    <section class="stage" aria-label="Simulación 3D del efecto Doppler">
+      <canvas id="gl"></canvas>
+      <div class="hud">
+        <div class="legend"><span><i style="background:var(--hi)"></i>adelante: λ corta, más agudo</span><span><i style="background:var(--lo)"></i>atrás: λ larga, más grave</span></div>
+        <div class="heard"><span>El oyente escucha</span><b id="hudF">—</b><em id="hudSemi"></em></div>
+      </div>
+      <div class="tag" id="tagL">Oyente</div>
+      <div class="bar">
+        <button id="btnSound" type="button">▶ Activar sonido</button>
+        <button id="btnPause" type="button">Pausar</button>
+        <button id="btnReset" type="button">Nueva pasada</button>
+        <div class="seg views" role="group" aria-label="Vista de cámara">
+          <button type="button" data-view="3d" aria-pressed="true">3D</button>
+          <button type="button" data-view="top" aria-pressed="false">Desde arriba</button>
+          <button type="button" data-view="ear" aria-pressed="false">Ojos del oyente</button>
+          <button type="button" data-view="follow" aria-pressed="false">Seguir</button>
+        </div>
+      </div>
+    </section>
+    <section class="chartbox">
+      <div class="head">
+        <h2>Frecuencia que oye el oyente</h2>
+        <div class="key"><span><i style="border-color:var(--accent)"></i>f′ oída</span><span><i style="border-color:var(--muted);border-top-style:dashed"></i>f emitida</span><span><i style="border-color:var(--hi);border-top-style:dotted"></i>acercándose</span><span><i style="border-color:var(--lo);border-top-style:dotted"></i>alejándose</span></div>
+      </div>
+      <canvas id="chart"></canvas>
+    </section>
+  </div>
+
+  <aside class="panel">
+    <header>
+      <h1>Efecto Doppler</h1>
+      <p>Una fuente en movimiento emite frentes de onda esféricos. Cada frente nace en un punto distinto, así que adelante se amontonan y atrás se separan. El oyente percibe una frecuencia distinta de la emitida.</p>
+    </header>
+
+    <div class="box">
+      <h2>Fuente</h2>
+      <div class="ctl">
+        <span class="lbl">Ejemplos</span>
+        <div class="presets">
+          <button type="button" data-preset="amb">Ambulancia 25 m/s</button>
+          <button type="button" data-preset="f1">Fórmula 1 85 m/s</button>
+          <button type="button" data-preset="prop">Avioneta 150 m/s</button>
+          <button type="button" data-preset="jet">Jet 270 m/s</button>
+        </div>
+      </div>
+      <div class="ctl">
+        <div class="row"><label for="v">Rapidez de la fuente v<sub>s</sub></label><output id="vOut"></output></div>
+        <input id="v" type="range" min="0" max="300" step="1">
+      </div>
+      <div class="ctl">
+        <span class="lbl" id="sndLbl">Sonido</span>
+        <div class="pills" role="group" aria-labelledby="sndLbl">
+          <button type="button" data-snd="siren" aria-pressed="false">Sirena</button>
+          <button type="button" data-snd="motor" aria-pressed="false">Motor</button>
+          <button type="button" data-snd="tone" aria-pressed="false">Tono puro</button>
+        </div>
+      </div>
+      <div class="ctl">
+        <div class="row"><label for="f">Frecuencia emitida f</label><output id="fOut"></output></div>
+        <input id="f" type="range" min="100" max="1500" step="5">
+      </div>
+    </div>
+
+    <div class="box">
+      <h2>Oyente y medio</h2>
+      <div class="ctl">
+        <span class="lbl" id="lisLbl">Escuchar desde</span>
+        <div class="pills" role="group" aria-labelledby="lisLbl">
+          <button type="button" data-lis="side" aria-pressed="true">La acera</button>
+          <button type="button" data-lis="driver" aria-pressed="false">El conductor</button>
+        </div>
+      </div>
+      <div class="ctl">
+        <div class="row"><label for="xl">Posición del oyente en la acera</label><output id="xlOut"></output></div>
+        <input id="xl" type="range" min="-150" max="150" step="5">
+      </div>
+      <div class="ctl">
+        <div class="row"><label for="temp">Temperatura del aire</label><output id="tempOut"></output></div>
+        <input id="temp" type="range" min="-20" max="40" step="1">
+      </div>
+      <div class="ctl">
+        <div class="row"><label for="ts">Velocidad de la simulación</label><output id="tsOut"></output></div>
+        <input id="ts" type="range" min="0.05" max="1" step="0.05">
+      </div>
+      <p class="note">En cámara lenta todo se estira en el tiempo, pero el tono que oyes es el real.</p>
+    </div>
+
+    <div class="box">
+      <h2>Magnitudes</h2>
+      <div class="readout">
+        <div><span>Rapidez del sonido c</span><b id="rC"></b></div>
+        <div><span>Número de Mach v<sub>s</sub>/c</span><b id="rM"></b></div>
+        <div class="a"><span>Acercándose: f·c/(c−v)</span><b id="rFa"></b></div>
+        <div class="r"><span>Alejándose: f·c/(c+v)</span><b id="rFr"></b></div>
+        <div class="a"><span>λ adelante</span><b id="rLa"></b></div>
+        <div class="r"><span>λ atrás</span><b id="rLr"></b></div>
+        <div><span>Ángulo θ al emitir</span><b id="rTh"></b></div>
+        <div><span>Distancia y retardo</span><b id="rD"></b></div>
+      </div>
+    </div>
+
+    <div class="box">
+      <h2>Ecuaciones</h2>
+      <div class="eq">
+        <span>f′ = f · c / (c − v<sub>s</sub> cos θ)</span><span>fuente móvil</span>
+        <span>f′ = f · (c + v<sub>o</sub>) / c</span><span>oyente que se acerca</span>
+        <span>λ = (c ∓ v<sub>s</sub>) / f</span><span>adelante / atrás</span>
+        <span>c ≈ 331 + 0,6·T</span><span>m/s, T en °C</span>
+      </div>
+      <p class="note">θ es el ángulo entre la velocidad de la fuente y la línea hacia el oyente, en el instante en que salió el sonido. Por eso el tono no sube mientras la fuente se acerca: se mantiene alto y casi constante, y cae justo al pasar. Mira la gráfica.</p>
+    </div>
+
+    <div class="box">
+      <h2>Escala</h2>
+      <p class="note">La vía mide unos 420 m. El vehículo y el oyente están ampliados 5 veces para que se vean. Cada frente dibujado representa muchas oscilaciones: se dibuja uno cada 0,06 s.</p>
+    </div>
+  </aside>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function(){
+const reduced=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+const css=getComputedStyle(document.documentElement), tok=n=>css.getPropertyValue(n).trim();
+const C={hi:tok('--hi'),lo:tok('--lo'),accent:tok('--accent'),fg:tok('--fg'),muted:tok('--muted'),line:tok('--line'),asphalt:tok('--asphalt')};
+const $=id=>document.getElementById(id);
+const fmt=(x,d)=>x.toLocaleString('es-CO',{minimumFractionDigits:d,maximumFractionDigits:d});
+
+/* ---------- Estado (metros, segundos) ---------- */
+const XA=-210, XB=210, ZL=10, YS=1.5, EMIT=0.06, RMAX=330, POOL=26, VIS=5;
+const PRESETS={amb:{v:25,snd:'siren',f:700},f1:{v:85,snd:'motor',f:320},prop:{v:150,snd:'motor',f:110},jet:{v:270,snd:'motor',f:220}};
+const S={v:85,f:320,snd:'motor',T:20,xL:0,ts:0.35,lis:'side',view:'3d',playing:!reduced,sound:false,t:0,xs:XA,lastEmit:-1e9};
+let hist=[];         // {t,x,v} de la fuente
+let fHist=[];        // {t,f} oída
+const cOf=T=>331.3*Math.sqrt(1+T/273.15);
+
+function srcFreq(te){ if(S.snd!=='siren') return S.f; const k=((Math.floor(te/0.6)%2)+2)%2; return k?S.f*1.335:S.f; }
+function srcAt(te){
+  if(!hist.length) return {x:S.xs,v:S.v};
+  if(te<=hist[0].t) return {x:hist[0].x,v:0};
+  const last=hist[hist.length-1]; if(te>=last.t) return {x:last.x,v:last.v};
+  let lo=0,hi=hist.length-1; while(hi-lo>1){const m=(lo+hi)>>1; if(hist[m].t<=te) lo=m; else hi=m;}
+  const a=hist[lo],b=hist[hi],u=(te-a.t)/(b.t-a.t||1); return {x:a.x+(b.x-a.x)*u,v:b.v};
+}
+// Escucha retardada: el sonido que llega ahora salió en t_e tal que |L − x_s(t_e)| = c (t − t_e)
+function hear(){
+  const c=cOf(S.T);
+  if(S.lis==='driver'){ const f0=srcFreq(S.t); return {f:f0,f0,r:0,delay:0,cos:null,xr:S.xs,pan:0}; }
+  const L={x:S.xL,y:1.6,z:ZL};
+  const dist=te=>{const s=srcAt(te);return Math.hypot(L.x-s.x,L.y-YS,L.z);};
+  let a=S.t-4,b=S.t;
+  for(let i=0;i<34;i++){const m=(a+b)/2; if(c*(S.t-m)-dist(m)>0) a=m; else b=m;}
+  const te=(a+b)/2, s=srcAt(te), r=dist(te), cos=(L.x-s.x)/r, f0=srcFreq(te);
+  return {f:f0*c/(c-s.v*cos),f0,r,delay:S.t-te,cos,xr:s.x,pan:Math.max(-1,Math.min(1,(s.x-L.x)/Math.max(r,1)))*0.85};
+}
+
+/* ---------- Three.js ---------- */
+const canvas=$('gl');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2)); renderer.localClippingEnabled=true;
+const scene=new THREE.Scene(); scene.fog=new THREE.Fog(0x080c14,420,900);
+const camera=new THREE.PerspectiveCamera(45,1,0.5,2000);
+const controls=new THREE.OrbitControls(camera,canvas); controls.enableDamping=true; controls.maxPolarAngle=Math.PI*0.495; controls.maxDistance=900; controls.minDistance=5;
+scene.add(new THREE.HemisphereLight(0xcfe0ff,0x141a26,0.8));
+const sun=new THREE.DirectionalLight(0xffffff,0.8); sun.position.set(80,200,120); scene.add(sun);
+
+// Suelo, vía, acera
+const groundM=new THREE.Mesh(new THREE.PlaneGeometry(1400,900),new THREE.MeshStandardMaterial({color:0x0e1522,roughness:1})); groundM.rotation.x=-Math.PI/2; groundM.position.y=-0.05; scene.add(groundM);
+const road=new THREE.Mesh(new THREE.PlaneGeometry(500,14),new THREE.MeshStandardMaterial({color:new THREE.Color(C.asphalt),roughness:.95})); road.rotation.x=-Math.PI/2; road.position.y=0; scene.add(road);
+const walk=new THREE.Mesh(new THREE.PlaneGeometry(500,6),new THREE.MeshStandardMaterial({color:0x2a3346,roughness:1})); walk.rotation.x=-Math.PI/2; walk.position.set(0,0.02,ZL); scene.add(walk);
+for(let x=-245;x<250;x+=12){const d=new THREE.Mesh(new THREE.PlaneGeometry(6,.35),new THREE.MeshBasicMaterial({color:0xcfd6e2})); d.rotation.x=-Math.PI/2; d.position.set(x,0.03,0); scene.add(d);}
+const grid=new THREE.GridHelper(1000,20,new THREE.Color(C.line),new THREE.Color(C.line)); grid.position.y=-0.04; scene.add(grid);
+
+// Frentes de onda con color Doppler por vértice
+const keepUp=new THREE.Plane(new THREE.Vector3(0,1,0),0);
+const cHi=new THREE.Color(C.hi), cLo=new THREE.Color(C.lo), cMid=new THREE.Color(0xd5dbe6), tmpC=new THREE.Color();
+function dopplerColor(M,cos,out){ const k=1/(1-M*cos); const t=Math.max(-1,Math.min(1,Math.log2(k)/0.5)); return out.copy(cMid).lerp(t>0?cHi:cLo,Math.abs(t)); }
+const NR=160, baseSphere=new THREE.SphereGeometry(1,36,18);
+const waves=[];
+for(let i=0;i<POOL;i++){
+  const rg=new THREE.BufferGeometry(), rp=new Float32Array((NR+1)*3), rc=new Float32Array((NR+1)*3);
+  for(let j=0;j<=NR;j++){const a=j/NR*Math.PI*2; rp[j*3]=Math.cos(a); rp[j*3+1]=0; rp[j*3+2]=Math.sin(a);}
+  rg.setAttribute('position',new THREE.BufferAttribute(rp,3)); rg.setAttribute('color',new THREE.BufferAttribute(rc,3));
+  const ring=new THREE.Line(rg,new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:.9}));
+  const sg=baseSphere.clone(); sg.setAttribute('color',new THREE.BufferAttribute(new Float32Array(sg.attributes.position.count*3),3));
+  const shell=new THREE.Mesh(sg,new THREE.MeshBasicMaterial({vertexColors:true,transparent:true,opacity:.07,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,clippingPlanes:[keepUp]}));
+  ring.visible=shell.visible=false; scene.add(ring,shell);
+  waves.push({ring,shell,alive:false,te:0,x:0});
+}
+function emitWave(M){
+  const w=waves.find(w=>!w.alive)||waves.reduce((a,b)=>a.te<b.te?a:b);
+  w.alive=true; w.te=S.t; w.x=S.xs;
+  const rc=w.ring.geometry.attributes.color, rp=w.ring.geometry.attributes.position;
+  for(let j=0;j<=NR;j++){dopplerColor(M,rp.getX(j),tmpC); rc.setXYZ(j,tmpC.r,tmpC.g,tmpC.b);} rc.needsUpdate=true;
+  const sc=w.shell.geometry.attributes.color, sp=w.shell.geometry.attributes.position;
+  for(let j=0;j<sp.count;j++){dopplerColor(M,sp.getX(j),tmpC); sc.setXYZ(j,tmpC.r,tmpC.g,tmpC.b);} sc.needsUpdate=true;
+}
+
+// Vehículo (frente hacia +x)
+const car=new THREE.Group();
+const white=new THREE.MeshStandardMaterial({color:0xe9edf3,roughness:.45,metalness:.2});
+const glass=new THREE.MeshStandardMaterial({color:0x1b2638,roughness:.2,metalness:.5});
+const tire=new THREE.MeshStandardMaterial({color:0x0c0f15,roughness:.9});
+const bodyM=new THREE.Mesh(new THREE.BoxGeometry(5,1.6,2.1),white); bodyM.position.y=1.3;
+const cab=new THREE.Mesh(new THREE.BoxGeometry(1.6,1.1,2.0),white); cab.position.set(1.9,0.95,0);
+const wind=new THREE.Mesh(new THREE.BoxGeometry(.05,.6,1.8),glass); wind.position.set(2.72,1.2,0); wind.rotation.z=-.35;
+const stripe=new THREE.Mesh(new THREE.BoxGeometry(5.02,.25,2.12),new THREE.MeshStandardMaterial({color:new THREE.Color(C.lo),roughness:.6})); stripe.position.y=1.0;
+const lightL=new THREE.Mesh(new THREE.BoxGeometry(.5,.22,.7),new THREE.MeshBasicMaterial({color:new THREE.Color(C.hi)})); lightL.position.set(.6,2.22,-.45);
+const lightR=new THREE.Mesh(new THREE.BoxGeometry(.5,.22,.7),new THREE.MeshBasicMaterial({color:new THREE.Color(C.lo)})); lightR.position.set(.6,2.22,.45);
+car.add(bodyM,cab,wind,stripe,lightL,lightR);
+[[-1.6,1.05],[-1.6,-1.05],[1.8,1.05],[1.8,-1.05]].forEach(([x,z])=>{const w=new THREE.Mesh(new THREE.CylinderGeometry(.42,.42,.3,16),tire); w.rotation.x=Math.PI/2; w.position.set(x,.42,z); car.add(w);});
+car.scale.setScalar(VIS); scene.add(car);
+
+// Oyente
+const person=new THREE.Group();
+const pm=new THREE.MeshStandardMaterial({color:new THREE.Color(C.accent),roughness:.6});
+const torso=new THREE.Mesh(new THREE.CylinderGeometry(.22,.26,1.0,12),pm); torso.position.y=1.05;
+const legs=new THREE.Mesh(new THREE.CylinderGeometry(.2,.2,.6,12),new THREE.MeshStandardMaterial({color:0x334055})); legs.position.y=.3;
+const headP=new THREE.Mesh(new THREE.SphereGeometry(.2,16,12),new THREE.MeshStandardMaterial({color:0xe8d4c0})); headP.position.y=1.75;
+person.add(torso,legs,headP); person.scale.setScalar(VIS); scene.add(person);
+
+function resize(){const r=canvas.parentElement.getBoundingClientRect(); renderer.setSize(r.width,r.height,false); camera.aspect=r.width/Math.max(r.height,1); camera.updateProjectionMatrix();}
+new ResizeObserver(resize).observe(canvas.parentElement); resize();
+
+/* ---------- Vistas ---------- */
+const VIEWS={
+  '3d':  ()=>({pos:new THREE.Vector3(30,105,215),tgt:new THREE.Vector3(0,0,0),fov:45}),
+  top:   ()=>({pos:new THREE.Vector3(0,470,1),tgt:new THREE.Vector3(0,0,0),fov:45}),
+  ear:   ()=>({pos:new THREE.Vector3(S.lis==='driver'?S.xs-12:S.xL,8.5,S.lis==='driver'?9:ZL+8),tgt:new THREE.Vector3(S.lis==='driver'?S.xs+40:S.xL,3,S.lis==='driver'?0:-30),fov:70}),
+  follow:()=>({pos:new THREE.Vector3(S.xs-45,28,60),tgt:new THREE.Vector3(S.xs+10,2,0),fov:50})
+};
+let camAnim=null;
+function setView(v,instant){
+  S.view=v; document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.view===v)));
+  const V=VIEWS[v]();
+  if(instant||reduced){camera.position.copy(V.pos);controls.target.copy(V.tgt);camera.fov=V.fov;camera.updateProjectionMatrix();camAnim=null;}
+  else camAnim={p0:camera.position.clone(),t0:controls.target.clone(),f0:camera.fov,V,k:0};
+}
+document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));
+setView('3d',true);
+
+/* ---------- Audio ---------- */
+let actx=null, A=null;
+function buildAudio(){
+  if(A){ try{A.osc.stop();}catch(_){} A.out.disconnect(); A=null; }
+  const osc=actx.createOscillator();
+  osc.type=S.snd==='tone'?'sine':S.snd==='siren'?'triangle':'sawtooth';
+  const lp=actx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=S.snd==='motor'?2200:5000; lp.Q.value=S.snd==='motor'?2:0.7;
+  const g=actx.createGain(); g.gain.value=0;
+  const pan=actx.createStereoPanner?actx.createStereoPanner():null;
+  const out=actx.createGain(); out.gain.value=S.snd==='tone'?0.55:S.snd==='siren'?0.45:0.32;
+  osc.connect(lp).connect(g); if(pan){g.connect(pan).connect(out);} else g.connect(out);
+  out.connect(actx.destination); osc.frequency.value=S.f; osc.start();
+  A={osc,lp,g,pan,out};
+}
+$('btnSound').addEventListener('click',()=>{
+  const b=$('btnSound');
+  if(S.sound){ S.sound=false; if(A) A.g.gain.setTargetAtTime(0,actx.currentTime,0.03); b.classList.remove('on'); b.textContent='▶ Activar sonido'; return; }
+  const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
+  if(!actx) actx=new AC(); if(actx.state==='suspended') actx.resume();
+  buildAudio(); S.sound=true; b.classList.add('on'); b.textContent='■ Silenciar';
+});
+function audioTick(h){
+  if(!A||!S.sound) return; const t=actx.currentTime;
+  const level=S.playing?(S.lis==='driver'?0.35:Math.min(1,14/Math.max(h.r,1))):0;
+  A.osc.frequency.setTargetAtTime(h.f,t,0.015);
+  A.g.gain.setTargetAtTime(level,t,0.04);
+  if(A.pan) A.pan.pan.setTargetAtTime(h.pan,t,0.05);
+}
+
+/* ---------- UI ---------- */
+function syncInputs(){ $('v').value=S.v; $('f').value=S.f; $('xl').value=S.xL; $('temp').value=S.T; $('ts').value=S.ts;
+  document.querySelectorAll('[data-snd]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.snd===S.snd)));
+  document.querySelectorAll('[data-lis]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.lis===S.lis)));
+  $('xl').disabled=S.lis==='driver'; }
+function updateStatic(){
+  const c=cOf(S.T), M=S.v/c;
+  $('vOut').textContent=fmt(S.v,0)+' m/s · '+fmt(S.v*3.6,0)+' km/h';
+  $('fOut').textContent=fmt(S.f,0)+' Hz'+(S.snd==='siren'?' / '+fmt(S.f*1.335,0):'');
+  $('xlOut').textContent=(S.xL>0?'+':'')+fmt(S.xL,0)+' m';
+  $('tempOut').textContent=fmt(S.T,0)+' °C';
+  $('tsOut').textContent=S.ts>=1?'tiempo real':'×'+fmt(S.ts,2)+' (cámara lenta)';
+  $('rC').textContent=fmt(c,1)+' m/s'; $('rM').textContent=fmt(M,2);
+  $('rFa').textContent=fmt(S.f*c/(c-S.v),0)+' Hz'; $('rFr').textContent=fmt(S.f*c/(c+S.v),0)+' Hz';
+  $('rLa').textContent=fmt((c-S.v)/S.f*100,1)+' cm'; $('rLr').textContent=fmt((c+S.v)/S.f*100,1)+' cm';
+  person.position.set(S.xL,0,ZL); person.visible=S.lis==='side';
+}
+$('v').addEventListener('input',e=>{S.v=+e.target.value;updateStatic();});
+$('f').addEventListener('input',e=>{S.f=+e.target.value;updateStatic();});
+$('xl').addEventListener('input',e=>{S.xL=+e.target.value;fHist=[];updateStatic();});
+$('temp').addEventListener('input',e=>{S.T=+e.target.value;updateStatic();});
+$('ts').addEventListener('input',e=>{S.ts=+e.target.value;updateStatic();});
+document.querySelectorAll('[data-snd]').forEach(b=>b.addEventListener('click',()=>{S.snd=b.dataset.snd;syncInputs();updateStatic();if(S.sound)buildAudio();}));
+document.querySelectorAll('[data-lis]').forEach(b=>b.addEventListener('click',()=>{S.lis=b.dataset.lis;fHist=[];syncInputs();updateStatic();if(S.view==='ear')setView('ear');}));
+document.querySelectorAll('[data-preset]').forEach(b=>b.addEventListener('click',()=>{const P=PRESETS[b.dataset.preset];S.v=P.v;S.f=P.f;S.snd=P.snd;syncInputs();updateStatic();if(S.sound)buildAudio();resetPass();}));
+$('btnPause').addEventListener('click',()=>{S.playing=!S.playing;$('btnPause').textContent=S.playing?'Pausar':'Continuar';});
+$('btnReset').addEventListener('click',resetPass);
+$('btnPause').textContent=S.playing?'Pausar':'Continuar';
+function resetPass(){ S.xs=XA; hist=[]; fHist=[]; S.lastEmit=-1e9; waves.forEach(w=>{w.alive=false;w.ring.visible=w.shell.visible=false;}); }
+
+/* ---------- Gráfica f′(t) ---------- */
+const chart=$('chart'), cx=chart.getContext('2d');
+function drawChart(){
+  const dpr=window.devicePixelRatio||1, w=chart.clientWidth, h=chart.clientHeight; if(!w) return;
+  if(chart.width!==Math.round(w*dpr)||chart.height!==Math.round(h*dpr)){chart.width=Math.round(w*dpr);chart.height=Math.round(h*dpr);}
+  cx.setTransform(dpr,0,0,dpr,0,0); cx.clearRect(0,0,w,h);
+  const c=cOf(S.T), fmax=(S.snd==='siren'?S.f*1.335:S.f), fa=fmax*c/Math.max(c-S.v,1), fr=S.f*c/(c+S.v);
+  const lo=fr*0.92, hi=Math.max(fa,fmax)*1.06;
+  const L=48,R=10,T=8,B=h-20, W=Math.max(3,(XB-XA)/Math.max(S.v,1)*1.1);
+  const t1=S.t, t0=t1-W, X=t=>L+(w-L-R)*(t-t0)/W, Y=f=>B-(B-T)*(Math.log(f)-Math.log(lo))/(Math.log(hi)-Math.log(lo));
+  cx.font='10px "IBM Plex Mono",monospace'; cx.fillStyle=C.muted; cx.textAlign='right';
+  const ref=[[fa,C.hi,[2,3]],[S.f,C.muted,[5,4]],[fr,C.lo,[2,3]]];
+  if(S.snd==='siren') ref.splice(1,0,[S.f*1.335,C.muted,[5,4]]);
+  ref.forEach(([f,col,dash])=>{ if(f<lo||f>hi) return; cx.strokeStyle=col; cx.setLineDash(dash); cx.lineWidth=1; cx.beginPath(); cx.moveTo(L,Y(f)); cx.lineTo(w-R,Y(f)); cx.stroke(); cx.fillStyle=col; cx.fillText(fmt(f,0),L-6,Y(f)+3); });
+  cx.setLineDash([]); cx.strokeStyle=C.line; cx.beginPath(); cx.moveTo(L,B+.5); cx.lineTo(w-R,B+.5); cx.stroke();
+  cx.fillStyle=C.muted; cx.textAlign='left'; cx.fillText('Hz',4,T+8); cx.textAlign='right'; cx.fillText('tiempo →',w-R,h-5);
+  cx.strokeStyle=C.accent; cx.lineWidth=2; cx.beginPath(); let started=false, prev=null;
+  for(const p of fHist){ if(p.t<t0) continue; const x=X(p.t), y=Y(Math.max(lo,Math.min(hi,p.f)));
+    if(!started||(prev&&Math.abs(p.f-prev.f)/prev.f>0.2&&S.snd==='siren')){cx.moveTo(x,y);started=true;} else cx.lineTo(x,y); prev=p; }
+  cx.stroke();
+}
+new ResizeObserver(drawChart).observe(chart);
+
+/* ---------- Etiqueta ---------- */
+const vt=new THREE.Vector3();
+function placeTag(el,p){ vt.copy(p).project(camera); const r=canvas.getBoundingClientRect(); if(vt.z>1){el.style.display='none';return;} el.style.display=''; el.style.left=((vt.x+1)/2*r.width)+'px'; el.style.top=((1-vt.y)/2*r.height)+'px'; }
+
+/* ---------- Bucle ---------- */
+const clock=new THREE.Clock(); let tick=0;
+function step(ds){
+  const c=cOf(S.T);
+  S.t+=ds; S.xs+=S.v*ds;
+  if(S.xs>XB){ S.xs=XA; hist=[]; }
+  hist.push({t:S.t,x:S.xs,v:S.v}); while(hist.length>2&&hist[0].t<S.t-4.5) hist.shift();
+  if(S.t-S.lastEmit>=EMIT){ emitWave(S.v/c); S.lastEmit=S.t; }
+}
+function frame(){
+  const dt=Math.min(clock.getDelta(),0.05), c=cOf(S.T);
+  if(S.playing) step(dt*S.ts);
+  // ondas
+  waves.forEach(w=>{ if(!w.alive) return; const r=c*(S.t-w.te); if(r>RMAX){w.alive=false;w.ring.visible=w.shell.visible=false;return;}
+    const fade=1-r/RMAX;
+    w.ring.position.set(w.x,0.15,0); w.ring.scale.setScalar(Math.max(Math.sqrt(Math.max(r*r-YS*YS,0)),.01)); w.ring.material.opacity=0.95*fade+0.05; w.ring.visible=true;
+    w.shell.position.set(w.x,YS,0); w.shell.scale.setScalar(Math.max(r,.01)); w.shell.material.opacity=0.07*fade; w.shell.visible=true; });
+  car.position.set(S.xs,0,0);
+  const blink=Math.sin(clock.elapsedTime*10)>0; lightL.visible=S.snd!=='siren'||blink; lightR.visible=S.snd!=='siren'||!blink;
+  // escucha
+  const h=hear();
+  if(S.playing){ fHist.push({t:S.t,f:h.f}); while(fHist.length&&fHist[0].t<S.t-25) fHist.shift(); }
+  audioTick(h);
+  if(++tick%4===0){
+    $('hudF').textContent=fmt(h.f,0)+' Hz';
+    const semi=12*Math.log2(h.f/h.f0);
+    $('hudSemi').textContent=(S.lis==='driver'?'igual a la emitida':(semi>=0?'+':'−')+fmt(Math.abs(semi),2)+' semitonos');
+    $('hudSemi').style.color=S.lis==='driver'?C.muted:(semi>0.05?C.hi:semi<-0.05?C.lo:C.muted);
+    $('rTh').textContent=h.cos===null?'—':fmt(Math.acos(Math.max(-1,Math.min(1,h.cos)))*180/Math.PI,0)+'°';
+    $('rD').textContent=S.lis==='driver'?'—':fmt(h.r,0)+' m · '+fmt(h.delay*1000,0)+' ms';
+    $('tagL').textContent=(S.lis==='driver'?'Conductor · ':'Oyente · ')+fmt(h.f,0)+' Hz';
+  }
+  drawChart();
+  // cámara
+  if(camAnim){ camAnim.k=Math.min(1,camAnim.k+dt*1.6); const e=1-Math.pow(1-camAnim.k,3);
+    camera.position.lerpVectors(camAnim.p0,camAnim.V.pos,e); controls.target.lerpVectors(camAnim.t0,camAnim.V.tgt,e); camera.fov=camAnim.f0+(camAnim.V.fov-camAnim.f0)*e; camera.updateProjectionMatrix(); if(camAnim.k>=1) camAnim=null; }
+  else if(S.view==='follow'||(S.view==='ear'&&S.lis==='driver')){ const V=VIEWS[S.view](); camera.position.lerp(V.pos,0.1); controls.target.lerp(V.tgt,0.15); }
+  controls.update(); renderer.render(scene,camera);
+  placeTag($('tagL'),S.lis==='driver'?new THREE.Vector3(S.xs,14,0):new THREE.Vector3(S.xL,11.5,ZL));
+  requestAnimationFrame(frame);
+}
+syncInputs(); updateStatic();
+// arranque con la fuente ya en camino y frentes visibles
+for(let i=0;i<70;i++) step(0.02);
+fHist=[];
+frame();
+})();
+</script>
+
+</body></html>
