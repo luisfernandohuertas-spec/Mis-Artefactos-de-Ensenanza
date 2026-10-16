@@ -67,6 +67,9 @@ button[aria-pressed="true"]{background:var(--wave);color:var(--surface);border-c
 .explain{margin:0;max-width:75ch;font-size:.97rem}
 .explain strong{font-weight:600}
 .note{font-size:.85rem;color:var(--muted);margin:0}
+.dosebar{height:12px;border-radius:999px;background:var(--soft);overflow:hidden;border:1px solid var(--line)}
+.dosebar i{display:block;height:100%;width:0;background:var(--fluid);transition:width .2s}
+.alert{font-size:.9rem;margin:0;font-weight:600}
 .legend{display:flex;flex-wrap:wrap;gap:14px;font-size:.8rem;color:var(--muted)}
 .legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px;background:var(--c)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
@@ -125,7 +128,7 @@ button[aria-pressed="true"]{background:var(--wave);color:var(--surface);border-c
         </div>
         <div class="ctrl">
           <label for="amp">Intensidad <output id="ampOut"></output></label>
-          <input type="range" id="amp" min="30" max="100" step="1" value="70">
+          <input type="range" id="amp" min="30" max="160" step="1" value="70">
         </div>
         <div class="ctrl">
           <label for="speed">Velocidad de la animación <output id="speedOut"></output></label>
@@ -135,7 +138,25 @@ button[aria-pressed="true"]{background:var(--wave);color:var(--surface);border-c
           <button id="play" aria-pressed="false">▶ Escuchar tono</button>
           <button id="pause" aria-pressed="false">Pausar</button>
         </div>
-        <p class="note">El tono suena a volumen moderado. Baja el volumen antes de usar frecuencias muy altas.</p>
+        <p class="note">El tono suena a volumen moderado (se limita por encima de 100 dB). Baja el volumen antes de usar frecuencias muy altas.</p>
+      </section>
+
+      <section class="panel">
+        <h2 class="ptitle">Exposición al ruido <small>1 s real = 20 min</small></h2>
+        <div class="row">
+          <button id="expo" aria-pressed="false">▶ Simular exposición</button>
+          <button id="heal">Reiniciar oído</button>
+        </div>
+        <div class="stats">
+          <div class="stat"><span>Tiempo expuesto</span><b id="eT">0 min</b></div>
+          <div class="stat"><span>Límite seguro a este nivel</span><b id="eMax"></b></div>
+        </div>
+        <div class="ctrl">
+          <label>Dosis diaria de ruido <output id="eDose">0 %</output></label>
+          <div class="dosebar"><i id="eBar"></i></div>
+        </div>
+        <p class="alert" id="eState"></p>
+        <p class="note">Límite de referencia: 85 dB durante 8 h; cada 3 dB más, el tiempo seguro se reduce a la mitad.</p>
       </section>
 
       <section class="panel">
@@ -168,7 +189,7 @@ const MEDIA={
 };
 const FMIN=16,FMAX=24000, COCH_LEN=35; // mm
 const $=id=>document.getElementById(id);
-const state={f:440,medium:"air",iface:false,bud:false,db:70,speed:1,paused:false,stage:"all",t:0};
+const state={f:440,medium:"air",iface:false,bud:false,expo:false,expT:0,dose:0,tStress:0,rupt:false,db:70,speed:1,paused:false,stage:"all",t:0};
 
 const sliderToF=s=>FMIN*Math.pow(FMAX/FMIN,s/1000);
 const fToSlider=f=>1000*Math.log(f/FMIN)/Math.log(FMAX/FMIN);
@@ -192,7 +213,7 @@ function transmission(m){const Za=MEDIA.air.v*MEDIA.air.rho, Z=MEDIA[m].v*MEDIA[
 function derived(){
   const m=MEDIA[state.medium];
   const T=state.iface?transmission(state.medium):1;
-  const ampOut=Math.max(0.05,(state.db-30)/70);           // amplitud en el medio
+  const ampOut=Math.min(1.25,Math.max(0.05,(state.db-30)/70));           // amplitud en el medio
   const ampIn=ampOut*(state.medium==="air"?1:Math.sqrt(T)); // amplitud en el canal
   const vCanal=state.iface?MEDIA.air.v:m.v;
   const lamPx=lam=>Math.min(900,22*Math.pow(lam/0.0143,0.36));
@@ -213,6 +234,8 @@ function derived(){
 let C={};
 function readTokens(){const cs=getComputedStyle(document.documentElement);
   ["bg","surface","ink","muted","line","wave","mech","fluid","spike","soft","skin","skinline"].forEach(k=>C[k]=cs.getPropertyValue("--"+k).trim())}
+function mix(h1,h2,t){const f=h=>{h=h.replace("#","");if(h.length===3)h=h.split("").map(c=>c+c).join("");const n=parseInt(h,16);return [n>>16&255,n>>8&255,n&255]};
+  const a=f(h1),b=f(h2);return `rgb(${a.map((v,i)=>Math.round(v+(b[i]-v)*t)).join(",")})`}
 function rgba(hex,a){let h=hex.replace("#",""); if(h.length===3)h=h.split("").map(c=>c+c).join("");
   const n=parseInt(h,16); return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`}
 readTokens();
@@ -234,7 +257,7 @@ function explainText(d){
   const map={
     all:`La fuente empuja moléculas del ${d.m.name}: cada molécula solo oscila alrededor de su posición, en la misma dirección en que viaja la onda. Lo que avanza es el patrón de <strong>compresiones</strong> (presión más alta) y <strong>expansiones</strong> (presión más baja). Toca una etapa para verla resaltada.`,
     s1:state.bud?`Con el audífono puesto, el sonido ya no viene de fuera: un pequeño parlante (diafragma) vibra ${Math.round(state.f).toLocaleString("es-CO")} veces por segundo justo a la entrada del canal y genera allí la onda longitudinal en el aire del canal (λ = ${fmtLen(MEDIA.air.v/state.f)}). La almohadilla de silicona sella el canal y atenúa el ruido exterior unos 20 dB. Como el volumen de aire es muy pequeño, basta muy poca potencia para producir presiones altas en el tímpano: por eso el volumen alto por tiempo prolongado puede dañar las células ciliadas.`:`Con f = ${f} en ${d.m.name} (v = ${d.m.v} m/s), las compresiones están separadas λ = v/f = <strong>${lam}</strong>. La oreja canaliza la onda; el canal auditivo (≈2,5 cm, cerrado en un extremo) resuena cerca de 3–4 kHz y refuerza esas frecuencias.`,
-    s2:`El tímpano es una membrana de ≈0,6 cm². Se empuja hacia dentro en cada compresión y hacia fuera en cada expansión: vibra ${Math.round(state.f).toLocaleString("es-CO")} veces por segundo, una vez cada ${T}. Así la onda de presión se convierte en vibración mecánica.`,
+    s2:(state.rupt?`<strong>El tímpano está perforado.</strong> `:``)+`El tímpano es una membrana de ≈0,6 cm². Se empuja hacia dentro en cada compresión y hacia fuera en cada expansión: vibra ${Math.round(state.f).toLocaleString("es-CO")} veces por segundo, una vez cada ${T}. Así la onda de presión se convierte en vibración mecánica. Por encima de unos 140 dB la membrana se estira más de lo que tolera y puede romperse; con ruido fuerte y prolongado (más de 85 dB por horas) el daño principal ocurre en las células ciliadas de la cóclea, que no se regeneran.`,
     s3:`Martillo, yunque y estribo forman una palanca (≈1,3×) y concentran la fuerza del tímpano en la ventana oval, unas 17 veces más pequeña. La presión crece ≈22× (≈27 dB), lo que compensa el paso de aire a líquido en el oído interno.`,
     s4:`El estribo empuja el líquido de la cóclea y genera una onda viajera en la membrana basilar. Cada lugar resuena con una frecuencia: la base (rígida) con los agudos y el ápice (flexible) con los graves. ${f} produce el máximo a <strong>${xmm} mm de la base</strong>. Ahí los cilios de las células ciliadas se doblan, abren canales iónicos y la célula libera neurotransmisor.`,
     s5:`Las fibras del nervio auditivo disparan potenciales de acción (todo o nada). La intensidad se codifica en la tasa de disparos; la frecuencia, por el <strong>lugar</strong> de la fibra activa y, por debajo de ≈4 kHz, también por el <strong>ritmo</strong> de los disparos, sincronizados con la onda. La corteza auditiva, en el lóbulo temporal, conserva ese mapa tonotópico y lo interpreta como tono.`
@@ -267,8 +290,28 @@ function bm(p,d,t){return env(p,d.pc)*Math.sin(2*Math.PI*d.fvis*t-phi(p,d.pc))}
 
 // ---------- impulsos ----------
 const nerveSpikes=[]; const spikeLog=[]; let cortexGlow=0;
+// ---------- daño por ruido ----------
+const NHC=44; const hc=new Array(NHC).fill(0); // 0 sana, 1 destruida
+const P4K=placeFromBase(4000);
+const allowedH=L=>L<80?Infinity:8/Math.pow(2,(L-85)/3); // horas seguras (NIOSH)
+const hcAt=pp=>hc[Math.min(NHC-1,Math.max(0,Math.floor(pp*NHC)))];
+const g=(x,m,sd)=>Math.exp(-(((x-m)/sd)**2));
+function damageStep(dtReal){
+  if(!state.expo) return;
+  const L=state.db, dtH=dtReal*20/60; // 1 s = 20 min
+  state.expT+=dtH;
+  if(isFinite(allowedH(L))) state.dose+=dtH/allowedH(L);
+  if(state.dose>1&&L>=85){
+    const rate=0.15*(L-82)/10*Math.min(3,state.dose);
+    const pc=placeFromBase(state.f);
+    for(let i=0;i<NHC;i++){const pp=(i+0.5)/NHC;
+      const w=0.7*g(pp,P4K,0.13)+0.5*g(pp,pc,0.07)+0.15*g(pp,0,0.25);
+      hc[i]=Math.min(1,hc[i]+rate*w*dtH)}}
+  if(L>=130&&!state.rupt){state.tStress+=dtReal*Math.pow(2,(L-130)/6)/6; if(state.tStress>=1) state.rupt=true}
+  if(L>=155&&!state.rupt){state.rupt=true}
+}
 function spikeStep(d,dt){
-  const rate=1.2+7*d.ampIn; // disparos por segundo (visual)
+  const rate=(1.2+7*d.ampIn)*(1-0.95*hcAt(d.pc)); // disparos por segundo (visual)
   let w=1;
   if(state.f<=4000){const s=Math.max(0,Math.sin(2*Math.PI*d.fvis*state.t)); w=s**4/0.1875}
   if(Math.random()<rate*dt*w){nerveSpikes.push({s:0}); spikeLog.push(state.t)}
@@ -384,11 +427,24 @@ function drawEar(d){
   text(ctx,"Canal auditivo",405,268,{size:12,align:"center",color:C.muted});
 
   // --- etapa 2: tímpano
-  const pT=presIn(520)*d.ampIn; // >0 empuja hacia dentro
+  const pT=presIn(520)*d.ampIn*(state.rupt?0.35:1); // >0 empuja hacia dentro
   ctx.globalAlpha=alphaFor("s2");
-  ctx.strokeStyle=C.mech; ctx.lineWidth=4;
-  ctx.beginPath();ctx.moveTo(520,280);ctx.quadraticCurveTo(528+16*pT,300,520,320);ctx.stroke();
-  leader(ctx,522,322,500,392); text(ctx,"Tímpano",500,402,{size:12,align:"center"});
+  const strain=Math.min(1,Math.max(0,(state.db-105)/40)+state.tStress*0.6);
+  const pTd=presIn(520)*d.ampIn;
+  if(!state.rupt){
+    if(strain>0){ctx.fillStyle=rgba(C.spike,0.25*strain);ctx.beginPath();ctx.arc(522,300,16+10*strain,0,7);ctx.fill()}
+    ctx.strokeStyle=strain>0.05?mix(C.mech,C.spike,strain):C.mech; ctx.lineWidth=4;
+    const jit=strain>0.4?(Math.random()-0.5)*4*strain:0;
+    ctx.beginPath();ctx.moveTo(520,280);ctx.quadraticCurveTo(528+16*pTd*(1+strain)+jit,300,520,320);ctx.stroke();
+    leader(ctx,522,322,500,392); text(ctx,strain>0.3?"Tímpano sobreexigido":"Tímpano",500,402,{size:12,align:"center",color:strain>0.3?C.spike:C.ink,w:strain>0.3?700:500});
+  } else {
+    // perforación: dos colgajos desgarrados con un agujero en el centro
+    ctx.strokeStyle=C.spike; ctx.lineWidth=4; ctx.lineCap="round";
+    ctx.beginPath();ctx.moveTo(520,280);ctx.quadraticCurveTo(524+5*pTd,287,527+6*pTd,293);ctx.lineTo(523,295);ctx.lineTo(529+6*pTd,297);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(520,320);ctx.quadraticCurveTo(524+5*pTd,313,528+6*pTd,306);ctx.lineTo(522,305);ctx.stroke();
+    ctx.fillStyle=rgba(C.spike,0.18);ctx.beginPath();ctx.arc(522,300,20,0,7);ctx.fill();
+    leader(ctx,522,322,500,392); text(ctx,"Tímpano perforado",500,402,{size:12,align:"center",color:C.spike,w:700});
+  }
 
   // --- etapa 3: oído medio y huesecillos
   ctx.globalAlpha=alphaFor("s3");
@@ -485,12 +541,17 @@ function drawCoch(d){
   // células ciliadas
   const NC=44, cy0=200;
   text(ctx,"Células ciliadas",X0-60,cy0+8,{size:11,color:C.muted});
-  for(let i=0;i<NC;i++){const p=(i+0.5)/NC, x=xp(p); const v=bm(p,d,t)*Math.min(1,0.25+d.ampIn);
+  for(let i=0;i<NC;i++){const p=(i+0.5)/NC, x=xp(p); const dm=hc[i]; const v=bm(p,d,t)*Math.min(1,0.25+d.ampIn)*(state.rupt?0.35:1)*(1-dm);
     const act=Math.max(0,v); // despolariza al doblarse hacia el cilio más alto
-    ctx.fillStyle=rgba(C.spike,0.08+0.8*act*act); ctx.strokeStyle=C.muted; ctx.lineWidth=1;
+    ctx.fillStyle=dm>0.15?rgba(C.muted,0.12+0.35*dm):rgba(C.spike,0.08+0.8*act*act); ctx.strokeStyle=dm>0.5?C.line:C.muted; ctx.lineWidth=1;
     ctx.beginPath();ctx.roundRect?ctx.roundRect(x-6,cy0,12,22,4):ctx.rect(x-6,cy0,12,22);ctx.fill();ctx.stroke();
-    ctx.strokeStyle=C.ink;ctx.lineWidth=1.3;
-    for(let j=-1;j<=1;j++){const bx=x+j*3, h=8+j*3; ctx.beginPath();ctx.moveTo(bx,cy0);ctx.lineTo(bx+v*7,cy0-h);ctx.stroke()}}
+    ctx.strokeStyle=dm>0.5?C.muted:C.ink;ctx.lineWidth=1.3;
+    for(let j=-1;j<=1;j++){
+      if(dm>0.85&&j!==0) continue; // cilios perdidos
+      const bx=x+j*3, h=(8+j*3)*(1-0.7*dm), lean=dm*(j*6+4);
+      ctx.beginPath();ctx.moveTo(bx,cy0);ctx.lineTo(bx+v*7+lean,cy0-h);ctx.stroke()}
+    if(dm>0.5){ctx.strokeStyle=C.spike;ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(x-3,cy0+30);ctx.lineTo(x+3,cy0+36);ctx.moveTo(x+3,cy0+30);ctx.lineTo(x-3,cy0+36);ctx.stroke()}}
+  if(hc.some(v=>v>0.5)) text(ctx,"✕ = célula ciliada dañada (no se regenera)",X1,cy0+50,{size:11,align:"right",color:C.spike,w:600});
   // fibra nerviosa: osciloscopio
   const oy=290, ow0=X0, ow1=X1, span=4;
   text(ctx,"Fibra en "+fmtF(state.f),X0-60,oy-50,{size:11,color:C.muted});
@@ -506,7 +567,7 @@ function drawCoch(d){
 function updateText(){
   const d=derived();
   $("freqOut").textContent=fmtF(state.f);
-  $("ampOut").textContent=state.db+" dB";
+  $("ampOut").textContent=state.db+" dB"+(state.db>=140?" · daño inmediato":state.db>=85?" · riesgo con el tiempo":"");
   $("speedOut").textContent=state.speed.toFixed(2).replace(/0$/,"")+"×";
   $("sV").textContent=d.m.v.toLocaleString("es-CO")+" m/s";
   $("sL").textContent=fmtLen(d.lam);
@@ -538,14 +599,32 @@ $("freq").value=fToSlider(state.f);
 $("freq").oninput=e=>{state.f=sliderToF(+e.target.value); onChange()};
 $("medium").onchange=e=>{state.medium=e.target.value; onChange()};
 $("iface").onchange=e=>{state.iface=e.target.checked; onChange()};
+function fmtH(h){if(!isFinite(h)) return "sin límite"; if(h>=1) return (Math.floor(h))+" h "+String(Math.round((h%1)*60)).padStart(2,"0")+" min"; if(h*60>=1) return Math.round(h*60)+" min"; return Math.max(1,Math.round(h*3600))+" s"}
+let lastExpoTxt="";
+function updateExpo(){
+  $("eT").textContent=fmtH(state.expT);
+  $("eMax").textContent=state.db<80?"sin límite (<80 dB)":fmtH(allowedH(state.db));
+  const pct=state.dose*100; $("eDose").textContent=pct>999?"> 999 %":Math.round(pct).toLocaleString("es-CO")+" %";
+  const bar=$("eBar"); bar.style.width=Math.min(100,pct/3)+"%"; bar.style.background=pct<50?"var(--fluid)":pct<100?"var(--mech)":"var(--spike)";
+  const lost=hc.filter(v=>v>0.5).length; let msg;
+  if(state.rupt) msg=`Tímpano perforado: llega menos vibración al oído medio (pérdida auditiva conductiva). Un sonido de unos 150 dB o una explosión lo rompen al instante.`;
+  else if(lost>0) msg=`${lost} de ${NHC} células ciliadas dañadas, sobre todo cerca de 4 kHz: pérdida auditiva permanente y posible zumbido (tinnitus).`;
+  else if(state.dose>1) msg="Dosis superada: empiezan a dañarse las células ciliadas.";
+  else if(state.dose>0.5) msg="Fatiga auditiva: tras la exposición se oye menos por unas horas (pérdida temporal).";
+  else msg=state.expo?"Exposición dentro del límite seguro.":"";
+  $("eState").textContent=msg; $("eState").style.color=state.rupt||lost?"var(--spike)":state.dose>0.5?"var(--mech)":"var(--fluid)";
+  if(msg!==lastExpoTxt){lastExpoTxt=msg; updateText()}
+}
+$("expo").onclick=()=>{state.expo=!state.expo; $("expo").textContent=state.expo?"■ Detener exposición":"▶ Simular exposición"; $("expo").setAttribute("aria-pressed",state.expo); updateExpo()};
+$("heal").onclick=()=>{hc.fill(0);state.expT=0;state.dose=0;state.tStress=0;state.rupt=false;updateExpo();updateText()};
 $("bud").onchange=e=>{state.bud=e.target.checked; onChange()};
-$("amp").oninput=e=>{state.db=+e.target.value; onChange()};
+$("amp").oninput=e=>{state.db=+e.target.value; onChange(); updateExpo()};
 $("speed").oninput=e=>{state.speed=+e.target.value; onChange()};
 $("pause").onclick=()=>{state.paused=!state.paused; $("pause").textContent=state.paused?"Reanudar":"Pausar"; $("pause").setAttribute("aria-pressed",state.paused)};
 
 // ---------- audio ----------
 let actx=null,osc=null,gain=null;
-const volume=()=>0.01+0.12*Math.max(0,(state.db-30)/70);
+const volume=()=>0.01+0.12*Math.min(1,Math.max(0,(state.db-30)/70));
 $("play").onclick=()=>{
   try{
     if(osc){gain.gain.setTargetAtTime(0,actx.currentTime,0.03); const o=osc; setTimeout(()=>o.stop(),150); osc=null;
@@ -564,10 +643,11 @@ let last=performance.now();
 function frame(now){const dt=Math.min(0.05,(now-last)/1000); last=now;
   const d=derived();
   if(!state.paused){state.t+=dt*state.speed; spikeStep(d,dt*state.speed)}
+  damageStep(dt); if(state.expo||state.rupt) updateExpo();
   drawEar(d); drawCoch(d); requestAnimationFrame(frame)}
 // estado inicial con algunos impulsos ya en el nervio
 for(let i=0;i<120;i++){state.t+=1/30; spikeStep(derived(),1/30)}
-updateText(); requestAnimationFrame(frame);
+updateText(); updateExpo(); requestAnimationFrame(frame);
 })();
 </script>
 
