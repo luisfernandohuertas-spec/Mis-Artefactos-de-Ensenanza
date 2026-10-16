@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>body{margin:0}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Fricción microscópica</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;800&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: escena macroscópica + controles arriba; dos lupas (asperezas y átomos) en fila; gráfica de fuerzas y lecturas abajo */
+:root{
+  --bg:#eef0f3; --surface:#ffffff; --ink:#1a1f29; --muted:#5d6675; --line:#d4d9e1; --soft:#e6e9ee;
+  --F:#2563c9; --Fr:#d9480f; --N:#2b8a3e; --W:#7048e8; --heat:#e8590c; --hot:#c92a2a; --oil:#e0a800;
+  --f-display:"Manrope","Segoe UI",system-ui,sans-serif;
+  --f-body:"Source Sans 3","Segoe UI",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1218; --surface:#171b23; --ink:#e6e9ef; --muted:#97a0b0; --line:#2a313d; --soft:#1f242e;
+  --F:#6ea8ff; --Fr:#ff8a50; --N:#5ad07a; --W:#a993ff; --heat:#ff9a4d; --hot:#ff6b6b; --oil:#ffd24d; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1218; --surface:#171b23; --ink:#e6e9ef; --muted:#97a0b0; --line:#2a313d; --soft:#1f242e;
+  --F:#6ea8ff; --Fr:#ff8a50; --N:#5ad07a; --W:#a993ff; --heat:#ff9a4d; --hot:#ff6b6b; --oil:#ffd24d; color-scheme:dark}
+
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.wrap{max-width:1260px;margin:0 auto;display:grid;gap:20px}
+header{display:grid;gap:6px}
+h1{font-family:var(--f-display);font-weight:800;font-size:clamp(1.7rem,3.4vw,2.5rem);line-height:1.1;margin:0;letter-spacing:-.015em;text-wrap:balance}
+.lede{margin:0;color:var(--muted);max-width:72ch}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:20px;align-items:start}
+@media (max-width:980px){.grid{grid-template-columns:minmax(0,1fr)}}
+.pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
+@media (max-width:820px){.pair{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;display:grid;gap:12px;min-width:0}
+.ptitle{font-family:var(--f-display);font-weight:600;font-size:1.05rem;margin:0;display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.ptitle small{font-family:var(--f-mono);font-size:.72rem;color:var(--muted);font-weight:400}
+canvas{display:block;width:100%;max-width:100%}
+#macro{aspect-ratio:1000/360}
+#asp,#atom{aspect-ratio:600/340}
+#plot{aspect-ratio:1000/260}
+.side{display:grid;gap:16px;min-width:0}
+.ctrl{display:grid;gap:6px}
+label{font-size:.76rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;display:flex;justify-content:space-between;gap:8px}
+label output{font-family:var(--f-mono);text-transform:none;letter-spacing:0;color:var(--ink);font-weight:600}
+input[type=range]{width:100%;accent-color:var(--F)}
+select{width:100%;min-width:0;max-width:100%;font:inherit;padding:7px 9px;border-radius:7px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+button{font:inherit;font-size:.88rem;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:6px 13px;cursor:pointer}
+button:hover{border-color:var(--F)}
+button.primary{background:var(--F);border-color:var(--F);color:var(--surface);font-weight:700}
+button[aria-pressed="true"]{background:var(--F);border-color:var(--F);color:var(--surface)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--F);outline-offset:2px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.check{display:flex;gap:8px;align-items:flex-start;font-size:.92rem;cursor:pointer;text-transform:none;letter-spacing:0;font-weight:400;color:var(--ink);justify-content:flex-start}
+.check input{margin-top:5px;accent-color:var(--F)}
+.state{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pill{font-family:var(--f-mono);font-size:.8rem;font-weight:600;padding:3px 10px;border-radius:999px;border:1.5px solid currentColor}
+.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px}
+.stat{display:grid;gap:1px;min-width:0}
+.stat span{font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700}
+.stat b{font-family:var(--f-mono);font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.explain{margin:0;max-width:78ch}
+.note{font-size:.86rem;color:var(--muted);margin:0}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:.8rem;color:var(--muted)}
+.legend span::before{content:"";display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:6px;vertical-align:3px;background:var(--c)}
+.lower{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:20px}
+@media (max-width:980px){.lower{grid-template-columns:minmax(0,1fr)}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Fricción microscópica</h1>
+    <p class="lede">Ninguna superficie es perfectamente lisa. Vista al microscopio, está llena de picos (asperezas) que solo se tocan en unos pocos puntos. En esos puntos los átomos de los dos materiales se unen; para deslizar hay que deformar los picos y romper esas uniones, y la energía se convierte en calor.</p>
+  </header>
+
+  <div class="grid">
+    <section class="panel">
+      <h2 class="ptitle">Escala macroscópica <small>bloque de 10 cm × 10 cm · plano inclinado</small></h2>
+      <canvas id="macro" aria-label="Bloque sobre una superficie con las fuerzas aplicada, de fricción, normal y peso"></canvas>
+      <div class="state"><span class="pill" id="pill"></span><span class="note" id="stateTxt"></span></div>
+      <div class="legend">
+        <span style="--c:var(--F)">F aplicada</span><span style="--c:var(--Fr)">Fricción</span>
+        <span style="--c:var(--N)">Normal</span><span style="--c:var(--W)">Peso y sus componentes</span>
+      </div>
+    </section>
+
+    <aside class="side">
+      <section class="panel">
+        <h2 class="ptitle">Controles</h2>
+        <div class="ctrl">
+          <label for="pair">Materiales (bloque / superficie)</label>
+          <select id="pair"></select>
+        </div>
+        <label class="check" for="oil"><input type="checkbox" id="oil"> Agregar lubricante (aceite)</label>
+        <div class="ctrl">
+          <label for="mass">Masa del bloque <output id="massOut"></output></label>
+          <input type="range" id="mass" min="1" max="20" step="0.5" value="10">
+        </div>
+        <div class="ctrl">
+          <label for="incl">Inclinación θ <output id="inclOut"></output></label>
+          <input type="range" id="incl" min="0" max="50" step="1" value="0">
+        </div>
+        <div class="ctrl">
+          <label for="force">Fuerza aplicada F (hacia arriba del plano) <output id="forceOut"></output></label>
+          <input type="range" id="force" min="0" max="220" step="0.5" value="0">
+        </div>
+        <div class="row">
+          <button class="primary" id="ramp">Rampa: aumentar F poco a poco</button>
+          <button id="reset">Detener y reiniciar</button>
+        </div>
+        <p class="note">La rampa sube F hasta que el bloque se suelta y luego la baja al valor justo para mantenerlo a velocidad constante.</p>
+      </section>
+    </aside>
+  </div>
+
+  <div class="pair">
+    <section class="panel">
+      <h2 class="ptitle">Lupa 1: asperezas <small>≈ 10 µm de ancho</small></h2>
+      <canvas id="asp" aria-label="Perfiles rugosos de las dos superficies y sus puntos de contacto"></canvas>
+      <p class="note" id="aspNote"></p>
+    </section>
+    <section class="panel">
+      <h2 class="ptitle">Lupa 2: átomos en un punto de contacto <small>≈ 3 nm de ancho</small></h2>
+      <canvas id="atom" aria-label="Átomos de los dos materiales, enlaces en la unión y temperatura"></canvas>
+      <p class="note" id="atomNote"></p>
+    </section>
+  </div>
+
+  <div class="lower">
+    <section class="panel">
+      <h2 class="ptitle">Fuerza aplicada y fricción en el tiempo <small>últimos 12 s</small></h2>
+      <canvas id="plot" aria-label="Gráfica de la fuerza aplicada y la fricción en función del tiempo"></canvas>
+      <div class="legend">
+        <span style="--c:var(--F)">F aplicada</span><span style="--c:var(--Fr)">Fricción</span>
+        <span style="--c:var(--muted)">μs·N y μk·N</span><span style="--c:var(--W)">m·g·sin θ</span>
+      </div>
+    </section>
+    <section class="panel">
+      <h2 class="ptitle">Lecturas</h2>
+      <div class="stats">
+        <div class="stat"><span>Normal N = m·g·cos θ</span><b id="rN"></b></div>
+        <div class="stat"><span>Peso paralelo m·g·sin θ</span><b id="rWp"></b></div>
+        <div class="stat"><span>Ángulo crítico tan θc = μs</span><b id="rTc"></b></div>
+        <div class="stat"><span>μs / μk</span><b id="rMu"></b></div>
+        <div class="stat"><span>Fricción estática máx.</span><b id="rFs"></b></div>
+        <div class="stat"><span>Fricción actual</span><b id="rFr"></b></div>
+        <div class="stat"><span>Aceleración</span><b id="rA"></b></div>
+        <div class="stat"><span>Velocidad</span><b id="rV"></b></div>
+        <div class="stat"><span>Área real de contacto</span><b id="rAr"></b></div>
+        <div class="stat"><span>Temperatura en la unión</span><b id="rT"></b></div>
+      </div>
+      <p class="explain" id="explain"></p>
+    </section>
+  </div>
+</div>
+
+<script>
+(()=>{
+const $=id=>document.getElementById(id);
+const g0=9.8;
+// ---------- materiales ----------
+// rough: amplitud de asperezas · hard: dureza de indentación (Pa) · latt: separación atómica (px) · adh: adhesión
+const MAT={
+  madera:{n:"madera",c:"#b07f4b",rough:1.0,H:4e7,latt:30,adh:0.4},
+  acero:{n:"acero",c:"#8794a3",rough:0.45,H:2e9,latt:22,adh:1.0},
+  caucho:{n:"caucho",c:"#4a4a52",rough:0.75,H:1e7,latt:30,adh:0.7},
+  concreto:{n:"concreto",c:"#a39f94",rough:1.45,H:3e8,latt:26,adh:0.5},
+  vidrio:{n:"vidrio",c:"#86c5d1",rough:0.2,H:5e9,latt:24,adh:0.75},
+  hielo:{n:"hielo",c:"#bfe3f2",rough:0.25,H:1e8,latt:26,adh:0.2},
+  teflon:{n:"teflón",c:"#e4e2da",rough:0.3,H:3e7,latt:28,adh:0.05},
+  aluminio:{n:"aluminio",c:"#b9bec4",rough:0.5,H:1e9,latt:23,adh:0.85}
+};
+const PAIRS=[
+  {t:"madera",b:"madera",ms:0.50,mk:0.30,txt:"Las fibras de la madera se enganchan entre sí; la adhesión es moderada."},
+  {t:"acero",b:"acero",ms:0.74,mk:0.57,txt:"Metales limpios: en los puntos de contacto los átomos se sueldan en frío y hay que arrancar esas uniones."},
+  {t:"caucho",b:"concreto",ms:1.00,mk:0.80,txt:"El caucho es blando: se deforma y abraza las asperezas del concreto, así que el área real de contacto es grande."},
+  {t:"aluminio",b:"acero",ms:0.61,mk:0.47,txt:"El aluminio, más blando, se deforma y deja partículas pegadas al acero (desgaste por adhesión)."},
+  {t:"vidrio",b:"vidrio",ms:0.94,mk:0.40,txt:"El vidrio es muy liso; al tocarse en muchos puntos a escala atómica, la adhesión es alta."},
+  {t:"hielo",b:"hielo",ms:0.10,mk:0.03,txt:"El roce funde una película delgada de agua que actúa como lubricante."},
+  {t:"teflon",b:"acero",ms:0.04,mk:0.04,txt:"El teflón casi no forma enlaces con otros materiales: sus átomos de flúor repelen a los vecinos."}
+];
+const S={th:0,pair:1,oil:false,m:10,F:0,x:0,v:0,a:0,Fr:0,sliding:false,T:20,ramp:false,rampPhase:0,slipTime:0,u:0,uA:0,t:0,hist:[],wear:[]};
+const P=()=>PAIRS[S.pair];
+const MT=()=>MAT[P().t];
+const MB=()=>{const m=MAT[P().b];return P().t===P().b?Object.assign({},m,{c:darker(m.c)}):m};
+function darker(hex){const n=parseInt(hex.slice(1),16);const f=v=>Math.round(v*0.72).toString(16).padStart(2,"0");return "#"+f(n>>16&255)+f(n>>8&255)+f(n&255)}
+const rad=()=>S.th*Math.PI/180;
+const N=()=>S.m*g0*Math.cos(rad());
+const Wp=()=>S.m*g0*Math.sin(rad());
+const water=()=>P().t==="hielo";
+function mu(){let ms=P().ms,mk=P().mk; if(S.oil){ms=Math.max(0.05,ms*0.18);mk=Math.max(0.03,mk*0.15)} return {ms,mk}}
+
+// ---------- formato ----------
+const nf=(x,d=1)=>x.toLocaleString("es-CO",{maximumFractionDigits:d,minimumFractionDigits:d});
+
+// ---------- tokens ----------
+let C={};
+function readTokens(){const cs=getComputedStyle(document.documentElement);
+  ["bg","surface","ink","muted","line","soft","F","Fr","N","W","heat","hot","oil"].forEach(k=>C[k]=cs.getPropertyValue("--"+k).trim());
+  C.font=getComputedStyle(document.body).fontFamily; C.mono=cs.getPropertyValue("--f-mono")}
+function rgba(hex,a){let h=hex.replace("#","");if(h.length===3)h=h.split("").map(c=>c+c).join("");const n=parseInt(h,16);return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`}
+function shade(hex,k){let h=hex.replace("#","");const n=parseInt(h,16);const f=v=>Math.max(0,Math.min(255,Math.round(v*k)));return `rgb(${f(n>>16&255)},${f(n>>8&255)},${f(n&255)})`}
+readTokens();
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change",readTokens);
+new MutationObserver(readTokens).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+
+function fit(cv,W){const ctx=cv.getContext("2d");const o={ctx,W,H:0};
+  const rs=()=>{const dpr=Math.min(2,devicePixelRatio||1),w=cv.clientWidth,h=cv.clientHeight;cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);
+    const k=dpr*w/W;ctx.setTransform(k,0,0,k,0,0);o.H=h*W/w};
+  new ResizeObserver(rs).observe(cv);rs();return o}
+const MC=fit($("macro"),1000), AC=fit($("asp"),600), TC=fit($("atom"),600), PC=fit($("plot"),1000);
+function txt(ctx,s,x,y,o={}){ctx.font=`${o.w||400} ${o.size||13}px ${o.mono?C.mono:C.font}`;ctx.fillStyle=o.color||C.ink;ctx.textAlign=o.align||"left";ctx.textBaseline=o.base||"middle";ctx.fillText(s,x,y)}
+function arrow(ctx,x1,y1,x2,y2,color,w=4){const L=Math.hypot(x2-x1,y2-y1);if(L<2)return;const a=Math.atan2(y2-y1,x2-x1),hd=Math.min(14,L*0.6);
+  ctx.strokeStyle=color;ctx.fillStyle=color;ctx.lineWidth=w;ctx.lineCap="round";
+  ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2-hd*0.7*Math.cos(a),y2-hd*0.7*Math.sin(a));ctx.stroke();
+  ctx.beginPath();ctx.moveTo(x2,y2);ctx.lineTo(x2-hd*Math.cos(a-0.42),y2-hd*Math.sin(a-0.42));ctx.lineTo(x2-hd*Math.cos(a+0.42),y2-hd*Math.sin(a+0.42));ctx.closePath();ctx.fill()}
+
+// ---------- perfiles rugosos (suma de senos con fases fijas) ----------
+function makeProfile(seed){let s=seed;const r=()=>{s=(s*16807)%2147483647;return s/2147483647};
+  const comps=[];for(let k=0;k<7;k++)comps.push({A:(0.55/(1+k*0.6))*(0.6+0.8*r()),L:18+r()*90/(1+k*0.3),ph:r()*6.283});
+  return x=>{let y=0;for(const c of comps)y+=c.A*Math.sin(x/c.L*6.283+c.ph);return y}}
+const fTop=makeProfile(11), fBot=makeProfile(97);
+
+// ---------- física ----------
+function physics(dt){
+  const {ms,mk}=mu(), n=N(), Fsmax=ms*n, Fk=mk*n, wp=Wp();
+  if(S.ramp){
+    if(S.rampPhase===0){S.F=Math.min(220,S.F+Math.max(6,(Fsmax+wp)*0.12)*dt); if(S.sliding&&S.v>0){S.rampPhase=1;S.slipTime=0}}
+    else{S.slipTime+=dt; if(S.slipTime>0.35){const tgt=wp+Math.sign(S.v||1)*Fk; S.F+=(Math.max(0,tgt)-S.F)*Math.min(1,dt*4)}}
+    $("force").value=S.F;
+  }
+  const Fd=S.F-wp; // fuerza neta sin fricción (+ = hacia arriba del plano)
+  if(!S.sliding){
+    if(Math.abs(Fd)>Fsmax){S.sliding=true;S.v=Math.sign(Fd)*0.02}
+    else{S.Fr=-Fd;S.a=0;S.v=0}
+  }
+  if(S.sliding){
+    S.Fr=-Math.sign(S.v)*Fk; S.a=(Fd+S.Fr)/S.m;
+    const vn=S.v+S.a*dt;
+    if(vn*S.v<=0){S.v=0;S.a=0;S.sliding=false;S.Fr=Math.abs(Fd)<=Fsmax?-Fd:-Math.sign(Fd)*Fsmax}
+    else{S.v=Math.max(-3,Math.min(3,vn)); if(Math.abs(S.v)>=3)S.a=0}
+  }
+  S.x+=S.v*dt;
+  const Pw=S.sliding?Math.abs(S.Fr*S.v):0;
+  S.T+=(Pw*0.2-(S.T-20)*0.35)*dt;
+  const elastic=Fsmax>0?Math.max(-1,Math.min(1,-S.Fr/Fsmax)):0;
+  if(S.sliding){S.u+=S.v*70*dt;S.uA+=S.v*55*dt}
+  S.uEl=elastic;
+  S.hist.push({t:S.t,F:S.F,Fr:S.Fr,Fs:Fsmax,Fk,Wp:wp});
+  while(S.hist.length&&S.hist[0].t<S.t-12)S.hist.shift();
+}
+
+// ---------- escena macroscópica ----------
+function drawMacro(){
+  const {ctx,W,H}=MC; if(!H)return; ctx.clearRect(0,0,W,H);
+  const th=rad(), co=Math.cos(th), si=Math.sin(th);
+  const sc=1-0.25*si, bw=270*sc, bh=150*sc, mt=MT(), mb=MB();
+  const px=470, py=262+60*si;
+  const tw=(lx,ly)=>[px+lx*co+ly*si, py-lx*si+ly*co];
+  const poly=(pts,fill,stroke,lw)=>{ctx.beginPath();pts.forEach((q,i)=>{const w=tw(q[0],q[1]);i?ctx.lineTo(w[0],w[1]):ctx.moveTo(w[0],w[1])});ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill()}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||2;ctx.stroke()}};
+  const line=(a,b)=>{const p1=tw(...a),p2=tw(...b);ctx.beginPath();ctx.moveTo(...p1);ctx.lineTo(...p2);ctx.stroke()};
+  const arr=(a,b,c,w)=>{const p1=tw(...a),p2=tw(...b);arrow(ctx,p1[0],p1[1],p2[0],p2[1],c,w)};
+  // superficie
+  poly([[-900,0],[900,0],[900,700],[-900,700]],mb.c);
+  const off=((S.x*140)%60+60)%60;
+  ctx.strokeStyle=rgba("#000000",0.12);ctx.lineWidth=2;
+  for(let x=-900-off;x<900;x+=60) line([x,8],[x+30,400]);
+  poly([[-900,0],[900,0],[900,5],[-900,5]],rgba("#ffffff",0.18));
+  if(S.oil) poly([[-900,-3],[900,-3],[900,1],[-900,1]],rgba(C.oil,0.6));
+  if(water()&&!S.oil&&S.sliding) poly([[-bw/2,-2],[bw/2,-2],[bw/2,1],[-bw/2,1]],rgba("#5aa9e6",0.6));
+  // soporte horizontal y ángulo
+  if(S.th>0){ctx.strokeStyle=C.muted;ctx.lineWidth=1.5;ctx.setLineDash([5,4]);
+    const o=tw(-330,0);ctx.beginPath();ctx.moveTo(o[0],o[1]);ctx.lineTo(o[0]+170,o[1]);ctx.stroke();ctx.setLineDash([]);
+    ctx.beginPath();ctx.arc(o[0],o[1],70,-th,0);ctx.stroke();
+    txt(ctx,"θ = "+S.th+"°",o[0]+80,o[1]-14*Math.max(0.6,si*3),{size:14,w:700})}
+  const lab=tw(-330,40); txt(ctx,"Superficie: "+mb.n,lab[0],lab[1],{size:13,w:700,color:"#ffffff"});
+  // bloque
+  poly([[-bw/2,-bh],[bw/2,-bh],[bw/2,0],[-bw/2,0]],mt.c,shade(mt.c,0.6),2);
+  const heat=Math.min(1,(S.T-20)/80);
+  if(heat>0.02) poly([[-bw/2,-18],[bw/2,-18],[bw/2,0],[-bw/2,0]],rgba(C.heat,0.6*heat));
+  const tc=tw(0,-bh+24), dark=mt.c==="#4a4a52";
+  txt(ctx,"Bloque: "+mt.n,tc[0],tc[1],{size:14,w:700,align:"center",color:dark?"#ffffff":"#1a1f29"});
+  const tm=tw(0,-bh+44); txt(ctx,nf(S.m,1)+" kg",tm[0],tm[1],{size:13,align:"center",color:dark?"#e6e9ef":"#333a45",mono:true});
+  // líneas de movimiento
+  if(Math.abs(S.v)>0.05){ctx.strokeStyle=rgba(C.muted,0.6);ctx.lineWidth=2;const sg=Math.sign(S.v);
+    for(let i=0;i<3;i++){const y=-bh*0.75+i*bh*0.25, L=20+Math.abs(S.v)*25, x0=-sg*(bw/2+12);line([x0,y],[x0-sg*L,y])}}
+  // fuerzas
+  const k=0.75, n=N(), wTot=S.m*g0, wp=Wp(), L=f=>Math.min(170,f*k*0.55);
+  const c=tw(0,-bh/2);
+  arrow(ctx,c[0],c[1],c[0],c[1]+L(wTot),C.W,4); txt(ctx,"W = "+nf(wTot,0)+" N",c[0]+10,c[1]+L(wTot)-4,{size:13,w:700,color:C.W});
+  if(S.th>0){ctx.setLineDash([4,4]);
+    arr([0,-bh/2],[-L(wp),-bh/2],rgba(C.W,0.85),2.5); arr([0,-bh/2],[0,-bh/2+L(n)],rgba(C.W,0.85),2.5); ctx.setLineDash([]);
+    const q=tw(-L(wp)-8,-bh/2+4); ctx.fillStyle=rgba(C.surface,0.75); ctx.fillRect(q[0]-66,q[1]-9,64,18); txt(ctx,"m·g·sin θ",q[0]-4,q[1],{size:12,w:700,color:C.W,align:"right"})}
+  arr([-bw*0.18,0],[-bw*0.18,-L(n)],C.N,4); const qn=tw(-bw*0.18-14,-L(n)+6); txt(ctx,"N",qn[0],qn[1],{size:14,w:700,color:C.N,align:"right"});
+  if(S.F>0.2){arr([bw/2,-bh/2],[bw/2+Math.min(300,S.F*k*1.3),-bh/2],C.F,5);const q=tw(bw/2+12,-bh/2-18);txt(ctx,"F = "+nf(S.F,1)+" N",q[0],q[1],{size:14,w:700,color:C.F})}
+  if(Math.abs(S.Fr)>0.2){const x0=bw*0.12, Lf=Math.min(300,Math.abs(S.Fr)*k*1.3)*Math.sign(S.Fr);arr([x0,8],[x0+Lf,8],C.Fr,5);
+    const q=tw(x0+Lf+(S.Fr<0?-8:8),30);txt(ctx,"Fr = "+nf(Math.abs(S.Fr),1)+" N",q[0],q[1],{size:14,w:700,color:"#ffffff",align:S.Fr<0?"right":"left"})}
+  if(Math.abs(S.v)>0.01){const sg=Math.sign(S.v),Lv=Math.min(160,40+Math.abs(S.v)*40);arr([-sg*Lv/2,-bh-26],[sg*Lv/2,-bh-26],C.ink,3);const q=tw(sg*Lv/2+sg*10,-bh-26);txt(ctx,"v = "+nf(Math.abs(S.v),2)+" m/s "+(sg>0?"(sube)":"(baja)"),q[0],q[1]-12,{size:13,w:700,align:sg>0?"left":"right"})}
+  // lupa sobre el contacto
+  const l=tw(-bw*0.3,0);
+  ctx.strokeStyle=C.ink;ctx.lineWidth=2;ctx.setLineDash([5,4]);ctx.beginPath();ctx.arc(l[0],l[1],16,0,7);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(l[0]-12,l[1]+11);ctx.lineTo(l[0]-80,H-4);ctx.moveTo(l[0]+12,l[1]+11);ctx.lineTo(l[0]+80,H-4);ctx.stroke();ctx.setLineDash([]);
+  txt(ctx,"ver lupas ↓",l[0],H-14,{size:12,w:700,align:"center",color:"#ffffff"});
+}
+
+// ---------- lupa 1: asperezas ----------
+function drawAsp(){
+  const {ctx,W,H}=AC; if(!H)return; ctx.clearRect(0,0,W,H);
+  const mt=MT(), mb=MB(), {ms}=mu();
+  const Rt=34*mt.rough, Rb=34*mb.rough, mid=H/2;
+  const nfrac=N()/196;
+  const soft=Math.min(mt.H,mb.H)<5e7?1:0; // material blando se aplasta
+  let sep=(Rt+Rb)*(0.62-0.45*nfrac-0.3*soft);
+  const lub=S.oil||(water()&&S.sliding);
+  if(S.oil) sep+=(Rt+Rb)*0.35+10;
+  if(!S.oil&&water()&&S.sliding) sep+=6;
+  const u=S.u+S.uEl*8; // en reposo las asperezas se doblan un poco
+  const yT=x=>mid-sep/2+Rt*fTop(x+u)+ (soft&&mt.H<5e7?0:0);
+  const yB=x=>mid+sep/2+Rb*fBot(x);
+  // material inferior
+  ctx.fillStyle=mb.c; ctx.beginPath(); ctx.moveTo(0,H);
+  for(let x=0;x<=W;x+=2) ctx.lineTo(x,yB(x)); ctx.lineTo(W,H); ctx.closePath(); ctx.fill();
+  // lubricante entre superficies
+  if(lub){ctx.fillStyle=rgba(S.oil?C.oil:"#5aa9e6",S.oil?0.55:0.45); ctx.beginPath();
+    for(let x=0;x<=W;x+=2) ctx.lineTo(x,yT(x)); for(let x=W;x>=0;x-=2) ctx.lineTo(x,yB(x)); ctx.closePath(); ctx.fill();
+    if(S.oil){ctx.fillStyle=rgba(shade(C.oil.length===7?C.oil:"#e0a800",0.7),0.8);
+      for(let i=0;i<46;i++){const x=((i*53+S.u*0.5)%W+W)%W, a=yT(x), b=yB(x); if(b-a>6){const y=a+(b-a)*(0.2+0.6*((i*37)%10)/10); ctx.beginPath();ctx.ellipse(x,y,4,2,0.5,0,7);ctx.fill()}}}}
+  // material superior
+  ctx.fillStyle=mt.c; ctx.beginPath(); ctx.moveTo(0,0);
+  for(let x=0;x<=W;x+=2) ctx.lineTo(x,yT(x)); ctx.lineTo(W,0); ctx.closePath(); ctx.fill();
+  // bordes
+  ctx.lineWidth=1.5; ctx.strokeStyle=shade(mt.c,0.55); ctx.beginPath(); for(let x=0;x<=W;x+=2) x?ctx.lineTo(x,yT(x)):ctx.moveTo(x,yT(x)); ctx.stroke();
+  ctx.strokeStyle=shade(mb.c,0.55); ctx.beginPath(); for(let x=0;x<=W;x+=2) x?ctx.lineTo(x,yB(x)):ctx.moveTo(x,yB(x)); ctx.stroke();
+  // contactos: donde los perfiles se cruzan
+  let contacts=0, inC=false, x0=0;
+  const heat=Math.min(1,(S.T-20)/80);
+  for(let x=0;x<=W;x+=2){const ov=yT(x)-yB(x);
+    if(ov>0&&!inC){inC=true;x0=x}
+    if((ov<=0||x===W)&&inC){inC=false;contacts++;
+      const xc=(x0+x)/2, yc=(yT(xc)+yB(xc))/2, r=Math.max(6,(x-x0)/2+4);
+      ctx.fillStyle=rgba(S.sliding?C.hot:C.Fr,S.sliding?0.45+0.4*heat:0.35);ctx.beginPath();ctx.ellipse(xc,yc,r,6+r*0.3,0,0,7);ctx.fill();
+      ctx.strokeStyle=S.sliding?C.hot:C.Fr;ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(xc,yc,r,6+r*0.3,0,0,7);ctx.stroke();
+      if(S.sliding&&Math.random()<0.35){for(let k=0;k<3;k++){const a=Math.random()*6.28,L=6+Math.random()*12;ctx.strokeStyle=rgba(C.heat,0.9);ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(xc,yc);ctx.lineTo(xc+Math.cos(a)*L,yc+Math.sin(a)*L);ctx.stroke()}}}}
+  // partículas de desgaste
+  if(S.sliding&&!S.oil&&Math.random()<0.25*Math.min(1,S.v)*(1-Math.min(mt.H,mb.H)/6e9)){const softer=mt.H<=mb.H?mt:mb;S.wear.push({x:W*Math.random(),y:mid,vx:-20-Math.random()*30,c:softer.c,life:1.5})}
+  for(const p of S.wear){p.x+=p.vx*0.016;p.life-=0.016;ctx.fillStyle=rgba(p.c.length===7?p.c:"#999999",Math.max(0,p.life/1.5));ctx.beginPath();ctx.arc(p.x,p.y,3,0,7);ctx.fill()}
+  S.wear=S.wear.filter(p=>p.life>0);
+  // etiquetas
+  ctx.fillStyle=rgba(C.surface,0.88);ctx.fillRect(6,7,150,22);ctx.fillRect(6,H-25,170,22);
+  txt(ctx,mt.n+" (bloque)",12,18,{size:12,w:700});
+  txt(ctx,mb.n+" (superficie)",12,H-14,{size:12,w:700});
+  ctx.fillStyle=rgba(C.surface,0.85);ctx.fillRect(W-182,8,174,24);
+  txt(ctx,contacts+" puntos de contacto",W-95,20,{size:12,w:700,align:"center",color:S.sliding?C.hot:C.Fr});
+  // escala
+  ctx.fillStyle=rgba(C.surface,0.88);ctx.fillRect(W-118,H-40,106,32);
+  ctx.strokeStyle=C.ink;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(W-110,H-16);ctx.lineTo(W-20,H-16);ctx.stroke();
+  txt(ctx,"1,5 µm",W-65,H-29,{size:11,align:"center",w:700});
+  S.contacts=contacts;
+}
+
+// ---------- lupa 2: átomos ----------
+function drawAtom(){
+  const {ctx,W,H}=TC; if(!H)return; ctx.clearRect(0,0,W,H);
+  ctx.fillStyle=C.soft; ctx.fillRect(0,0,W,H);
+  const mt=MT(), mb=MB(), mid=H/2;
+  const aT=mt.latt, aB=mb.latt;
+  const lub=S.oil||(water()&&S.sliding);
+  const gap=S.oil?56:(lub?36:(aT+aB)*0.62);
+  const heat=Math.max(0,(S.T-20)/80);
+  const jit=(depth)=>(0.5+3.2*Math.min(1.5,heat))*Math.exp(-depth/2.2);
+  const shear=S.uEl*aT*0.32; // deformación elástica de los enlaces en reposo
+  const offT=S.uA+shear;
+  const tm=S.t;
+  // enlaces en la unión
+  const adh=Math.min(mt.adh,mb.adh);
+  const topRowY=mid-gap/2, botRowY=mid+gap/2;
+  const topRow=[],botRow=[];
+  for(let i=-2;i<W/aT+3;i++){const x=((i*aT+offT)%(W+aT*4)+W+aT*4)%(W+aT*4)-aT*2; topRow.push(x)}
+  for(let i=-1;i<W/aB+2;i++) botRow.push(i*aB+aB/2);
+  // material superior
+  const rad=Math.min(aT,aB)*0.42;
+  function atom(x,y,c,dep,seed){const j=jit(dep);const xx=x+j*Math.sin(tm*23+seed*1.7),yy=y+j*Math.cos(tm*19+seed*2.3);
+    const hot=Math.min(1,heat*Math.exp(-dep/2));
+    const gr=ctx.createRadialGradient(xx-rad*0.35,yy-rad*0.35,1,xx,yy,rad);gr.addColorStop(0,shade(c,1.25));gr.addColorStop(1,shade(c,0.75));
+    ctx.fillStyle=gr;ctx.beginPath();ctx.arc(xx,yy,rad,0,7);ctx.fill();
+    if(hot>0.1){ctx.fillStyle=rgba(C.heat,0.45*hot);ctx.beginPath();ctx.arc(xx,yy,rad,0,7);ctx.fill()}
+    ctx.strokeStyle=shade(c,0.5);ctx.lineWidth=1;ctx.beginPath();ctx.arc(xx,yy,rad,0,7);ctx.stroke();return [xx,yy]}
+  // enlaces: cada átomo de la fila inferior del bloque se une al átomo más cercano de la superficie
+  let bonds=0, stretched=0;
+  if(!lub){
+    for(const xt of topRow){let best=null,bd=1e9;for(const xb of botRow){const d=Math.abs(xt-xb);if(d<bd){bd=d;best=xb}}
+      const reach=Math.min(aT,aB)*(0.25+0.45*adh);
+      if(bd<reach){bonds++;const s=bd/reach;if(s>0.6)stretched++;
+        ctx.strokeStyle=rgba(s>0.6?C.hot:C.N,0.5+0.5*adh);ctx.lineWidth=1.5+3*adh*(1-s);
+        ctx.beginPath();ctx.moveTo(xt,topRowY);ctx.lineTo(best,botRowY);ctx.stroke()}}
+  }
+  // átomos superficie
+  for(let r=0;r<6;r++){const y=botRowY+r*aB*0.86;if(y>H+aB)break;
+    for(let i=-1;i<W/aB+2;i++){const x=i*aB+aB/2+(r%2?aB/2:0);atom(x,y,mb.c,r,i*7+r*13)}}
+  // lubricante
+  if(lub){const n=Math.floor(W/16);
+    for(let i=0;i<n;i++){const x=((i*16+S.uA*0.5)%W+W)%W, y=mid+Math.sin(i*1.7)*gap*0.2;
+      ctx.fillStyle=rgba(S.oil?C.oil:"#5aa9e6",0.85);
+      if(S.oil){ctx.beginPath();ctx.ellipse(x,y,7,3.5,Math.sin(i+tm)*0.6,0,7);ctx.fill();ctx.beginPath();ctx.ellipse(x+5,y+8,7,3.5,Math.cos(i+tm)*0.6,0,7);ctx.fill()}
+      else{ctx.beginPath();ctx.arc(x,y,5,0,7);ctx.fill();ctx.fillStyle=rgba("#ffffff",0.9);ctx.beginPath();ctx.arc(x-4,y-3,2.2,0,7);ctx.arc(x+4,y-3,2.2,0,7);ctx.fill()}}}
+  // átomos bloque
+  for(let r=0;r<6;r++){const y=topRowY-r*aT*0.86;if(y<-aT)break;
+    for(const x0 of topRow){const x=x0+(r%2?aT/2:0);atom(x,y,mt.c,r,Math.round(x0/aT)*5+r*11)}}
+  // átomo arrancado (desgaste) ocasional
+  if(S.sliding&&!lub&&Math.random()<0.02*S.v){const softer=mt.H<=mb.H?mt:mb;S.flyer={x:W*0.3+Math.random()*W*0.4,y:mid,c:softer.c,life:1}}
+  if(S.flyer&&S.flyer.life>0){const f=S.flyer;f.x-=60*0.016;f.y+=(f.c===mt.c?18:-18)*0.016;f.life-=0.016;ctx.globalAlpha=Math.max(0,f.life);atom(f.x,f.y,f.c,0,1);ctx.globalAlpha=1}
+  // termómetro
+  const tx=W-30, ty0=28, ty1=H-40;
+  ctx.fillStyle=C.surface;ctx.strokeStyle=C.muted;ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.roundRect?ctx.roundRect(tx-7,ty0,14,ty1-ty0,7):ctx.rect(tx-7,ty0,14,ty1-ty0);ctx.fill();ctx.stroke();
+  ctx.beginPath();ctx.arc(tx,ty1+10,12,0,7);ctx.fillStyle=C.hot;ctx.fill();
+  const fr=Math.min(1,(S.T-0)/120), yl=ty1-(ty1-ty0-6)*fr;
+  ctx.fillStyle=C.hot;ctx.fillRect(tx-3.5,yl,7,ty1-yl+4);
+  ctx.fillStyle=rgba(C.surface,0.9);ctx.fillRect(tx-70,yl-11,56,22);
+  txt(ctx,nf(S.T,0)+" °C",tx-42,yl,{size:12,w:700,align:"center",mono:true,color:C.hot});
+  // etiquetas
+  ctx.fillStyle=rgba(C.surface,0.88);ctx.fillRect(8,8,190,22);ctx.fillRect(8,H-30,190,22);
+  txt(ctx,"Átomos de "+mt.n,14,19,{size:12,w:700});
+  txt(ctx,"Átomos de "+mb.n,14,H-19,{size:12,w:700});
+  if(!lub){ctx.fillStyle=rgba(C.surface,0.88);ctx.fillRect(8,mid-11,170,22);txt(ctx,bonds+" enlaces en la unión",14,mid,{size:12,w:700,color:stretched?C.hot:C.N})}
+  else {ctx.fillStyle=rgba(C.surface,0.88);ctx.fillRect(8,mid-11,210,22);txt(ctx,S.oil?"Capa de aceite: sin enlaces":"Película de agua: sin enlaces",14,mid,{size:12,w:700,color:S.oil?shade("#e0a800",0.8):"#2f7fbf"})}
+  S.bonds=bonds;S.stretched=stretched;
+}
+
+// ---------- gráfica ----------
+function drawPlot(){
+  const {ctx,W,H}=PC; if(!H)return; ctx.clearRect(0,0,W,H);
+  const L=56,R=W-16,T=14,B=H-30, span=12;
+  const fmax=Math.max(40,...S.hist.map(h=>Math.max(h.F,h.Fs,h.Wp,h.Fr)))*1.12;
+  const fmin=Math.min(0,...S.hist.map(h=>Math.min(h.Fr,-h.Fs*(h.Wp>0.5?1:0))))*1.12;
+  const X=t=>R-(S.t-t)/span*(R-L), Y=f=>B-(B-T)*(f-fmin)/(fmax-fmin);
+  ctx.strokeStyle=C.line;ctx.lineWidth=1;
+  const rng=fmax-fmin, step=rng>300?100:rng>150?50:rng>60?20:10;
+  for(let f=Math.ceil(fmin/step)*step;f<=fmax;f+=step){const y=Y(f);ctx.strokeStyle=f===0?C.muted:C.line;ctx.beginPath();ctx.moveTo(L,y);ctx.lineTo(R,y);ctx.stroke();txt(ctx,f+" N",L-6,y,{size:11,align:"right",mono:true,color:C.muted})}
+  txt(ctx,"tiempo →",R,B+18,{size:11,align:"right",color:C.muted});
+  const line=(key,color,w,dash,sgn=1)=>{ctx.strokeStyle=color;ctx.lineWidth=w;ctx.setLineDash(dash||[]);ctx.beginPath();S.hist.forEach((h,i)=>{const x=X(h.t),y=Y(sgn*h[key]);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke();ctx.setLineDash([])};
+  line("Fs",rgba(C.muted,0.8),1.5,[6,5]); line("Fk",rgba(C.muted,0.8),1.5,[2,4]);
+  if(S.th>0){line("Fs",rgba(C.muted,0.5),1.2,[6,5],-1);line("Wp",C.W,2,[8,4])}
+  line("F",C.F,2.5); line("Fr",C.Fr,3);
+  const last=S.hist[S.hist.length-1]; if(last){
+    txt(ctx,"μs·N = "+nf(last.Fs,1)+" N",L+6,Y(last.Fs)-9,{size:11,color:C.muted,w:600});
+    txt(ctx,"μk·N = "+nf(last.Fk,1)+" N",L+6,Y(last.Fk)+10,{size:11,color:C.muted,w:600});
+    if(S.th>0) txt(ctx,"m·g·sin θ = "+nf(last.Wp,1)+" N",R-6,Y(last.Wp)-9,{size:11,color:C.W,w:600,align:"right"})}
+  txt(ctx,"+ = hacia arriba del plano",R,T+4,{size:11,color:C.muted,align:"right"});
+}
+
+// ---------- textos ----------
+function updateText(){
+  const {ms,mk}=mu(), n=N(), mt=MT(), mb=MB();
+  $("massOut").textContent=nf(S.m,1)+" kg"; $("inclOut").textContent=S.th+"°";
+  $("rWp").textContent=nf(Wp(),1)+" N"; $("rTc").textContent=nf(Math.atan(ms)*180/Math.PI,1)+"°"; $("forceOut").textContent=nf(S.F,1)+" N";
+  $("rN").textContent=nf(n,1)+" N"; $("rMu").textContent=nf(ms,2)+" / "+nf(mk,2);
+  $("rFs").textContent=nf(ms*n,1)+" N"; $("rFr").textContent=nf(Math.abs(S.Fr),1)+" N"+(Math.abs(S.Fr)>0.05?(S.Fr>0?" ↑ plano":" ↓ plano"):"");
+  $("rA").textContent=nf(S.a,2)+" m/s²"; $("rV").textContent=nf(S.v,2)+" m/s"+(Math.abs(S.v)>=3?" (tope)":"");
+  const Hs=Math.min(mt.H,mb.H), Ar=n/Hs, frac=Ar/0.01*100;
+  $("rAr").textContent=(Ar*1e6<1?nf(Ar*1e6,3):nf(Ar*1e6,1))+" mm² ("+(frac<0.01?frac.toExponential(1).replace(".",","):nf(frac,2))+" %)";
+  $("rT").textContent=nf(S.T,1)+" °C";
+  const pill=$("pill"), st=$("stateTxt");
+  const Fd=S.F-Wp();
+  if(S.sliding){pill.textContent=S.v>0?"Deslizando hacia arriba":"Deslizando hacia abajo";pill.style.color="var(--hot)";
+    st.textContent=Math.abs(S.a)<0.01?"Las fuerzas se equilibran: velocidad constante.":(S.a*S.v>0?"La fuerza neta va en el sentido del movimiento: el bloque acelera.":"La fricción y las demás fuerzas lo frenan.")}
+  else if(Math.abs(Fd)>0.85*ms*n&&Math.abs(Fd)>0.1){pill.textContent="A punto de deslizar";pill.style.color="var(--heat)";st.textContent="La fricción estática está cerca de su máximo μs·N."}
+  else{pill.textContent="En reposo";pill.style.color="var(--N)";
+    st.textContent=Math.abs(Fd)<0.1?(S.th>0?"F equilibra exactamente al peso paralelo: no hace falta fricción.":"Sin fuerza aplicada no hay fricción."):(S.th>0&&S.F<0.1?"La fricción estática sostiene el bloque en el plano (apunta hacia arriba).":"La fricción estática crece lo justo para equilibrar las demás fuerzas.")}
+  $("aspNote").textContent=S.oil?"El aceite separa las superficies: casi ninguna aspereza se toca y la fricción cae mucho.":
+    `Solo se tocan las puntas de las asperezas. Con más peso se aplastan y aparecen más puntos de contacto; por eso la fricción es proporcional a N. ${S.sliding?"Al deslizar, los picos chocan, se deforman y se calientan.":"En reposo los picos se doblan un poco pero no se sueltan."}`;
+  $("atomNote").textContent=(S.oil||(water()&&S.sliding))?"El lubricante mantiene separados los átomos de los dos materiales; las moléculas ruedan y se deslizan sin formar enlaces fuertes.":
+    `En la unión se forman enlaces entre átomos de ${mt.n} y ${mb.n}. ${S.sliding?"Al deslizar se estiran (rojo), se rompen y se vuelven a formar; la energía liberada hace vibrar más a los átomos: eso es el calor.":"En reposo los enlaces se estiran con F sin romperse; cuando F supera μs·N, se rompen todos a la vez y el bloque arranca."}`;
+  $("explain").innerHTML=`<strong>${mt.n[0].toUpperCase()+mt.n.slice(1)} sobre ${mb.n}${S.oil?" con aceite":""}.</strong> ${S.oil?"El lubricante reemplaza el contacto sólido por una capa líquida que se cizalla con facilidad.":P().txt} ${S.th>0?`En el plano inclinado la normal baja a m·g·cos θ (menos contactos microscópicos) y el peso tiene una componente m·g·sin θ a lo largo del plano. Sin F, el bloque resbala solo si θ supera el ángulo crítico, ${nf(Math.atan(ms)*180/Math.PI,1)}°. `:``}μs es mayor que μk porque en reposo los enlaces y el engranaje de las asperezas tienen tiempo de consolidarse; una vez en movimiento no alcanzan a formarse del todo.`;
+}
+
+// ---------- controles ----------
+PAIRS.forEach((p,i)=>{const o=document.createElement("option");o.value=i;o.textContent=`${MAT[p.t].n[0].toUpperCase()+MAT[p.t].n.slice(1)} / ${MAT[p.b].n} (μs ${nf(p.ms,2)}, μk ${nf(p.mk,2)})`;$("pair").appendChild(o)});
+$("pair").value=S.pair;
+function stopRamp(){S.ramp=false;$("ramp").setAttribute("aria-pressed","false");$("ramp").textContent="Rampa: aumentar F poco a poco"}
+$("pair").onchange=e=>{S.pair=+e.target.value;S.sliding=false;S.v=0;stopRamp();updateText()};
+$("oil").onchange=e=>{S.oil=e.target.checked;updateText()};
+$("mass").oninput=e=>{S.m=+e.target.value;updateText()};
+$("incl").oninput=e=>{S.th=+e.target.value;updateText()};
+$("force").oninput=e=>{S.F=+e.target.value;stopRamp();updateText()};
+$("ramp").onclick=()=>{if(S.ramp){stopRamp();return}S.F=0;S.v=0;S.sliding=false;S.ramp=true;S.rampPhase=0;$("force").value=0;$("ramp").setAttribute("aria-pressed","true");$("ramp").textContent="■ Detener rampa"};
+$("reset").onclick=()=>{stopRamp();S.F=0;S.v=0;S.a=0;S.sliding=false;S.T=20;S.Fr=0;$("force").value=0;updateText()};
+
+// ---------- bucle ----------
+const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+let last=performance.now(), acc=0;
+// estado inicial: rampa ya en marcha para que se vea la transición
+S.ramp=true;$("ramp").setAttribute("aria-pressed","true");$("ramp").textContent="■ Detener rampa";
+for(let i=0;i<120;i++){S.t+=1/30;physics(1/30)}
+function frame(now){const dt=Math.min(0.05,(now-last)/1000);last=now;
+  if(!reduce){S.t+=dt;physics(dt)}
+  drawMacro();drawAsp();drawAtom();drawPlot();
+  acc+=dt;if(acc>0.1){acc=0;updateText()}
+  requestAnimationFrame(frame)}
+updateText();requestAnimationFrame(frame);
+})();
+</script>
+
+</body>
+</html>
