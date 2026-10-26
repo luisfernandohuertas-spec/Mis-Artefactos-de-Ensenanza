@@ -1,0 +1,558 @@
+<title>Sistema de Tanques Acoplados</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: banco de tanques en fila (como la figura 6-2) arriba con controles al lado; ecuaciones, matriz y solución abajo; gráficas al final */
+:root{
+  --bg:#eef2f4; --panel:#ffffff; --ink:#15222b; --muted:#5b6b75; --line:#d3dce1;
+  --water:#9cc9de; --water-deep:#5f9fbe; --salt:#c7741c; --salt-soft:#f1d2a8;
+  --steel:#8e9ba3; --steel-dark:#56636b; --accent:#1d6f8f; --hl:#fbeedd;
+  --t1:#1d6f8f; --t2:#c7741c; --t3:#6b4fa3; --ok:#2f7d4f; --warn:#b5541c;
+  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body:"Instrument Sans", "Segoe UI", system-ui, sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f171c; --panel:#16222a; --ink:#e3ecf0; --muted:#93a5af; --line:#2a3a44;
+  --water:#1f4f66; --water-deep:#2f7393; --salt:#f0a14a; --salt-soft:#5a3a17;
+  --steel:#5d6c75; --steel-dark:#93a3ac; --accent:#5bb6d8; --hl:#2c2416;
+  --t1:#5bb6d8; --t2:#f0a14a; --t3:#a98ae0; --ok:#6cc58f; --warn:#f08a4a; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0f171c; --panel:#16222a; --ink:#e3ecf0; --muted:#93a5af; --line:#2a3a44;
+  --water:#1f4f66; --water-deep:#2f7393; --salt:#f0a14a; --salt-soft:#5a3a17;
+  --steel:#5d6c75; --steel-dark:#93a3ac; --accent:#5bb6d8; --hl:#2c2416;
+  --t1:#5bb6d8; --t2:#f0a14a; --t3:#a98ae0; --ok:#6cc58f; --warn:#f08a4a; color-scheme:dark }
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 32px}
+.wrap{max-width:1280px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+header h1{font-family:var(--display);font-weight:700;font-size:clamp(1.6rem,3.2vw,2.3rem);margin:0;letter-spacing:-.01em;text-wrap:balance}
+.byline{font-family:var(--mono);font-size:13px;color:var(--accent);margin-top:2px;letter-spacing:.02em}
+header p{margin:6px 0 0;color:var(--muted);max-width:78ch}
+.grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:20px}
+@media (max-width:940px){.grid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+#scene{width:100%;display:block;border-radius:6px}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px}
+button{font:500 14px var(--body);border:1px solid var(--line);background:var(--bg);color:var(--ink);padding:7px 14px;border-radius:6px;cursor:pointer}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+button.small{padding:4px 10px;font-size:13px}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button[aria-pressed=true]{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+.clock{font-family:var(--mono);font-size:14px;margin-left:auto;font-variant-numeric:tabular-nums}
+.readout{display:grid;grid-template-columns:repeat(var(--n,3),minmax(0,1fr));gap:10px;margin-top:12px}
+.ro{border-top:3px solid var(--c);padding-top:6px;font-family:var(--mono);font-size:12.5px;font-variant-numeric:tabular-nums;min-width:0}
+.ro b{font-family:var(--body);font-size:13px;display:block}
+.ro span{color:var(--muted)}
+h2{font-family:var(--display);font-weight:600;font-size:1.15rem;margin:0 0 10px}
+h3{font-size:.76rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:14px 0 6px;font-weight:600}
+select{font:13.5px var(--body);padding:6px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink);width:100%}
+.tankset{border-left:3px solid var(--c);padding:6px 0 6px 10px;margin-bottom:8px}
+.tankset .hd{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-weight:600;font-size:14px;margin-bottom:4px}
+.fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:6px 10px}
+.fld{display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--muted);min-width:0}
+.fld input{font:13px var(--mono);padding:4px 6px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--ink);width:100%;font-variant-numeric:tabular-nums}
+.chip{font:500 11.5px var(--mono);padding:2px 8px;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+.chip.ok{color:var(--ok)} .chip.bad{color:var(--warn)}
+.ctl{display:grid;grid-template-columns:minmax(0,1fr) 70px;gap:4px 8px;align-items:center}
+.ctl label{font-size:13.5px}
+.ctl input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--accent)}
+.ctl input[type=number]{font:13px var(--mono);padding:3px 5px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--ink);text-align:right;width:70px}
+.hint{font-size:12.5px;color:var(--muted);margin:6px 0 0}
+.eqgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
+@media (max-width:940px){.eqgrid{grid-template-columns:1fr}}
+.ode{background:var(--hl);border-radius:8px;padding:12px 16px;font-family:var(--mono);font-size:clamp(14px,1.6vw,17px);overflow-x:auto;line-height:2.3}
+.ode .row{white-space:nowrap}
+.lbl{font-family:var(--body);font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;display:block;line-height:1.4;margin-bottom:2px}
+.frac{display:inline-flex;flex-direction:column;vertical-align:middle;text-align:center;line-height:1.2;margin:0 2px}
+.frac>span:first-child{border-bottom:1.5px solid currentColor;padding:0 3px}
+.mat{display:inline-flex;align-items:center;vertical-align:middle;gap:2px}
+.mat table{border-collapse:collapse;border-left:2px solid currentColor;border-right:2px solid currentColor;border-radius:4px}
+.mat td{padding:0 8px;text-align:right;line-height:1.7;font-variant-numeric:tabular-nums}
+.matbox{font-family:var(--mono);font-size:14px;overflow-x:auto;padding:6px 0;white-space:nowrap}
+.steps{font-size:14px;margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:8px}
+.steps li{max-width:90ch}
+.steps .m{font-family:var(--mono);font-size:13.5px;overflow-x:auto;white-space:nowrap;display:block;padding:3px 0}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
+@media (max-width:940px){.two{grid-template-columns:1fr}}
+canvas.chart{width:100%;height:280px;display:block}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-top:6px}
+.legend i{display:inline-block;width:14px;height:3px;background:var(--c);vertical-align:middle;margin-right:5px}
+.pear{font-family:var(--mono);font-size:13px}
+.k1{color:var(--t1)} .k2{color:var(--t2)} .k3{color:var(--t3)}
+footer{font-size:12.5px;color:var(--muted);text-align:center}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Sistema de tanques acoplados</h1>
+    <div class="byline">by Fernando Huertas</div>
+    <p>Modelo general de los Ejemplos 2‑7 y 6‑1: de uno a tres tanques en fila, cada uno con entrada externa de salmuera o agua, descarga propia, una hélice que mantiene la mezcla uniforme y bombeo hacia el tanque vecino en ambos sentidos. Cada punto naranja es q kg de sal, así que el número de puntos en cada tanque sigue a la masa de sal M<sub>i</sub>(t) en kg.</p>
+  </header>
+
+  <div class="grid">
+    <section class="card">
+      <canvas id="scene" aria-label="Animación de los tanques acoplados con partículas de sal"></canvas>
+      <div class="bar">
+        <button id="play" class="primary">▶ Iniciar</button>
+        <button id="reset">Reiniciar</button>
+        <label for="speed" style="font-size:13px">Velocidad</label>
+        <select id="speed" style="width:auto">
+          <option value="2">2 min/s</option><option value="5">5 min/s</option>
+          <option value="10" selected>10 min/s</option><option value="20">20 min/s</option><option value="40">40 min/s</option>
+        </select>
+        <span class="clock" id="clock">t = 0.0 min</span>
+      </div>
+      <div class="readout" id="readout"></div>
+    </section>
+
+    <aside class="card">
+      <h2>Configuración</h2>
+      <div class="seg" id="nseg" style="margin-bottom:8px">
+        <button data-n="1" aria-pressed="false">1 tanque</button>
+        <button data-n="2" aria-pressed="true">2 tanques</button>
+        <button data-n="3" aria-pressed="false">3 tanques</button>
+      </div>
+      <select id="preset" aria-label="Escenario"></select>
+      <div id="tankCtl" style="margin-top:12px"></div>
+      <div id="linkCtl"></div>
+      <h3>Partículas</h3>
+      <div class="ctl"><label for="q">q = kg de sal por partícula</label><input type="number" id="qn" min="0.1" max="10" step="0.1" aria-label="q"><input type="range" id="q" min="0.1" max="10" step="0.1"></div>
+      <div class="bar" style="margin-top:8px"><button class="small" id="balance">Ajustar descargas para volumen constante</button></div>
+      <p class="hint">Los caudales y concentraciones se pueden cambiar con la simulación en marcha: sigue desde el estado actual. Cambiar volúmenes, sal inicial o q reinicia.</p>
+    </aside>
+  </div>
+
+  <section class="card">
+    <h2>Ecuaciones diferenciales</h2>
+    <div class="eqgrid">
+      <div><span class="lbl">Balance en cada tanque: entra − sale (kg/min)</span><div class="ode" id="odeGen"></div></div>
+      <div><span class="lbl">Con tus valores</span><div class="ode" id="odeNum"></div></div>
+    </div>
+    <h3>Forma matricial M′ = A M + b</h3>
+    <div class="matbox" id="matrix"></div>
+  </section>
+
+  <section class="card">
+    <h2>Solución</h2>
+    <ol class="steps" id="steps"></ol>
+  </section>
+
+  <div class="two">
+    <section class="card">
+      <h2>Sal en cada tanque</h2>
+      <canvas class="chart" id="chartX"></canvas>
+      <div class="legend" id="legX"></div>
+    </section>
+    <section class="card">
+      <h2>Partículas visibles contra sal</h2>
+      <canvas class="chart" id="chartN"></canvas>
+      <div class="legend"><span class="pear" id="pear">r de Pearson: —</span></div>
+      <p class="hint">Cada punto es una lectura de N visibles frente a M<sub>i</sub>/q. La recta punteada es N = M/q.</p>
+    </section>
+  </div>
+  <footer>Sistema de tanques acoplados · by Fernando Huertas</footer>
+</div>
+
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const SUB=["₁","₂","₃"];
+
+// MATH-START
+function matVec(A,v){ return A.map(r=>r.reduce((s,a,j)=>s+a*v[j],0)); }
+function solveLin(A,b){ // Gauss con pivoteo parcial
+  const n=b.length, M=A.map((r,i)=>[...r,b[i]]);
+  for(let k=0;k<n;k++){ let p=k; for(let i=k+1;i<n;i++) if(Math.abs(M[i][k])>Math.abs(M[p][k])) p=i;
+    if(Math.abs(M[p][k])<1e-14) return null; [M[k],M[p]]=[M[p],M[k]];
+    for(let i=k+1;i<n;i++){ const f=M[i][k]/M[k][k]; for(let j=k;j<=n;j++) M[i][j]-=f*M[k][j]; } }
+  const x=Array(n).fill(0); for(let i=n-1;i>=0;i--){ let s=M[i][n]; for(let j=i+1;j<n;j++) s-=M[i][j]*x[j]; x[i]=s/M[i][i]; } return x;
+}
+function eigvals(A){
+  const n=A.length;
+  if(n===1) return [A[0][0]];
+  if(n===2){ const tr=A[0][0]+A[1][1], det=A[0][0]*A[1][1]-A[0][1]*A[1][0]; const d=Math.sqrt(Math.max(0,tr*tr-4*det)); return [(tr+d)/2,(tr-d)/2]; }
+  const tr=A[0][0]+A[1][1]+A[2][2];
+  const M=(A[0][0]*A[1][1]-A[0][1]*A[1][0])+(A[0][0]*A[2][2]-A[0][2]*A[2][0])+(A[1][1]*A[2][2]-A[1][2]*A[2][1]);
+  const det=A[0][0]*(A[1][1]*A[2][2]-A[1][2]*A[2][1])-A[0][1]*(A[1][0]*A[2][2]-A[1][2]*A[2][0])+A[0][2]*(A[1][0]*A[2][1]-A[1][1]*A[2][0]);
+  const a=-tr,b=M,c=-det, p=b-a*a/3, q=2*a*a*a/27-a*b/3+c;
+  if(p>-1e-18){ const y=Math.cbrt(-q); return [y-a/3,y-a/3,y-a/3]; }
+  const r=2*Math.sqrt(-p/3), arg=Math.max(-1,Math.min(1,(3*q/(2*p))*Math.sqrt(-3/p))), phi=Math.acos(arg)/3;
+  return [0,1,2].map(k=>r*Math.cos(phi-2*Math.PI*k/3)-a/3).sort((x,y)=>y-x);
+}
+function nullvec(A,l){
+  const n=A.length, B=A.map((r,i)=>r.map((v,j)=>v-(i===j?l:0)));
+  if(n===1) return [1];
+  if(n===2){ const r=Math.hypot(B[0][0],B[0][1])>=Math.hypot(B[1][0],B[1][1])?B[0]:B[1]; let v=[-r[1],r[0]]; if(Math.hypot(...v)<1e-14) v=[1,0]; return norm(v); }
+  const cr=(u,w)=>[u[1]*w[2]-u[2]*w[1],u[2]*w[0]-u[0]*w[2],u[0]*w[1]-u[1]*w[0]];
+  const cands=[cr(B[0],B[1]),cr(B[0],B[2]),cr(B[1],B[2])]; let best=cands[0];
+  cands.forEach(c=>{ if(Math.hypot(...c)>Math.hypot(...best)) best=c; });
+  if(Math.hypot(...best)<1e-16) return null; return norm(best);
+}
+function norm(v){ const m=Math.max(...v.map(Math.abs)); const s=v[v.findIndex(x=>Math.abs(x)===m)]<0?-1:1; return v.map(x=>x/m*s); }
+// Solución cerrada de x' = Ax + b con x(t0)=x0
+function closedForm(A,b,x0){
+  const n=A.length, lam=eigvals(A);
+  const scale=Math.max(...lam.map(Math.abs),1e-12);
+  for(let i=0;i<n;i++) for(let j=i+1;j<n;j++) if(Math.abs(lam[i]-lam[j])<1e-7*scale) return {lam, ok:false, why:"valores propios repetidos"};
+  const xe=solveLin(A,b.map(v=>-v)); if(!xe) return {lam, ok:false, why:"A es singular (no hay descarga al exterior)"};
+  const vecs=lam.map(l=>nullvec(A,l)); if(vecs.some(v=>!v)) return {lam, ok:false, why:"no se pudo obtener un vector propio"};
+  const Vm=Array.from({length:n},(_,i)=>vecs.map(v=>v[i]));
+  const c=solveLin(Vm, x0.map((v,i)=>v-xe[i])); if(!c) return {lam, ok:false, why:"vectores propios dependientes"};
+  return {lam, vecs, xe, c, ok:true, at:t=>xe.map((e,i)=>e+lam.reduce((s,l,k)=>s+c[k]*vecs[k][i]*Math.exp(l*t),0))};
+}
+// MATH-END
+
+/* ---------- parámetros ---------- */
+const mk=(V,x0,F,c,D)=>({V,x0,F,c,D});
+const PRESETS=[
+  {q:1,n:1,name:"Ejemplo 2‑7 (libro): salmuera entra a 1000 L de agua pura",T:[mk(1000,0,50,0.1,50)],L:[]},
+  {q:1,n:1,name:"1 tanque: entrada lenta (15 L/min)",T:[mk(1000,0,15,0.1,15)],L:[]},
+  {q:1,n:1,name:"1 tanque: lavado con agua pura",T:[mk(1000,100,20,0,20)],L:[]},
+  {q:1,n:2,name:"Ejemplo 6‑1 (libro)",T:[mk(1000,0,15,0.1,0),mk(1000,0,5,0,20)],L:[{f:50,b:35}]},
+  {q:1,n:2,name:"Ejemplo 6‑1 con 100 kg iniciales en el tanque 2",T:[mk(1000,0,15,0.1,0),mk(1000,100,5,0,20)],L:[{f:50,b:35}]},
+  {q:2,n:2,name:"2 tanques en cascada (sin retorno)",T:[mk(500,0,10,0.2,0),mk(800,0,0,0,10)],L:[{f:10,b:0}]},
+  {q:1,n:3,name:"Ejemplo 6‑1 extendido a 3 tanques",T:[mk(1000,0,15,0.1,0),mk(1000,0,5,0,0),mk(1000,0,0,0,20)],L:[{f:50,b:35},{f:30,b:10}]},
+  {q:2,n:3,name:"3 tanques en cascada (sin retorno)",T:[mk(500,0,10,0.2,0),mk(750,0,0,0,0),mk(1000,0,0,0,10)],L:[{f:10,b:0},{f:10,b:0}]},
+  {q:1,n:3,name:"3 tanques: lavado del tanque central",T:[mk(600,0,12,0,0),mk(600,120,0,0,0),mk(600,0,0,0,12)],L:[{f:20,b:8},{f:20,b:8}]}
+];
+const P={n:2,q:1,T:[],L:[]};
+function loadPreset(k){ const p=PRESETS[k]; P.n=p.n; P.T=p.T.map(t=>({...t})); P.L=p.L.map(l=>({...l}));
+  while(P.T.length<3) P.T.push(mk(1000,0,0,0,0)); while(P.L.length<2) P.L.push({f:0,b:0});
+  P.q=p.q;
+  $("preset").value=k; buildCtl(); resetSim(); }
+
+const volIn=i=>P.T[i].F+(i>0?P.L[i-1].f:0)+(i<P.n-1?P.L[i].b:0);
+const volOut=i=>P.T[i].D+(i<P.n-1?P.L[i].f:0)+(i>0?P.L[i-1].b:0);
+const balanced=()=>{ for(let i=0;i<P.n;i++) if(Math.abs(volIn(i)-volOut(i))>1e-9) return false; return true; };
+
+/* ---------- controles ---------- */
+const fmt=(v,d=4)=>{ if(!isFinite(v)) return "∞"; let s=(+v).toFixed(d); if(s.includes(".")) s=s.replace(/0+$/,"").replace(/\.$/,""); return (s==="-0")?"0":s; };
+function sig(v,n=4){ if(v===0) return "0"; const d=Math.max(0,n-1-Math.floor(Math.log10(Math.abs(v)))); return fmt(v,Math.min(8,d)); }
+function field(lbl,get,set,live,step="any",min=0){
+  const w=document.createElement("label"); w.className="fld"; w.innerHTML=`<span>${lbl}</span><input type="number" step="${step}" min="${min}">`;
+  const inp=w.querySelector("input"); inp.value=get();
+  inp.addEventListener("change",()=>{ let v=+inp.value; if(isNaN(v)||v<min) v=min; set(v); inp.value=get(); live?onLive():resetSim(); updateChips(); });
+  return w;
+}
+function buildCtl(){
+  const tc=$("tankCtl"); tc.innerHTML="";
+  for(let i=0;i<P.n;i++){ const t=P.T[i];
+    const d=document.createElement("div"); d.className="tankset"; d.style.setProperty("--c",`var(--t${i+1})`);
+    d.innerHTML=`<div class="hd"><span>Tanque ${i+1}</span><span class="chip" id="chip${i}"></span></div><div class="fields"></div>`;
+    const fs=d.querySelector(".fields");
+    fs.append(field(`V${SUB[i]} volumen (L)`,()=>t.V,v=>t.V=Math.max(1,v),false,"10",1),
+              field(`M${SUB[i]}(0) sal (kg)`,()=>t.x0,v=>t.x0=v,false,"1"),
+              field("Entrada externa (L/min)",()=>t.F,v=>t.F=v,true,"1"),
+              field("Concentración (kg/L)",()=>t.c,v=>t.c=v,true,"0.01"),
+              field("Descarga (L/min)",()=>t.D,v=>t.D=v,true,"1"));
+    tc.appendChild(d); }
+  const lc=$("linkCtl"); lc.innerHTML="";
+  if(P.n>1){ const h=document.createElement("h3"); h.textContent="Bombeo entre tanques (L/min)"; lc.appendChild(h);
+    const g=document.createElement("div"); g.className="fields";
+    for(let i=0;i<P.n-1;i++){ const l=P.L[i];
+      g.append(field(`Tanque ${i+1} → ${i+2}`,()=>l.f,v=>l.f=v,true,"1"), field(`Tanque ${i+2} → ${i+1}`,()=>l.b,v=>l.b=v,true,"1")); }
+    lc.appendChild(g); }
+  $("q").value=$("qn").value=P.q;
+  document.querySelectorAll("#nseg button").forEach(b=>b.setAttribute("aria-pressed",+b.dataset.n===P.n));
+  updateChips();
+}
+function updateChips(){ for(let i=0;i<P.n;i++){ const c=$("chip"+i); if(!c) continue; const d=volIn(i)-volOut(i);
+  c.className="chip "+(Math.abs(d)<1e-9?"ok":"bad"); c.textContent=Math.abs(d)<1e-9?`entra ${fmt(volIn(i))} = sale ${fmt(volOut(i))} L/min`:`V cambia ${d>0?"+":"−"}${fmt(Math.abs(d))} L/min`; } }
+const qSet=v=>{ v=Math.min(10,Math.max(0.1,+v||0.1)); P.q=v; $("q").value=$("qn").value=v; resetSim(); };
+$("q").addEventListener("input",e=>qSet(e.target.value)); $("qn").addEventListener("change",e=>qSet(e.target.value));
+$("preset").innerHTML=PRESETS.map((p,k)=>`<option value="${k}">${p.name}</option>`).join("");
+$("preset").onchange=e=>loadPreset(+e.target.value);
+document.querySelectorAll("#nseg button").forEach(b=>b.onclick=()=>loadPreset(PRESETS.findIndex(p=>p.n===+b.dataset.n)));
+$("balance").onclick=()=>{ for(let i=0;i<P.n;i++){ const other=volOut(i)-P.T[i].D; P.T[i].D=Math.max(0,volIn(i)-other); } buildCtl(); onLive(); };
+
+/* ---------- modelo ---------- */
+function deriv(x,V){ const d=[];
+  for(let i=0;i<P.n;i++){ let inS=P.T[i].F*P.T[i].c;
+    if(i>0) inS+=P.L[i-1].f*x[i-1]/V[i-1];
+    if(i<P.n-1) inS+=P.L[i].b*x[i+1]/V[i+1];
+    d.push(inS-volOut(i)*x[i]/V[i]); } return d; }
+function rk4(x,V,h){ const dV=Array.from({length:P.n},(_,i)=>volIn(i)-volOut(i));
+  const Vh=V.map((v,i)=>v+dV[i]*h/2), V1=V.map((v,i)=>Math.max(1e-6,v+dV[i]*h));
+  const a=deriv(x,V), b=deriv(x.map((v,i)=>v+h/2*a[i]),Vh), c=deriv(x.map((v,i)=>v+h/2*b[i]),Vh), d=deriv(x.map((v,i)=>v+h*c[i]),V1);
+  return [x.map((v,i)=>Math.max(0,v+h/6*(a[i]+2*b[i]+2*c[i]+d[i]))), V1]; }
+function matA(V){ const n=P.n, A=Array.from({length:n},()=>Array(n).fill(0));
+  for(let i=0;i<n;i++){ A[i][i]=-volOut(i)/V[i]; if(i>0) A[i][i-1]=P.L[i-1].f/V[i-1]; if(i<n-1) A[i][i+1]=P.L[i].b/V[i+1]; } return A; }
+const vecB=()=>Array.from({length:P.n},(_,i)=>P.T[i].F*P.T[i].c);
+
+/* ---------- estado ---------- */
+let S=null, playing=false, T=200, Tmin=0, curve=[], sol=null;
+const newP=(u,v)=>({u,v,du:0,dv:0});
+function resetSim(){
+  playing=false; Tmin=0; $("play").textContent="▶ Iniciar";
+  const x=P.T.slice(0,P.n).map(t=>t.x0), V=P.T.slice(0,P.n).map(t=>t.V);
+  S={t:0,x,V,t0:0,x0:[...x],V0:[...V],tanks:x.map(v=>Array.from({length:Math.round(v/P.q)},()=>newP(Math.random(),Math.random()))),
+     travel:[],acc:{},samples:[],sClock:0,hist:[],done:false};
+  layout(); recompute(); drawAll();
+}
+function onLive(){ if(!S) return; S.hist=curve.filter(p=>p.t<S.t); S.t0=S.t; S.x0=[...S.x]; S.V0=[...S.V]; S.done=false; Tmin=0; layout(); recompute(); drawAll(); }
+function recompute(){
+  sol = balanced() ? closedForm(matA(S.V0),vecB(),S.x0) : null;
+  // horizonte
+  let tau = 0;
+  if(sol && sol.lam.length){ const slow=Math.max(...sol.lam); tau = slow<-1e-9 ? 5/(-slow) : 0; }
+  if(!tau){ tau = 5*Math.max(...S.V0)/Math.max(1,...Array.from({length:P.n},(_,i)=>volOut(i))); }
+  T = Math.max(S.t0+30, Math.min(S.t0+tau, S.t0+5000)); T=Math.max(Math.ceil(T/10)*10, Tmin);
+  // curva
+  curve=[...S.hist]; const M=400, dt=(T-S.t0)/M;
+  if(sol&&sol.ok){ for(let k=0;k<=M;k++){ const t=S.t0+k*dt; curve.push({t,x:sol.at(t-S.t0)}); } }
+  else { let x=[...S.x0], V=[...S.V0]; const sub=20, h=dt/sub;
+    for(let k=0;k<=M;k++){ curve.push({t:S.t0+k*dt,x:[...x]}); if(V.some(v=>v<=1e-3)) break; for(let j=0;j<sub;j++){ [x,V]=rk4(x,V,h); } } }
+  renderEq(); renderSol();
+}
+
+/* ---------- ecuaciones ---------- */
+const f=(n,d)=>`<span class="frac"><span>${n}</span><span>${d}</span></span>`;
+const xs=i=>`<span class="k${i+1}">M${SUB[i]}</span>`;
+function Vtxt(i){ const d=volIn(i)-volOut(i); return Math.abs(d)<1e-9?fmt(S.V0[i]):`(${fmt(S.V0[i])} ${d>0?"+":"−"} ${fmt(Math.abs(d))}t)`; }
+function renderEq(){
+  let g="", m="";
+  for(let i=0;i<P.n;i++){
+    let terms=[`F${SUB[i]}c${SUB[i]}`];
+    if(i>0) terms.push(`+ q<sub>${i}${i+1}</sub>${f(xs(i-1),"V"+SUB[i-1])}`);
+    if(i<P.n-1) terms.push(`+ q<sub>${i+2}${i+1}</sub>${f(xs(i+1),"V"+SUB[i+1])}`);
+    let outs=[`D${SUB[i]}`]; if(i<P.n-1) outs.push(`q<sub>${i+1}${i+2}</sub>`); if(i>0) outs.push(`q<sub>${i+1}${i}</sub>`);
+    terms.push(`− (${outs.join(" + ")})${f(xs(i),"V"+SUB[i])}`);
+    g+=`<div class="row">${f("d"+xs(i),"dt")} = ${terms.join(" ")}</div>`;
+    let nt=[fmt(P.T[i].F*P.T[i].c)];
+    nt.push(`− ${fmt(volOut(i))}${f(xs(i),Vtxt(i))}`);
+    if(i>0) nt.push(`+ ${fmt(P.L[i-1].f)}${f(xs(i-1),Vtxt(i-1))}`);
+    if(i<P.n-1) nt.push(`+ ${fmt(P.L[i].b)}${f(xs(i+1),Vtxt(i+1))}`);
+    m+=`<div class="row">${f("d"+xs(i),"dt")} = ${nt.join(" ")} &nbsp;<span style="color:var(--muted);font-size:.85em">${xs(i)}(${fmt(S.t0,1)}) = ${fmt(S.x0[i],2)}</span></div>`;
+  }
+  if(P.n===1 && Math.abs(volIn(0)-volOut(0))<1e-9){ const t=P.T[0];
+    m+=`<div class="row">${f("d"+xs(0),"dt")} = (${fmt(t.F)} L/min)(${fmt(t.c)} kg/L) − (${fmt(t.D)} L/min)(${f(xs(0),fmt(S.V0[0]))} kg/L)</div>`;
+    m+=`<div class="row">${f("d"+xs(0),"dt")} + ${sig(t.D/S.V0[0],4)}${xs(0)} = ${fmt(t.F*t.c)}</div>`; }
+  g+=`<div class="row" style="font-family:var(--body);font-size:12.5px;color:var(--muted);line-height:1.5;white-space:normal">F: entrada externa · c: su concentración · D: descarga · q<sub>ij</sub>: bombeo del tanque i al j</div>`;
+  $("odeGen").innerHTML=g; $("odeNum").innerHTML=m;
+  const mat=rows=>`<span class="mat"><table>${rows.map(r=>`<tr>${r.map(v=>`<td>${v}</td>`).join("")}</tr>`).join("")}</table></span>`;
+  if(balanced()){ const A=matA(S.V0);
+    $("matrix").innerHTML=`${mat(Array.from({length:P.n},(_,i)=>[`<span class="k${i+1}">M${SUB[i]}</span>′`]))} = ${mat(A.map(r=>r.map(v=>sig(v,4))))} ${mat(Array.from({length:P.n},(_,i)=>[xs(i)]))} + ${mat(vecB().map(v=>[fmt(v)]))}`;
+  } else $("matrix").innerHTML=`<span style="font-family:var(--body);color:var(--warn)">Algún volumen cambia con el tiempo, así que A depende de t y el sistema no tiene coeficientes constantes. Se resuelve numéricamente (Runge‑Kutta 4). Usa «Ajustar descargas» para volver a volumen constante.</span>`;
+}
+function renderSol(){
+  const st=[];
+  if(!balanced()){
+    st.push(`<b>Volumen variable.</b> Con V<sub>i</sub>(t) lineal, cada ecuación es lineal pero con coeficientes que dependen de t, y acoplada con sus vecinas. La curva y la animación usan Runge‑Kutta de orden 4.`);
+  } else if(!sol.ok){
+    st.push(`<b>Valores propios de A:</b> <span class="m">${sol.lam.map((l,k)=>`λ${SUB[k]} = ${sig(l,5)}`).join(", ")}</span>`);
+    st.push(`<b>No hay forma cerrada simple</b> por ${sol.why}. La curva se calcula con Runge‑Kutta 4.`);
+  } else {
+    const n=P.n;
+    st.push(`<b>Acoplamiento.</b> ${n===1?"Con un solo tanque la ecuación es lineal de primer orden y se resuelve sola.":"Cada ecuación contiene a las demás incógnitas, así que el sistema se resuelve en conjunto: se diagonaliza A."}`);
+    st.push(`<b>Equilibrio</b> (M′ = 0, es decir A M<sub>e</sub> = −b): <span class="m">${sol.xe.map((v,i)=>`M${SUB[i]}e = ${sig(v,5)} kg`).join(", ")} &nbsp;→&nbsp; ${sol.xe.map(v=>Math.round(v/P.q)).join(", ")} partículas</span>`);
+    st.push(`<b>Valores propios</b> det(A − λI) = 0: <span class="m">${sol.lam.map((l,k)=>`λ${SUB[k]} = ${sig(l,5)}`).join(", ")} &nbsp; (constantes de tiempo ${sol.lam.map(l=>sig(-1/l,4)+" min").join(", ")})</span>${sol.lam.every(l=>l<0)?" Todos son negativos, así que el sistema tiende al equilibrio.":""}`);
+    if(n>1) st.push(`<b>Vectores propios</b> (A − λI)v = 0: <span class="m">${sol.vecs.map((v,k)=>`v${SUB[k]} = (${v.map(x=>sig(x,4)).join(", ")})`).join(", ")}</span>`);
+    const tt=S.t0?`(t − ${fmt(S.t0,1)})`:"t";
+    st.push(`<b>Solución general</b> M(t) = M<sub>e</sub> + ${sol.lam.map((_,k)=>`C${SUB[k]}v${SUB[k]}e<sup>λ${SUB[k]}t</sup>`).join(" + ")}. Con la condición inicial: <span class="m">${sol.c.map((c,k)=>`C${SUB[k]} = ${sig(c,5)}`).join(", ")}</span>`);
+    const rows=[]; for(let i=0;i<n;i++){ let s=`<span class="k${i+1}">M${SUB[i]}(t)</span> = ${sig(sol.xe[i],5)}`;
+      sol.lam.forEach((l,k)=>{ const co=sol.c[k]*sol.vecs[k][i]; if(Math.abs(co)<1e-10) return; s+=` ${co<0?"−":"+"} ${sig(Math.abs(co),5)}·e<sup>${sig(l,4)}${tt}</sup>`; }); rows.push(s); }
+    if(n===1 && !S.t0 && Math.abs(S.x0[0])<1e-9 && sol.xe[0]>0) rows[0]+=` = ${sig(sol.xe[0],5)}(1 − e<sup>${sig(sol.lam[0],4)}t</sup>)`;
+    st.push(`<b>Con tus valores:</b>${rows.map(r=>`<span class="m">${r}</span>`).join("")}`);
+  }
+  st.push(`<b>Agitación.</b> La hélice de cada tanque mantiene la mezcla uniforme: es la hipótesis del modelo, que permite decir que la salmuera que sale de un tanque tiene concentración M<sub>i</sub>/V<sub>i</sub>. En la animación, la corriente baja por el centro y sube por las paredes, y reparte enseguida las partículas que entran.`);
+  st.push(`<b>Partículas.</b> Con q = ${fmt(P.q)} kg por partícula, N<sub>i</sub>(t) ≈ M<sub>i</sub>(t)/q. Cada tubería transporta partículas a razón de (caudal)·M<sub>origen</sub>/(V<sub>origen</sub>·q) por minuto, el mismo término de la ecuación.`);
+  $("steps").innerHTML=st.map(s=>`<li>${s}</li>`).join("");
+}
+
+/* ---------- geometría ---------- */
+const scene=$("scene"), sctx=scene.getContext("2d"); let W=0,H=0,G=[],pipes=[];
+function fitCanvas(c,h){ const dpr=window.devicePixelRatio||1, w=c.clientWidth; c.width=w*dpr; c.height=h*dpr; c.style.height=h+"px"; c.getContext("2d").setTransform(dpr,0,0,dpr,0,0); return [w,h]; }
+const plen=p=>{let L=0;for(let i=1;i<p.length;i++)L+=Math.hypot(p[i][0]-p[i-1][0],p[i][1]-p[i-1][1]);return L;};
+function along(p,s){ for(let i=1;i<p.length;i++){const L=Math.hypot(p[i][0]-p[i-1][0],p[i][1]-p[i-1][1]); if(s<=L){const k=s/L;return [p[i-1][0]+k*(p[i][0]-p[i-1][0]),p[i-1][1]+k*(p[i][1]-p[i-1][1])];} s-=L;} return p[p.length-1]; }
+let Vcap=1;
+function layout(){
+  const w=scene.clientWidth; [W,H]=fitCanvas(scene, Math.round(Math.min(480,Math.max(320,w*0.62))));
+  const n=P.n, unit=Math.min(W/(n+(n-1)*0.75+0.8), 210), gap=unit*0.75;
+  const total=n*unit+(n-1)*gap, x0=(W-total)/2;
+  const top=H*0.22, th=H*0.52, ry=unit*0.1;
+  Vcap=1.6*Math.max(...P.T.slice(0,n).map(t=>t.V));
+  G=[]; for(let i=0;i<n;i++) G.push({x:x0+i*(unit+gap),y:top,w:unit,h:th,ry});
+  pipes=[];
+  G.forEach((g,i)=>{
+    const inX=g.x+g.w*0.3;
+    pipes.push({kind:"in",i,path:[[inX,-10],[inX,g.y+g.ry]]});
+    const cx=g.x+g.w*0.8, by=g.y+g.h+g.ry;
+    pipes.push({kind:"out",i,path:[[cx,by-4],[cx,H+10]]});
+    if(i<n-1){ const h=G[i+1];
+      const yb=g.y+g.h*0.5, yf=g.y+g.h*0.78;
+      pipes.push({kind:"f",i,j:i+1,y:yf,path:[[g.x+g.w,yf],[h.x,yf]]});
+      pipes.push({kind:"b",i:i+1,j:i,y:yb,path:[[h.x,yb],[g.x+g.w,yb]]}); }
+  });
+  pipes.forEach(p=>p.len=plen(p.path));
+}
+const wTop=(i,V)=>G[i].y+G[i].ry+(G[i].h-G[i].ry)*(1-Math.max(0,Math.min(1,V/Vcap)));
+function wbox(i){ const g=G[i]; return {l:g.x+5,r:g.x+g.w-5,t:wTop(i,S.V[i])+4,b:g.y+g.h-3}; }
+function pipeFlow(p){ if(p.kind==="in") return P.T[p.i].F; if(p.kind==="out") return P.T[p.i].D; if(p.kind==="f") return P.L[p.i].f; return P.L[p.j].b; }
+
+/* ---------- dinámica ---------- */
+function removeNear(i,u,v){ const arr=S.tanks[i]; if(!arr.length) return; let bi=0,bd=1e9; arr.forEach((p,k)=>{const d=(p.u-u)**2+(p.v-v)**2; if(d<bd){bd=d;bi=k;}}); arr.splice(bi,1); }
+function exitUV(p){ const b=wbox(p.i), vv=y=>Math.max(0,Math.min(1,(y-b.t)/Math.max(1,b.b-b.t)));
+  if(p.kind==="out") return [0.8,1]; if(p.kind==="f") return [1,vv(p.y)]; return [0,vv(p.y)]; }
+// la partícula se cuenta en el tanque destino en cuanto sale: el punto en la tubería solo ilustra el flujo
+function entryP(p,d){ const b=wbox(d); let u,v;
+  if(p.kind==="in"){ u=(p.path[0][0]-b.l)/(b.r-b.l)+(Math.random()-0.5)*0.15; v=0.12+Math.random()*0.1; }
+  else { u= p.kind==="f"?0.08:0.92; v=Math.max(0.05,Math.min(0.95,(p.y-b.t)/Math.max(1,b.b-b.t))); }
+  return newP(Math.max(0.05,Math.min(0.95,u)),v); }
+function step(dtReal){
+  const dtSim=dtReal*(+$("speed").value), h=Math.min(0.5, Math.min(...S.V)/Math.max(1,...Array.from({length:P.n},(_,i)=>volOut(i)))/40);
+  let rem=dtSim;
+  while(rem>1e-9){ const hh=Math.min(h,rem);
+    pipes.forEach((p,k)=>{ const Q=pipeFlow(p); if(Q<=0) return; const conc = p.kind==="in" ? P.T[p.i].c : S.x[p.i]/S.V[p.i];
+      S.acc[k]=(S.acc[k]||0)+Q*conc*hh/P.q; });
+    [S.x,S.V]=rk4(S.x,S.V,hh); S.t+=hh; rem-=hh;
+    if(S.V.some(v=>v<=1e-3)){ playing=false; S.done=true; $("play").textContent="▶ Reiniciar"; break; } }
+  pipes.forEach((p,k)=>{ while((S.acc[k]||0)>=1){ S.acc[k]-=1;
+    if(p.kind!=="in"){ const [u,v]=exitUV(p); removeNear(p.i,u,v); }
+    const d=destOf(p); if(d>=0) S.tanks[d].push(entryP(p,d));
+    S.travel.push({p,s:0}); } });
+  for(let i=0;i<P.n;i++){ const target=Math.round(S.x[i]/P.q), have=S.tanks[i].length;
+    if(have-target>1) S.tanks[i].pop(); else if(target-have>1) S.tanks[i].push(newP(Math.random(),Math.random())); }
+  S.sClock+=dtReal; if(S.sClock>0.12){ S.sClock=0; for(let i=0;i<P.n;i++) S.samples.push({i,N:S.tanks[i].length,X:S.x[i]/P.q}); if(S.samples.length>900) S.samples.splice(0,S.samples.length-900); }
+  if(S.t>=T){ Tmin=Math.ceil(S.t*1.25/10)*10; recompute(); }
+}
+const destOf=p=> p.kind==="in"?p.i : p.kind==="out"?-1 : p.j;
+let rot=0;
+function moveParticles(dt){
+  const stir = playing ? Math.min(2.5,0.9+(+$("speed").value)/20) : 0.6;
+  rot += dt*stir*9;
+  const k=0.2*stir;
+  S.tanks.forEach(arr=>arr.forEach(p=>{ p.du=p.du*0.9+(Math.random()-0.5)*0.12*stir; p.dv=p.dv*0.9+(Math.random()-0.5)*0.14*stir;
+    // corriente de la hélice: dos celdas de recirculación (baja por el centro, sube por las paredes)
+    const fu=Math.PI*Math.sin(2*Math.PI*p.u)*Math.cos(Math.PI*p.v), fv=-2*Math.PI*Math.cos(2*Math.PI*p.u)*Math.sin(Math.PI*p.v);
+    p.u+=(p.du*6+k*fu)*dt; p.v+=(p.dv*6+k*fv)*dt;
+    if(p.u<0.03){p.u=0.03;p.du=Math.abs(p.du);} if(p.u>0.97){p.u=0.97;p.du=-Math.abs(p.du);}
+    if(p.v<0.03){p.v=0.03;p.dv=Math.abs(p.dv);} if(p.v>0.97){p.v=0.97;p.dv=-Math.abs(p.dv);} }));
+  const sp=Math.min(3,Math.max(1,+$("speed").value/10));
+  for(let k=S.travel.length-1;k>=0;k--){ const t=S.travel[k]; t.s+=150*dt*sp;
+    let lim=t.p.len; if(t.p.kind==="in") lim=Math.max(0, wTop(t.p.i,S.V[t.p.i])+2 - t.p.path[0][1]);
+    if(t.s>=lim) S.travel.splice(k,1); }
+}
+
+/* ---------- dibujo ---------- */
+let C={};
+function readColors(){ const cs=getComputedStyle(document.documentElement); ["bg","panel","ink","muted","line","water","water-deep","salt","salt-soft","steel","steel-dark","accent","t1","t2","t3","mono","body"].forEach(k=>C[k]=cs.getPropertyValue("--"+k).trim()); }
+function hex2rgb(h){ h=h.replace("#",""); return [0,2,4].map(i=>parseInt(h.substr(i,2),16)); }
+function mix(a,b,t){ const A=hex2rgb(a),B=hex2rgb(b); return `rgb(${A.map((v,i)=>Math.round(v+(B[i]-v)*t)).join(",")})`; }
+const TC=()=>[C.t1,C.t2,C.t3];
+function cref(){ return Math.max(0.02,...P.T.slice(0,P.n).map(t=>Math.max(t.c,t.x0/t.V)), ...(sol&&sol.ok?sol.xe.map((x,i)=>x/S.V0[i]):[0])); }
+function arrow(c,x,y,dir){ c.beginPath(); c.moveTo(x,y); c.lineTo(x-7*dir,y-4); c.lineTo(x-7*dir,y+4); c.closePath(); c.fill(); }
+function drawScene(){
+  const c=sctx; c.fillStyle=C.bg; c.fillRect(0,0,W,H); c.lineCap="round"; c.lineJoin="round";
+  const cr=cref();
+  const liquid=conc=>mix(C.water,C["salt-soft"],Math.min(1,conc/cr)*0.85);
+  // tanques
+  G.forEach((g,i)=>{
+    const top=wTop(i,S.V[i]), conc=S.x[i]/S.V[i];
+    c.beginPath(); c.moveTo(g.x,top); c.lineTo(g.x,g.y+g.h); c.ellipse(g.x+g.w/2,g.y+g.h,g.w/2,g.ry,0,Math.PI,0,true); c.lineTo(g.x+g.w,top); c.ellipse(g.x+g.w/2,top,g.w/2,g.ry,0,0,Math.PI,false); c.closePath();
+    c.fillStyle=liquid(conc); c.fill();
+    c.beginPath(); c.ellipse(g.x+g.w/2,top,g.w/2,g.ry,0,0,Math.PI*2); c.fillStyle=mix(C["water-deep"],C.salt,Math.min(1,conc/cr)*0.6); c.globalAlpha=0.45; c.fill(); c.globalAlpha=1;
+  });
+  // tuberías
+  pipes.forEach(p=>{ const Q=pipeFlow(p); if(Q<=0) return;
+    const conc = p.kind==="in"?P.T[p.i].c : S.x[p.i]/S.V[p.i];
+    c.beginPath(); c.moveTo(...p.path[0]); c.lineTo(...p.path[1]); c.strokeStyle=C.steel; c.lineWidth=11; c.stroke();
+    c.strokeStyle=liquid(conc); c.lineWidth=5; c.stroke(); });
+  // paredes
+  G.forEach((g,i)=>{ c.lineWidth=2; c.strokeStyle=C["steel-dark"];
+    c.beginPath(); c.moveTo(g.x,g.y); c.lineTo(g.x,g.y+g.h); c.moveTo(g.x+g.w,g.y); c.lineTo(g.x+g.w,g.y+g.h); c.ellipse(g.x+g.w/2,g.y+g.h,g.w/2,g.ry,0,0,Math.PI,false); c.stroke();
+    c.beginPath(); c.ellipse(g.x+g.w/2,g.y,g.w/2,g.ry,0,0,Math.PI*2); c.stroke();
+    drawImpeller(c,g,i);
+    const b=wbox(i); c.fillStyle=C.salt;
+    S.tanks[i].forEach(p=>{ c.beginPath(); c.arc(b.l+p.u*(b.r-b.l), b.t+p.v*Math.max(0,b.b-b.t), 2.5, 0, Math.PI*2); c.fill(); });
+    c.fillStyle=TC()[i]; c.font="600 13px "+C.body; c.textAlign="center";
+    c.fillText(`Tanque ${i+1}`, g.x+g.w*0.38, g.y+g.h+g.ry+18);
+    c.font="11.5px "+C.mono; c.fillStyle=C.muted;
+    c.fillText(`${fmt(S.V[i],0)} L · N = ${S.tanks[i].length}`, g.x+g.w*0.38, g.y+g.h+g.ry+33); c.textAlign="left";
+  });
+  // partículas en tránsito
+  c.fillStyle=C.salt; S.travel.forEach(t=>{ const [x,y]=along(t.p.path,t.s); c.beginPath(); c.arc(x,y,2.5,0,Math.PI*2); c.fill(); });
+  // rótulos de caudal
+  c.font="11.5px "+C.mono;
+  pipes.forEach(p=>{ const Q=pipeFlow(p); if(Q<=0) return; c.fillStyle=C.muted;
+    if(p.kind==="in"){ const t=P.T[p.i]; c.textAlign="left"; const x=p.path[0][0]+10;
+      c.fillStyle=C.ink; c.fillText(t.c>0?"Salmuera":"Agua", x, 16); c.fillStyle=C.muted; c.fillText(`${fmt(Q)} L/min`, x, 30); if(t.c>0) c.fillText(`${fmt(t.c)} kg/L`, x, 44); }
+    else if(p.kind==="out"){ c.textAlign="left"; c.fillText(`↓ ${fmt(Q)} L/min`, p.path[0][0]+10, H-8); }
+    else { const [a,b]=p.path, mx=(a[0]+b[0])/2, dir=b[0]>a[0]?1:-1; c.textAlign="center";
+      c.fillStyle=C.muted; c.fillText(dir>0?`${fmt(Q)} →`:`← ${fmt(Q)}`, mx, p.y-10); }
+    c.textAlign="left"; });
+}
+function drawImpeller(c,g,i){
+  const cx=g.x+g.w/2, hubY=g.y+g.h*0.86, L=g.w*0.26, m=g.w*0.09;
+  // motor sobre la tapa
+  c.fillStyle=C["steel-dark"]; c.fillRect(cx-m/2,g.y-m*0.9,m,m*0.9);
+  c.fillStyle=C.steel; c.fillRect(cx-m*0.7,g.y-m*0.2,m*1.4,m*0.2);
+  // eje
+  c.strokeStyle=C["steel-dark"]; c.lineWidth=2.5; c.beginPath(); c.moveTo(cx,g.y); c.lineTo(cx,hubY); c.stroke();
+  // aspas: tres palas vistas de lado, giran alrededor del eje vertical
+  const blades=[0,1,2].map(k=>{ const th=rot+k*2*Math.PI/3; return {th,depth:Math.sin(th)}; }).sort((a,b)=>a.depth-b.depth);
+  blades.forEach(bl=>{ const x=Math.cos(bl.th)*L, d=bl.depth;
+    c.fillStyle = d<0 ? C.steel : C["steel-dark"]; c.globalAlpha = d<0 ? 0.7 : 1;
+    c.beginPath(); c.ellipse(cx+x/2, hubY+d*2, Math.abs(x)/2+2, 4+2*Math.abs(Math.sin(bl.th)), 0, 0, Math.PI*2); c.fill(); });
+  c.globalAlpha=1;
+  c.fillStyle=C["steel-dark"]; c.beginPath(); c.arc(cx,hubY,3.5,0,Math.PI*2); c.fill();
+}
+function axes(c,w,h,pad,xmin,xmax,ymax,xl,yl){
+  c.strokeStyle=C.line; c.lineWidth=1; c.fillStyle=C.muted; c.font="11px "+C.mono;
+  const nice=m=>{const e=Math.pow(10,Math.floor(Math.log10(m/4)));return [1,2,2.5,5,10].map(k=>k*e).find(k=>m/k<=6);};
+  const sx=nice(xmax-xmin), sy=nice(ymax);
+  for(let v=0;v<=ymax+1e-9;v+=sy){ const y=h-pad.b-(v/ymax)*(h-pad.t-pad.b); c.beginPath(); c.moveTo(pad.l,y); c.lineTo(w-pad.r,y); c.stroke(); c.textAlign="right"; c.fillText(fmt(v,1),pad.l-6,y+4); }
+  for(let v=Math.ceil(xmin/sx)*sx;v<=xmax+1e-9;v+=sx){ const x=pad.l+((v-xmin)/(xmax-xmin))*(w-pad.l-pad.r); c.textAlign="center"; c.fillText(fmt(v,1),x,h-pad.b+15); }
+  c.textAlign="left"; c.fillText(yl,pad.l,pad.t-8); c.textAlign="right"; c.fillText(xl,w-pad.r,h-4); c.textAlign="left";
+}
+function drawChartX(){
+  const cv=$("chartX"); const [w,h]=fitCanvas(cv,280); const c=cv.getContext("2d"); c.fillStyle=C.panel; c.fillRect(0,0,w,h);
+  const pad={l:48,r:12,t:22,b:30}; const Tm=Math.max(T, S.t);
+  let ymax=1; curve.forEach(p=>p.x.forEach(v=>ymax=Math.max(ymax,v))); if(sol&&sol.ok) sol.xe.forEach(v=>ymax=Math.max(ymax,v)); ymax*=1.08;
+  axes(c,w,h,pad,0,Tm,ymax,"t (min)","M (kg)");
+  const X=t=>pad.l+t/Tm*(w-pad.l-pad.r), Y=v=>h-pad.b-v/ymax*(h-pad.t-pad.b);
+  for(let i=0;i<P.n;i++){
+    if(sol&&sol.ok){ c.setLineDash([4,4]); c.strokeStyle=TC()[i]; c.globalAlpha=0.5; c.lineWidth=1.2; c.beginPath(); c.moveTo(X(S.t0),Y(sol.xe[i])); c.lineTo(X(Tm),Y(sol.xe[i])); c.stroke(); c.setLineDash([]); c.globalAlpha=1; }
+    c.strokeStyle=TC()[i]; c.lineWidth=2.2; c.beginPath(); curve.forEach((p,k)=>{ if(p.x[i]===undefined) return; k?c.lineTo(X(p.t),Y(p.x[i])):c.moveTo(X(p.t),Y(p.x[i])); }); c.stroke();
+    c.fillStyle=TC()[i]; c.strokeStyle=C.panel; c.lineWidth=2; c.beginPath(); c.arc(X(S.t),Y(S.x[i]),5,0,Math.PI*2); c.fill(); c.stroke();
+  }
+  c.strokeStyle=C.muted; c.lineWidth=1; c.beginPath(); c.moveTo(X(S.t),pad.t); c.lineTo(X(S.t),h-pad.b); c.stroke();
+  $("legX").innerHTML=Array.from({length:P.n},(_,i)=>`<span style="--c:var(--t${i+1})"><i></i>M${SUB[i]}(t)</span>`).join("")+(sol&&sol.ok?`<span>— — equilibrio</span>`:"")+`<span>${sol&&sol.ok?"curva: solución exacta":"curva: Runge‑Kutta 4"}</span>`;
+}
+function drawChartN(){
+  const cv=$("chartN"); const [w,h]=fitCanvas(cv,280); const c=cv.getContext("2d"); c.fillStyle=C.panel; c.fillRect(0,0,w,h);
+  const pad={l:48,r:12,t:22,b:30};
+  let m=5; S.samples.forEach(s=>m=Math.max(m,s.N,s.X)); S.tanks.forEach((a,i)=>m=Math.max(m,a.length,S.x[i]/P.q)); m*=1.08;
+  axes(c,w,h,pad,0,m,m,"M / q","N visibles");
+  const X=v=>pad.l+v/m*(w-pad.l-pad.r), Y=v=>h-pad.b-v/m*(h-pad.t-pad.b);
+  c.strokeStyle=C.muted; c.setLineDash([5,4]); c.beginPath(); c.moveTo(X(0),Y(0)); c.lineTo(X(m),Y(m)); c.stroke(); c.setLineDash([]);
+  c.globalAlpha=0.55; S.samples.forEach(s=>{ c.fillStyle=TC()[s.i]; c.beginPath(); c.arc(X(s.X),Y(s.N),2.4,0,Math.PI*2); c.fill(); }); c.globalAlpha=1;
+  S.tanks.forEach((a,i)=>{ c.fillStyle=TC()[i]; c.strokeStyle=C.panel; c.lineWidth=2; c.beginPath(); c.arc(X(S.x[i]/P.q),Y(a.length),5.5,0,Math.PI*2); c.fill(); c.stroke(); });
+  const n=S.samples.length;
+  if(n>5){ let sx=0,sy=0,sxx=0,syy=0,sxy=0; S.samples.forEach(s=>{sx+=s.X;sy+=s.N;sxx+=s.X*s.X;syy+=s.N*s.N;sxy+=s.X*s.N;});
+    const den=Math.sqrt((n*sxx-sx*sx)*(n*syy-sy*sy)); $("pear").textContent= den>0?`r de Pearson = ${((n*sxy-sx*sy)/den).toFixed(4)}  (${n} lecturas)`:"r de Pearson: — (sin variación todavía)"; }
+  else $("pear").textContent="r de Pearson: inicia la simulación para tomar lecturas";
+}
+function renderReadout(){
+  const ro=$("readout"); ro.style.setProperty("--n",P.n);
+  ro.innerHTML=S.x.map((x,i)=>`<div class="ro" style="--c:var(--t${i+1})"><b>Tanque ${i+1}</b>M = ${x.toFixed(2)} kg<br>c = ${(x/S.V[i]).toFixed(4)} kg/L<br>N = ${S.tanks[i].length} <span>· M/q = ${(x/P.q).toFixed(1)}</span></div>`).join("");
+  $("clock").textContent=`t = ${S.t.toFixed(1)} min`;
+}
+function drawAll(){ readColors(); drawScene(); drawChartX(); drawChartN(); renderReadout(); }
+
+let last=performance.now(), cc=0;
+function frame(now){
+  const dt=Math.min(0.05,(now-last)/1000); last=now;
+  if(playing) step(dt);
+  moveParticles(dt); readColors(); drawScene(); renderReadout();
+  cc+=dt; if(cc>0.25){ cc=0; drawChartX(); drawChartN(); }
+  requestAnimationFrame(frame);
+}
+$("play").onclick=()=>{ if(S.done) resetSim(); playing=!playing; $("play").textContent=playing?"❚❚ Pausa":"▶ Continuar"; };
+$("reset").onclick=resetSim;
+window.addEventListener("resize",()=>{layout();drawAll();});
+loadPreset(0); requestAnimationFrame(frame);
+})();
+</script>
