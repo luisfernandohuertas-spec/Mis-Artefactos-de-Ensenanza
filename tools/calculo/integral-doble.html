@@ -1,0 +1,462 @@
+<title>Integral doble por prismas</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400;1,6..72,500&display=swap">
+<style>
+/* Layout: panel de controles a la izquierda, vista 3D a la derecha; debajo, la fórmula con el resultado y la gráfica de convergencia */
+:root{
+  --bg:#eceff3; --panel:#fbfcfd; --ink:#17212c; --muted:#5a6775; --line:#d3dae2;
+  --accent:#d27a22; --surface:#2b7d8c; --neg:#7458bd; --base:#b9c6d3; --good:#2f7d4f;
+  --f-math:"Newsreader", Georgia, "Times New Roman", serif;
+  --f-ui:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f151b; --panel:#161f28; --ink:#e4eaf0; --muted:#94a2b1; --line:#2a3643;
+  --accent:#f0a14e; --surface:#55b6c6; --neg:#a58ff0; --base:#3a4a5a; --good:#6cc48f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f151b; --panel:#161f28; --ink:#e4eaf0; --muted:#94a2b1; --line:#2a3643;
+  --accent:#f0a14e; --surface:#55b6c6; --neg:#a58ff0; --base:#3a4a5a; --good:#6cc48f; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-ui);font-size:14px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.wrap{max-width:1240px;margin:0 auto;display:grid;gap:16px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 24px}
+h1{font-family:var(--f-math);font-weight:400;font-size:clamp(24px,3.4vw,34px);margin:0;letter-spacing:-.01em;text-wrap:balance}
+h1 em{font-style:italic;color:var(--accent)}
+header p{margin:0;color:var(--muted);max-width:62ch}
+.top{display:grid;grid-template-columns:320px minmax(0,1fr);gap:16px}
+@media (max-width:860px){.top{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:14px;align-content:start;min-width:0}
+.lbl{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+.field{display:grid;gap:6px}
+input[type=text]{width:100%;font-family:var(--f-mono);font-size:14px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
+input[type=text]:focus-visible,select:focus-visible,button:focus-visible,input[type=range]:focus-visible,input[type=checkbox]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.fxrow{display:flex;align-items:center;gap:8px}
+.fxrow span{font-family:var(--f-math);font-style:italic;font-size:18px;white-space:nowrap}
+.lims{display:grid;grid-template-columns:auto 1fr auto 1fr;gap:6px 8px;align-items:center}
+.lims span{font-family:var(--f-math);font-style:italic;font-size:16px;color:var(--muted)}
+.presets{display:flex;flex-wrap:wrap;gap:6px}
+.presets button{font:inherit;font-size:12px;padding:5px 9px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer}
+.presets button:hover{border-color:var(--accent);color:var(--accent)}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg label{text-align:center;padding:7px 4px;font-size:12px;cursor:pointer;border-right:1px solid var(--line);line-height:1.25}
+.seg label:last-child{border-right:0}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg label:has(input:checked){background:var(--accent);color:var(--panel);font-weight:600}
+.seg label:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:-2px}
+.slider{display:grid;grid-template-columns:auto 1fr 3ch;gap:10px;align-items:center}
+.slider b{font-family:var(--f-math);font-style:italic;font-weight:400;font-size:17px}
+.slider output{font-family:var(--f-mono);text-align:right;font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.checks{display:flex;flex-wrap:wrap;gap:8px 14px;font-size:13px}
+.checks label{display:flex;align-items:center;gap:6px;cursor:pointer}
+input[type=checkbox]{accent-color:var(--accent)}
+.err{color:#c43d3d;font-size:13px;min-height:0}
+.err:empty{display:none}
+.viewer{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-height:560px;min-width:0}
+@media (max-width:860px){.viewer{min-height:420px}}
+#view{position:absolute;inset:0}
+#view canvas{display:block;touch-action:none}
+.legend{position:absolute;left:12px;bottom:10px;display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted);pointer-events:none}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.hint{position:absolute;right:12px;top:10px;font-size:12px;color:var(--muted);pointer-events:none}
+.bottom{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px}
+@media (max-width:860px){.bottom{grid-template-columns:minmax(0,1fr)}}
+.formula{font-family:var(--f-math);font-size:clamp(18px,2.4vw,24px);display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;overflow-x:auto}
+.formula i{font-style:italic}
+.int{font-size:1.9em;line-height:1;font-style:normal}
+.op{display:inline-flex;flex-direction:column;align-items:center;line-height:1}
+.op small{font-size:.5em;font-style:italic}
+.op span{font-size:1.5em}
+.subR{font-size:.6em;font-style:italic;align-self:flex-end;margin-left:-6px}
+.steps{display:grid;gap:4px;font-family:var(--f-mono);font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.steps b{color:var(--ink);font-weight:500}
+.nums{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+@media (max-width:560px){.nums{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.nums div{background:var(--panel);padding:10px 12px;display:grid;gap:2px;min-width:0}
+.nums strong{font-family:var(--f-mono);font-weight:500;font-size:17px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.nums .approx strong{color:var(--accent)}
+.nums .real strong{color:var(--surface)}
+.chartbox{position:relative;height:230px}
+#chart{width:100%;height:100%;display:block}
+details summary{cursor:pointer;font-size:13px;color:var(--muted)}
+.tbl{overflow-x:auto;margin-top:8px;max-height:300px;overflow-y:auto}
+table{border-collapse:collapse;width:100%;font-family:var(--f-mono);font-size:12px;font-variant-numeric:tabular-nums}
+th,td{padding:4px 8px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--muted);font-weight:500;position:sticky;top:0;background:var(--panel)}
+.note{font-size:12px;color:var(--muted);margin:0}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Integral doble con <em>prismas</em> sobre el rectángulo <i>R</i></h1>
+    <p>Cada prisma tiene base Δ<i>A</i> y altura <i>f</i>(<i>x<sub>k</sub></i>, <i>y<sub>k</sub></i>). Su suma aproxima el volumen bajo la superficie <i>z</i> = <i>f</i>(<i>x</i>, <i>y</i>).</p>
+  </header>
+
+  <div class="top">
+    <section class="panel" aria-label="Parámetros">
+      <div class="field">
+        <label class="lbl" for="fx">Función</label>
+        <div class="fxrow"><span>f(x, y) =</span><input type="text" id="fx" value="16 - x^2 - 2*y^2" spellcheck="false" autocomplete="off"></div>
+      </div>
+      <div class="field">
+        <span class="lbl">Rectángulo R = [a, b] × [c, d]</span>
+        <div class="lims">
+          <span>a</span><input type="text" id="a" value="0" aria-label="a">
+          <span>b</span><input type="text" id="b" value="2" aria-label="b">
+          <span>c</span><input type="text" id="c" value="0" aria-label="c">
+          <span>d</span><input type="text" id="d" value="2" aria-label="d">
+        </div>
+      </div>
+      <div class="field">
+        <label class="lbl" for="exact">Valor exacto (opcional)</label>
+        <input type="text" id="exact" value="48" placeholder="ej. 48, pi/2, 2*(1-cos(1))" spellcheck="false">
+        <p class="note">Si lo dejas vacío, se usa una referencia numérica de alta precisión (Simpson 300 × 300).</p>
+      </div>
+      <div class="field">
+        <span class="lbl">Ejemplos</span>
+        <div class="presets" id="presets"></div>
+      </div>
+      <div class="field">
+        <span class="lbl">Punto de muestra (x<sub>k</sub>, y<sub>k</sub>)</span>
+        <div class="seg" role="radiogroup">
+          <label><input type="radio" name="method" value="ll">Esquina inferior</label>
+          <label><input type="radio" name="method" value="mid" checked>Punto medio</label>
+          <label><input type="radio" name="method" value="ur">Esquina superior</label>
+        </div>
+      </div>
+      <div class="field">
+        <span class="lbl">Subdivisiones</span>
+        <div class="slider"><b>m</b><input type="range" id="m" min="1" max="40" value="4" aria-label="Subdivisiones en x"><output id="mo">4</output></div>
+        <div class="slider"><b>n</b><input type="range" id="n" min="1" max="40" value="4" aria-label="Subdivisiones en y"><output id="no">4</output></div>
+        <div class="checks"><label><input type="checkbox" id="lock" checked>m = n</label></div>
+      </div>
+      <div class="field">
+        <span class="lbl">Mostrar</span>
+        <div class="checks">
+          <label><input type="checkbox" id="showSurf" checked>Superficie</label>
+          <label><input type="checkbox" id="showPrism" checked>Prismas</label>
+          <label><input type="checkbox" id="showPts" checked>Puntos</label>
+        </div>
+      </div>
+      <div class="err" id="err" role="alert"></div>
+    </section>
+
+    <section class="viewer" aria-label="Vista 3D">
+      <div id="view"></div>
+      <div class="hint">Arrastra para girar · rueda para acercar</div>
+      <div class="legend">
+        <span><i style="background:var(--surface)"></i>z = f(x, y)</span>
+        <span><i style="background:var(--accent)"></i>Prisma f(x<sub>k</sub>, y<sub>k</sub>) ΔA</span>
+        <span><i style="background:var(--neg)"></i>Altura negativa</span>
+        <span><i style="background:var(--base)"></i>Rectángulo R</span>
+      </div>
+    </section>
+  </div>
+
+  <div class="bottom">
+    <section class="panel" aria-label="Resultado">
+      <span class="lbl">Resultado</span>
+      <div class="formula" id="formula"></div>
+      <div class="steps" id="steps"></div>
+      <div class="nums">
+        <div class="approx"><span class="lbl">Aproximación</span><strong id="vApprox">–</strong></div>
+        <div class="real"><span class="lbl" id="realLbl">Valor real</span><strong id="vReal">–</strong></div>
+        <div><span class="lbl">Error absoluto</span><strong id="vAbs">–</strong></div>
+        <div><span class="lbl">Error relativo</span><strong id="vRel">–</strong></div>
+      </div>
+      <details id="det">
+        <summary>Ver la tabla de prismas</summary>
+        <div class="tbl" id="tbl"></div>
+      </details>
+    </section>
+    <section class="panel" aria-label="Convergencia">
+      <span class="lbl">Convergencia con mallas k × k</span>
+      <div class="chartbox"><canvas id="chart"></canvas></div>
+      <p class="note">La línea horizontal es el valor real. El punto resaltado es tu malla actual cuando m = n.</p>
+    </section>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const PRESETS = [
+  {name:"16 − x² − 2y²", fx:"16 - x^2 - 2*y^2", a:"0", b:"2", c:"0", d:"2", exact:"48"},
+  {name:"x·y²", fx:"x*y^2", a:"0", b:"2", c:"1", d:"3", exact:"52/3"},
+  {name:"sen x · cos y", fx:"sen(x)*cos(y)", a:"0", b:"pi", c:"0", d:"pi/2", exact:"2"},
+  {name:"√(9 − x²)", fx:"sqrt(9 - x^2)", a:"0", b:"3", c:"0", d:"4", exact:"9*pi"},
+  {name:"e^(−x²−y²)", fx:"exp(-(x^2+y^2))", a:"-2", b:"2", c:"-2", d:"2", exact:""},
+  {name:"x − 3y²", fx:"x - 3*y^2", a:"0", b:"2", c:"1", d:"2", exact:"-12"}
+];
+const prep = s => s.replace(/π/g,"pi").replace(/\bsen\b/g,"sin").replace(/\bln\b/g,"log").replace(/\btg\b/g,"tan").replace(/\*\*/g,"^");
+const numOf = s => { const v = math.evaluate(prep(s)); if (typeof v !== "number" || !isFinite(v)) throw new Error("“"+s+"” no es un número válido."); return v; };
+const fmt = v => { if (!isFinite(v)) return "–"; if (v === 0) return "0"; const a = Math.abs(v);
+  if (a >= 1e6 || a < 1e-4) return v.toExponential(4); return String(parseFloat(v.toPrecision(8))); };
+
+let S = null;          // estado del problema actual
+let refCache = {key:"", val:NaN, label:""};
+
+function readProblem(){
+  const code = math.compile(prep($("fx").value.trim() || "0"));
+  const f = (x,y) => { const v = code.evaluate({x, y, e:Math.E, pi:Math.PI}); return typeof v === "number" ? v : NaN; };
+  const a = numOf($("a").value), b = numOf($("b").value), c = numOf($("c").value), d = numOf($("d").value);
+  if (!(a < b)) throw new Error("Se necesita a < b.");
+  if (!(c < d)) throw new Error("Se necesita c < d.");
+  const t = f((a+b)/2, (c+d)/2);
+  if (!isFinite(t)) throw new Error("f no está definida en el centro de R. Revisa la expresión.");
+  let exact = NaN; const ex = $("exact").value.trim();
+  if (ex) exact = numOf(ex);
+  return {f, a, b, c, d, exact, exactTxt: ex};
+}
+
+function offset(method){ return method === "ll" ? 0 : method === "ur" ? 1 : 0.5; }
+function riemann(P, m, n, method){
+  const dx = (P.b-P.a)/m, dy = (P.d-P.c)/n, o = offset(method);
+  let s = 0; const cells = [];
+  for (let i = 0; i < m; i++) for (let j = 0; j < n; j++){
+    const x = P.a + (i+o)*dx, y = P.c + (j+o)*dy, v = P.f(x,y);
+    s += v; cells.push({i, j, x, y, v});
+  }
+  return {sum: s*dx*dy, fsum: s, dx, dy, cells};
+}
+function simpson(P, N){
+  const hx = (P.b-P.a)/N, hy = (P.d-P.c)/N; let s = 0;
+  const w = k => (k === 0 || k === N) ? 1 : (k % 2 ? 4 : 2);
+  for (let i = 0; i <= N; i++){ const x = P.a + i*hx, wi = w(i);
+    for (let j = 0; j <= N; j++) s += wi*w(j)*P.f(x, P.c + j*hy); }
+  return s*hx*hy/9;
+}
+function reference(P){
+  if (isFinite(P.exact)) return {val:P.exact, label:"Valor exacto"};
+  const key = [$("fx").value, P.a, P.b, P.c, P.d].join("|");
+  if (refCache.key !== key) refCache = {key, val:simpson(P, 300), label:"Referencia (Simpson)"};
+  return refCache;
+}
+
+/* ---------- 3D ---------- */
+let renderer, scene, camera, controls, group, parts = {};
+const tok = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function init3d(){
+  const el = $("view");
+  renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  el.appendChild(renderer.domElement);
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(36, 1, 0.1, 200);
+  camera.up.set(0,0,1);
+  camera.position.set(9.2, 4.2, 6.2);
+  controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.target.set(0, 0, 1.1);
+  controls.enableDamping = true;
+  scene.add(new THREE.AmbientLight(0xffffff, 0.62));
+  const dl = new THREE.DirectionalLight(0xffffff, 0.6); dl.position.set(5, -3, 9); scene.add(dl);
+  const dl2 = new THREE.DirectionalLight(0xffffff, 0.25); dl2.position.set(-6, 6, 4); scene.add(dl2);
+  const resize = () => { const w = el.clientWidth, h = el.clientHeight; renderer.setSize(w, h); camera.aspect = w/h; camera.updateProjectionMatrix(); };
+  new ResizeObserver(resize).observe(el); resize();
+  (function loop(){ requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); })();
+}
+function label(text, pos, color, size){
+  const cv = document.createElement("canvas"), ctx = cv.getContext("2d"), fs = 64;
+  const font = `italic ${fs}px Newsreader, Georgia, serif`;
+  ctx.font = font; const w = Math.ceil(ctx.measureText(text).width) + 20;
+  cv.width = w; cv.height = Math.round(fs*1.35);
+  ctx.font = font; ctx.fillStyle = color; ctx.textBaseline = "middle"; ctx.fillText(text, 10, cv.height/2);
+  const tex = new THREE.CanvasTexture(cv); tex.minFilter = THREE.LinearFilter;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({map:tex, transparent:true, depthTest:false}));
+  sp.scale.set(size*w/cv.height, size, 1); sp.position.copy(pos); sp.renderOrder = 10; return sp;
+}
+function disposeGroup(g){ g.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material){ if (o.material.map) o.material.map.dispose(); o.material.dispose(); } }); }
+
+function build(P, R){
+  if (group){ scene.remove(group); disposeGroup(group); }
+  group = new THREE.Group(); scene.add(group);
+  const C = {ink:tok("--ink"), muted:tok("--muted"), acc:tok("--accent"), surf:tok("--surface"), neg:tok("--neg"), base:tok("--base"), line:tok("--line")};
+  const span = Math.max(P.b-P.a, P.d-P.c), s = 4.2/span, cx = (P.a+P.b)/2, cy = (P.c+P.d)/2;
+  // escala vertical
+  const res = 64; let zmax = 0; const grid = [];
+  for (let i = 0; i <= res; i++){ const row = []; const x = P.a + (P.b-P.a)*i/res;
+    for (let j = 0; j <= res; j++){ const y = P.c + (P.d-P.c)*j/res; const v = P.f(x,y); row.push(v); if (isFinite(v)) zmax = Math.max(zmax, Math.abs(v)); }
+    grid.push(row); }
+  R.cells.forEach(c => { if (isFinite(c.v)) zmax = Math.max(zmax, Math.abs(c.v)); });
+  const sz = zmax > 0 ? 2.8/zmax : 1;
+  const W = (x,y,z) => new THREE.Vector3((x-cx)*s, (y-cy)*s, z*sz);
+  const lineMat = (col, op=1) => new THREE.LineBasicMaterial({color:col, transparent:op<1, opacity:op});
+
+  // rectángulo R y partición
+  const base = new THREE.Mesh(new THREE.PlaneGeometry((P.b-P.a)*s, (P.d-P.c)*s),
+    new THREE.MeshBasicMaterial({color:C.base, transparent:true, opacity:0.55, side:THREE.DoubleSide, depthWrite:false}));
+  base.position.z = -0.003; group.add(base);
+  const gp = [];
+  const m = Math.round((P.b-P.a)/R.dx), n = Math.round((P.d-P.c)/R.dy);
+  for (let i = 0; i <= m; i++){ const x = P.a + i*R.dx; gp.push(W(x,P.c,0), W(x,P.d,0)); }
+  for (let j = 0; j <= n; j++){ const y = P.c + j*R.dy; gp.push(W(P.a,y,0), W(P.b,y,0)); }
+  group.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(gp), lineMat(C.muted, 0.55)));
+
+  // ejes
+  const ox = (P.a <= 0 && 0 <= P.b) ? 0 : P.a, oy = (P.c <= 0 && 0 <= P.d) ? 0 : P.c;
+  const O = W(ox, oy, 0), ext = 1.1;
+  const xEnd = W(P.b, oy, 0).add(new THREE.Vector3(ext,0,0)), yEnd = W(ox, P.d, 0).add(new THREE.Vector3(0,ext,0));
+  const xStart = W(P.a, oy, 0).add(new THREE.Vector3(-0.3,0,0)), yStart = W(ox, P.c, 0).add(new THREE.Vector3(0,-0.3,0));
+  const zEnd = O.clone().add(new THREE.Vector3(0,0,3.4));
+  group.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints([xStart,xEnd,yStart,yEnd,O,zEnd]), lineMat(C.ink)));
+  const cone = (pos, dir) => { const g = new THREE.Mesh(new THREE.ConeGeometry(0.06,0.2,16), new THREE.MeshBasicMaterial({color:C.ink}));
+    g.position.copy(pos); g.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir); group.add(g); };
+  cone(xEnd, new THREE.Vector3(1,0,0)); cone(yEnd, new THREE.Vector3(0,1,0)); cone(zEnd, new THREE.Vector3(0,0,1));
+  group.add(label("x", xEnd.clone().add(new THREE.Vector3(0.3,0,0)), C.ink, 0.42));
+  group.add(label("y", yEnd.clone().add(new THREE.Vector3(0,0.3,0)), C.ink, 0.42));
+  group.add(label("z", zEnd.clone().add(new THREE.Vector3(0,0,0.3)), C.ink, 0.42));
+  const tick = (t, pos) => group.add(label(t, pos, C.muted, 0.26));
+  tick("a = "+fmt(P.a), W(P.a, P.c, 0).add(new THREE.Vector3(0.15,-0.55,0)));
+  tick("b = "+fmt(P.b), W(P.b, P.c, 0).add(new THREE.Vector3(0.45,-0.55,0)));
+  tick("c = "+fmt(P.c), W(P.b, P.c, 0).add(new THREE.Vector3(0.6,0.1,0)));
+  tick("d = "+fmt(P.d), W(P.b, P.d, 0).add(new THREE.Vector3(0.6,0,0)));
+  group.add(label("R", W(P.a + 0.12*(P.b-P.a), P.c + 0.12*(P.d-P.c), 0).add(new THREE.Vector3(0,0,0.02)), C.ink, 0.4));
+  tick("z máx = "+fmt(zmax), O.clone().add(new THREE.Vector3(0,-0.2,2.8)).add(new THREE.Vector3(0,-0.9,0)));
+
+  // prismas
+  const pg = new THREE.Group(); parts.prism = pg; group.add(pg);
+  const N = R.cells.length;
+  const inst = new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),
+    new THREE.MeshLambertMaterial({color:0xffffff, transparent:true, opacity:0.8}), N);
+  const M = new THREE.Matrix4(), q = new THREE.Quaternion(), cA = new THREE.Color(C.acc), cN = new THREE.Color(C.neg);
+  const edges = new Float32Array(N*24*3); let e = 0;
+  const push = v => { edges[e++] = v.x; edges[e++] = v.y; edges[e++] = v.z; };
+  R.cells.forEach((cl, k) => {
+    const x0 = P.a + cl.i*R.dx, y0 = P.c + cl.j*R.dy, h = isFinite(cl.v) ? cl.v : 0;
+    const ctr = W(x0 + R.dx/2, y0 + R.dy/2, h/2);
+    M.compose(ctr, q, new THREE.Vector3(R.dx*s, R.dy*s, Math.max(Math.abs(h*sz), 1e-4)));
+    inst.setMatrixAt(k, M); inst.setColorAt(k, h >= 0 ? cA : cN);
+    const P0 = [W(x0,y0,0), W(x0+R.dx,y0,0), W(x0+R.dx,y0+R.dy,0), W(x0,y0+R.dy,0)];
+    const P1 = [W(x0,y0,h), W(x0+R.dx,y0,h), W(x0+R.dx,y0+R.dy,h), W(x0,y0+R.dy,h)];
+    for (let t = 0; t < 4; t++){ push(P0[t]); push(P0[(t+1)%4]); push(P1[t]); push(P1[(t+1)%4]); push(P0[t]); push(P1[t]); }
+  });
+  inst.instanceMatrix.needsUpdate = true; if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
+  pg.add(inst);
+  const eg = new THREE.BufferGeometry(); eg.setAttribute("position", new THREE.BufferAttribute(edges, 3));
+  pg.add(new THREE.LineSegments(eg, lineMat(C.ink, N > 400 ? 0.25 : 0.55)));
+
+  // superficie
+  const sg = new THREE.Group(); parts.surf = sg; group.add(sg);
+  const pos = [], idx = [];
+  for (let i = 0; i <= res; i++) for (let j = 0; j <= res; j++){
+    const v = grid[i][j]; const p = W(P.a + (P.b-P.a)*i/res, P.c + (P.d-P.c)*j/res, isFinite(v) ? v : 0); pos.push(p.x, p.y, p.z); }
+  for (let i = 0; i < res; i++) for (let j = 0; j < res; j++){
+    const k = i*(res+1)+j; idx.push(k, k+res+1, k+1, k+1, k+res+1, k+res+2); }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals();
+  const surf = new THREE.Mesh(geo, new THREE.MeshPhongMaterial({color:C.surf, transparent:true, opacity:0.42, side:THREE.DoubleSide, depthWrite:false, shininess:40}));
+  surf.renderOrder = 2; sg.add(surf);
+  const wl = [];
+  for (let i = 0; i <= res; i += 8) for (let j = 0; j < res; j++){
+    wl.push(...pos.slice((i*(res+1)+j)*3, (i*(res+1)+j)*3+3), ...pos.slice((i*(res+1)+j+1)*3, (i*(res+1)+j+1)*3+3)); }
+  for (let j = 0; j <= res; j += 8) for (let i = 0; i < res; i++){
+    wl.push(...pos.slice((i*(res+1)+j)*3, (i*(res+1)+j)*3+3), ...pos.slice(((i+1)*(res+1)+j)*3, ((i+1)*(res+1)+j)*3+3)); }
+  const wg = new THREE.BufferGeometry(); wg.setAttribute("position", new THREE.Float32BufferAttribute(wl, 3));
+  sg.add(new THREE.LineSegments(wg, lineMat(C.surf, 0.85)));
+  group.add(label("z = f(x, y)", W(P.b, P.d, isFinite(grid[res][res]) ? grid[res][res] : 0).add(new THREE.Vector3(0.2,0.4,0.35)), C.surf, 0.32));
+
+  // puntos de muestra
+  const r = Math.min(0.07, 0.22*Math.min(R.dx, R.dy)*s);
+  const pts = new THREE.InstancedMesh(new THREE.SphereGeometry(r, 12, 8), new THREE.MeshBasicMaterial({color:C.ink}), N);
+  R.cells.forEach((cl, k) => { M.compose(W(cl.x, cl.y, isFinite(cl.v) ? cl.v : 0), q, new THREE.Vector3(1,1,1)); pts.setMatrixAt(k, M); });
+  pts.instanceMatrix.needsUpdate = true; parts.pts = pts; group.add(pts);
+  applyVis();
+}
+function applyVis(){
+  if (parts.surf) parts.surf.visible = $("showSurf").checked;
+  if (parts.prism) parts.prism.visible = $("showPrism").checked;
+  if (parts.pts) parts.pts.visible = $("showPts").checked;
+}
+
+/* ---------- resultado ---------- */
+const methodName = {ll:"esquina inferior izquierda", mid:"punto medio", ur:"esquina superior derecha"};
+function showResult(P, R, ref, m, n, method){
+  const star = method === "mid" ? "x̄" : "x";
+  $("formula").innerHTML =
+    `<span class="int">∬</span><span class="subR">R</span><i>f</i>(<i>x</i>, <i>y</i>) <i>dA</i> ≈ ` +
+    `<span class="op"><small>m</small><span>Σ</span><small>i = 1</small></span>` +
+    `<span class="op"><small>n</small><span>Σ</span><small>j = 1</small></span>` +
+    `<i>f</i>(<i>x<sub>i</sub></i><sup>*</sup>, <i>y<sub>j</sub></i><sup>*</sup>) Δ<i>A</i> = <b style="color:var(--accent);font-weight:400">${fmt(R.sum)}</b>`;
+  const dA = R.dx*R.dy;
+  $("steps").innerHTML =
+    `<span>R = [${fmt(P.a)}, ${fmt(P.b)}] × [${fmt(P.c)}, ${fmt(P.d)}] · ${m} × ${n} = <b>${m*n}</b> prismas · muestra en ${methodName[method]}</span>` +
+    `<span>Δx = (b − a)/m = <b>${fmt(R.dx)}</b>   Δy = (d − c)/n = <b>${fmt(R.dy)}</b>   ΔA = Δx·Δy = <b>${fmt(dA)}</b></span>` +
+    `<span>Σ f(xᵢ*, yⱼ*) = <b>${fmt(R.fsum)}</b>   →   ΔA · Σ f = ${fmt(dA)} × ${fmt(R.fsum)} = <b>${fmt(R.sum)}</b></span>`;
+  $("vApprox").textContent = fmt(R.sum);
+  $("vReal").textContent = fmt(ref.val);
+  $("realLbl").textContent = ref.label;
+  const ea = Math.abs(R.sum - ref.val);
+  $("vAbs").textContent = fmt(ea);
+  $("vRel").textContent = ref.val !== 0 ? fmt(100*ea/Math.abs(ref.val)) + " %" : "–";
+  // tabla
+  if (m*n <= 400){
+    let h = `<table><thead><tr><th>i</th><th>j</th><th>xᵢ*</th><th>yⱼ*</th><th>f(xᵢ*, yⱼ*)</th><th>f · ΔA</th></tr></thead><tbody>`;
+    R.cells.forEach(c => h += `<tr><td>${c.i+1}</td><td>${c.j+1}</td><td>${fmt(c.x)}</td><td>${fmt(c.y)}</td><td>${fmt(c.v)}</td><td>${fmt(c.v*dA)}</td></tr>`);
+    h += `<tr><th colspan="5" style="text-align:right">Suma</th><th>${fmt(R.sum)}</th></tr></tbody></table>`;
+    $("tbl").innerHTML = h;
+  } else $("tbl").innerHTML = `<p class="note">La tabla se muestra hasta 400 prismas.</p>`;
+}
+
+/* ---------- convergencia ---------- */
+function drawChart(P, ref, method, cur){
+  const cv = $("chart"), box = cv.parentElement, dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const W = box.clientWidth, H = box.clientHeight; cv.width = W*dpr; cv.height = H*dpr;
+  const ctx = cv.getContext("2d"); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H);
+  const K = 40, data = []; for (let k = 1; k <= K; k++) data.push(riemann(P, k, k, method).sum);
+  let lo = Math.min(ref.val, ...data), hi = Math.max(ref.val, ...data);
+  if (hi - lo < 1e-12){ hi += 1; lo -= 1; } const pad = (hi-lo)*0.08; lo -= pad; hi += pad;
+  const L = 58, Rr = 12, T = 10, B = 30;
+  const X = k => L + (k-1)/(K-1)*(W-L-Rr), Y = v => T + (hi - v)/(hi - lo)*(H-T-B);
+  const ink = tok("--ink"), muted = tok("--muted"), line = tok("--line"), acc = tok("--accent"), surf = tok("--surface");
+  ctx.font = `11px "IBM Plex Mono", monospace`; ctx.fillStyle = muted; ctx.strokeStyle = line; ctx.lineWidth = 1;
+  for (let t = 0; t <= 4; t++){ const v = lo + (hi-lo)*t/4, y = Y(v);
+    ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W-Rr, y); ctx.stroke();
+    ctx.textAlign = "right"; ctx.textBaseline = "middle"; ctx.fillText(fmt(+v.toPrecision(4)), L-6, y); }
+  ctx.textAlign = "center"; ctx.textBaseline = "top";
+  [1,10,20,30,40].forEach(k => ctx.fillText(k, X(k), H-B+6));
+  ctx.fillText("k", W-Rr-4, H-B+6);
+  ctx.strokeStyle = surf; ctx.setLineDash([5,4]); ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(L, Y(ref.val)); ctx.lineTo(W-Rr, Y(ref.val)); ctx.stroke(); ctx.setLineDash([]);
+  ctx.strokeStyle = acc; ctx.lineWidth = 2; ctx.beginPath();
+  data.forEach((v,i) => i ? ctx.lineTo(X(i+1), Y(v)) : ctx.moveTo(X(1), Y(v))); ctx.stroke();
+  ctx.fillStyle = acc; data.forEach((v,i) => { ctx.beginPath(); ctx.arc(X(i+1), Y(v), 2, 0, 7); ctx.fill(); });
+  if (cur && cur <= K){ const v = data[cur-1]; ctx.fillStyle = ink; ctx.beginPath(); ctx.arc(X(cur), Y(v), 5, 0, 7); ctx.fill();
+    ctx.fillStyle = tok("--panel"); ctx.beginPath(); ctx.arc(X(cur), Y(v), 2.2, 0, 7); ctx.fill(); }
+}
+
+/* ---------- control ---------- */
+function method(){ return document.querySelector('input[name="method"]:checked').value; }
+function update(full){
+  try{
+    if (full || !S) S = readProblem();
+    const m = +$("m").value, n = +$("n").value, md = method();
+    $("mo").textContent = m; $("no").textContent = n;
+    const R = riemann(S, m, n, md);
+    if (R.cells.some(c => !isFinite(c.v))) throw new Error("f no está definida en algunos puntos de muestra dentro de R.");
+    const ref = reference(S);
+    $("err").textContent = "";
+    build(S, R); showResult(S, R, ref, m, n, md); drawChart(S, ref, md, m === n ? m : 0);
+  } catch(e){ $("err").textContent = e.message || "No se pudo interpretar la expresión."; }
+}
+let tmr; const later = () => { clearTimeout(tmr); tmr = setTimeout(() => update(true), 350); };
+["fx","a","b","c","d","exact"].forEach(id => $(id).addEventListener("input", later));
+$("m").addEventListener("input", () => { if ($("lock").checked) $("n").value = $("m").value; update(false); });
+$("n").addEventListener("input", () => { if ($("lock").checked) $("m").value = $("n").value; update(false); });
+$("lock").addEventListener("change", () => { if ($("lock").checked){ $("n").value = $("m").value; update(false); } });
+document.querySelectorAll('input[name="method"]').forEach(r => r.addEventListener("change", () => update(false)));
+["showSurf","showPrism","showPts"].forEach(id => $(id).addEventListener("change", applyVis));
+PRESETS.forEach(p => { const bt = document.createElement("button"); bt.type = "button"; bt.textContent = p.name;
+  bt.addEventListener("click", () => { ["fx","a","b","c","d","exact"].forEach(k => $(k).value = p[k]); update(true); });
+  $("presets").appendChild(bt); });
+new ResizeObserver(() => { if (S){ try{ const ref = reference(S); const m = +$("m").value; drawChart(S, ref, method(), m === +$("n").value ? m : 0); }catch(e){} } }).observe($("chart").parentElement);
+const rethemed = () => update(false);
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", rethemed);
+new MutationObserver(rethemed).observe(document.documentElement, {attributes:true, attributeFilter:["data-theme"]});
+
+init3d();
+(document.fonts ? document.fonts.ready : Promise.resolve()).then(() => update(true));
+</script>
