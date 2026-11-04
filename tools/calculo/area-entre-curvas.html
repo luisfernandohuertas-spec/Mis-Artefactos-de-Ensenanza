@@ -1,0 +1,377 @@
+<title>Área entre curvas</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: cuaderno de cálculo — panel de controles a la izquierda, gráfica grande a la derecha, tabla de convergencia debajo */
+:root{
+  --bg:#f3f5f8; --surface:#ffffff; --ink:#1b2433; --muted:#5d6878; --line:#d9dee6; --grid:#e8ecf2;
+  --f:#0f7b8a; --g:#c4531d; --region:rgba(15,123,138,.16); --approx:rgba(196,83,29,.22); --approx-stroke:#c4531d;
+  --accent:#2f4fa8; --good:#1f7a46; --rep:rgba(47,79,168,.18);
+  --display:"Newsreader", Georgia, serif; --body:"IBM Plex Sans", system-ui, sans-serif; --mono:"IBM Plex Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#11151c; --surface:#181e27; --ink:#e6eaf0; --muted:#97a2b2; --line:#2b3442; --grid:#202834;
+  --f:#4fc3d1; --g:#f08a52; --region:rgba(79,195,209,.18); --approx:rgba(240,138,82,.24); --approx-stroke:#f08a52;
+  --accent:#8ea8f0; --good:#5cc98a; --rep:rgba(142,168,240,.22); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11151c; --surface:#181e27; --ink:#e6eaf0; --muted:#97a2b2; --line:#2b3442; --grid:#202834;
+  --f:#4fc3d1; --g:#f08a52; --region:rgba(79,195,209,.18); --approx:rgba(240,138,82,.24); --approx-stroke:#f08a52;
+  --accent:#8ea8f0; --good:#5cc98a; --rep:rgba(142,168,240,.22); color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px 40px}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+header h1{font-family:var(--display);font-weight:600;font-size:clamp(28px,4vw,40px);margin:0;text-wrap:balance;letter-spacing:-.01em}
+header p{margin:4px 0 0;color:var(--muted);max-width:68ch}
+.formula{font-family:var(--display);font-style:italic;font-size:20px}
+.main{display:grid;grid-template-columns:330px minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:860px){.main{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+input,select{font:inherit;font-size:15px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px;text-transform:none;letter-spacing:0;font-weight:400;width:100%}
+input.fn{font-family:var(--mono)}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.swatch{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+input[type=range]{padding:0;accent-color:var(--accent);background:transparent;border:none}
+.nval{font-family:var(--mono);color:var(--ink);font-size:14px;text-transform:none;letter-spacing:0}
+.hint{font-size:12px;color:var(--muted);margin:0}
+.err{color:#c0392b;font-size:13px;margin:0}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:4px 10px;cursor:pointer}
+.chip:hover{border-color:var(--accent)}
+.right{display:flex;flex-direction:column;gap:16px;min-width:0}
+.plot{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px;min-width:0}
+canvas{display:block;width:100%;height:420px}
+@media (max-width:500px){canvas{height:320px}}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--muted);padding:6px 8px 2px}
+.results{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:620px){.results{grid-template-columns:minmax(0,1fr)}}
+.res{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;min-width:0}
+.res .k{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.res .v{font-family:var(--mono);font-size:22px;font-weight:500;margin-top:4px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.res .s{font-size:13px;color:var(--muted);margin-top:2px;overflow-wrap:anywhere}
+.res.exact .v{color:var(--f)} .res.approx .v{color:var(--g)}
+h2{font-family:var(--display);font-weight:600;font-size:22px;margin:0}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:right;padding:6px 10px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums;white-space:nowrap}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
+td{font-family:var(--mono)}
+th:first-child,td:first-child{text-align:left}
+tr.cur td{color:var(--accent);font-weight:500}
+.steps{font-size:14px;color:var(--ink);margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+.steps code{font-family:var(--mono);font-size:13px}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Área entre curvas</h1>
+    <p><span class="formula">A = ∫<sub>a</sub><sup>b</sup> |f(x) − g(x)| dx</span> &nbsp;·&nbsp; compara el valor exacto con una suma de Riemann, el trapecio o Simpson, y mira cómo baja el error al aumentar n.</p>
+  </header>
+
+  <div class="main">
+    <form class="panel" id="form" autocomplete="off">
+      <label for="fx"><span><span class="swatch" style="background:var(--f)"></span>f(x)</span>
+        <input class="fn" id="fx" value="2 - x^2"></label>
+      <label for="gx"><span><span class="swatch" style="background:var(--g)"></span>g(x)</span>
+        <input class="fn" id="gx" value="x"></label>
+      <div class="row">
+        <label for="a">a <input id="a" type="text" inputmode="decimal" value="-2"></label>
+        <label for="b">b <input id="b" type="text" inputmode="decimal" value="1"></label>
+      </div>
+      <label for="method">Método de aproximación
+        <select id="method">
+          <option value="left">Rectángulos — extremo izquierdo</option>
+          <option value="right">Rectángulos — extremo derecho</option>
+          <option value="mid" selected>Rectángulos — punto medio</option>
+          <option value="trap">Regla del trapecio</option>
+          <option value="simp">Regla de Simpson (n par)</option>
+        </select></label>
+      <label for="n">Subintervalos n = <span class="nval" id="nval">8</span>
+        <input id="n" type="range" min="1" max="100" value="8"></label>
+      <label for="rx">Rectángulo representativo en x = <span class="nval" id="rxval">−0.75</span>
+        <input id="rx" type="range" min="0" max="1000" value="417"></label>
+      <p class="hint" style="margin-top:-8px">También puedes moverlo arrastrando sobre la gráfica.</p>
+      <p class="err" id="err" hidden></p>
+      <p class="hint">Usa <code>^</code> para potencias y funciones como <code>sin</code>, <code>cos</code>, <code>exp</code>, <code>ln</code>, <code>sqrt</code>, <code>abs</code>. Constantes: <code>pi</code>, <code>e</code>. En a y b puedes escribir <code>pi/2</code>.</p>
+      <div>
+        <p class="hint" style="margin-bottom:6px">Ejemplos con área exacta conocida</p>
+        <div class="chips" id="chips"></div>
+      </div>
+    </form>
+
+    <div class="right">
+      <div class="plot">
+        <canvas id="cv" aria-label="Gráfica de f y g con la región entre ellas y la aproximación"></canvas>
+        <div class="legend">
+          <span><span class="swatch" style="background:var(--f)"></span>f(x)</span>
+          <span><span class="swatch" style="background:var(--g)"></span>g(x)</span>
+          <span><span class="swatch" style="background:var(--region);border:1px solid var(--f)"></span>Región exacta</span>
+          <span><span class="swatch" style="background:var(--approx);border:1px solid var(--g)"></span>Aproximación</span>
+          <span><span class="swatch" style="background:var(--rep);border:1px solid var(--accent)"></span>Rectángulo representativo</span>
+        </div>
+      </div>
+
+      <div class="results">
+        <div class="res exact"><div class="k">Área exacta</div><div class="v" id="vExact">—</div><div class="s" id="sExact"></div></div>
+        <div class="res approx"><div class="k">Aproximación</div><div class="v" id="vApprox">—</div><div class="s" id="sApprox"></div></div>
+        <div class="res"><div class="k">Error</div><div class="v" id="vErr">—</div><div class="s" id="sErr"></div></div>
+      </div>
+
+      <div class="panel">
+        <h2>Cómo se calcula</h2>
+        <ol class="steps" id="steps"></ol>
+      </div>
+
+      <div class="panel">
+        <h2>Convergencia del método</h2>
+        <div class="tablewrap"><table id="conv"><thead><tr><th>n</th><th>Δx</th><th>Aproximación</th><th>Error absoluto</th><th>Error relativo</th></tr></thead><tbody></tbody></table></div>
+        <p class="hint" id="convHint"></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const PRESETS = [
+  {f:"2 - x^2", g:"x", a:"-2", b:"1", exact:"9/2"},
+  {f:"x", g:"x^2", a:"0", b:"1", exact:"1/6"},
+  {f:"sqrt(x)", g:"x^2", a:"0", b:"1", exact:"1/3"},
+  {f:"sin(x)", g:"cos(x)", a:"0", b:"pi", exact:"2√2"},
+  {f:"exp(x)", g:"1 + x", a:"0", b:"1", exact:"e − 5/2"},
+  {f:"x^3", g:"x", a:"-1", b:"1", exact:"1/2"},
+];
+let presetExact = PRESETS[0].exact;
+let view=null;
+
+function compile(src){
+  let s = String(src).trim();
+  if(!s) throw new Error("Expresión vacía");
+  if(/[^0-9a-zA-Z_+\-*/^().,\s]/.test(s)) throw new Error("Carácter no permitido en: " + src);
+  s = s.replace(/\bln\b/g,"log").replace(/\^/g,"**")
+       .replace(/(\d)\s*([a-zA-Z(])/g,"$1*$2").replace(/\)\s*\(/g,")*(");
+  const allowed = ["x","sin","cos","tan","asin","acos","atan","sinh","cosh","tanh","exp","log","log10","log2","sqrt","cbrt","abs","pi","e","sec","csc","cot","floor","ceil","sign"];
+  for(const w of s.match(/[a-zA-Z_]\w*/g)||[]) if(!allowed.includes(w)) throw new Error("Desconocido: " + w);
+  const fn = new Function("x", `const {sin,cos,tan,asin,acos,atan,sinh,cosh,tanh,exp,log,log10,log2,sqrt,cbrt,abs,floor,ceil,sign}=Math;
+    const pi=Math.PI,e=Math.E,sec=t=>1/Math.cos(t),csc=t=>1/Math.sin(t),cot=t=>1/Math.tan(t); return (${s});`);
+  fn(0.5);
+  return fn;
+}
+function num(s){ const v = compile(s)(0); if(!isFinite(v)) throw new Error("Límite no válido: "+s); return v; }
+
+// raíces de h = f - g en [a,b]
+function roots(h,a,b){
+  const N=2000, r=[]; let x0=a, y0=h(a);
+  for(let i=1;i<=N;i++){
+    const x1=a+(b-a)*i/N, y1=h(x1);
+    if(isFinite(y0)&&isFinite(y1)){
+      if(y0===0) r.push(x0);
+      else if(y0*y1<0){ let lo=x0,hi=x1,ylo=y0;
+        for(let k=0;k<80;k++){const m=(lo+hi)/2,ym=h(m); if(ylo*ym<=0)hi=m; else {lo=m;ylo=ym;}}
+        r.push((lo+hi)/2); }
+    }
+    x0=x1;y0=y1;
+  }
+  if(y0===0) r.push(b);
+  return r.filter((v,i,arr)=>i===0||Math.abs(v-arr[i-1])>1e-9);
+}
+// Simpson adaptativo
+function adapt(F,a,b,eps){
+  const S=(a,b,fa,fm,fb)=>(b-a)/6*(fa+4*fm+fb);
+  function rec(a,b,fa,fm,fb,whole,eps,d){
+    const m=(a+b)/2,lm=(a+m)/2,rm=(m+b)/2,flm=F(lm),frm=F(rm);
+    const L=S(a,m,fa,flm,fm),R=S(m,b,fm,frm,fb);
+    if(d<=0||Math.abs(L+R-whole)<=15*eps) return L+R+(L+R-whole)/15;
+    return rec(a,m,fa,flm,fm,L,eps/2,d-1)+rec(m,b,fm,frm,fb,R,eps/2,d-1);
+  }
+  const fa=F(a),fb=F(b),fm=F((a+b)/2);
+  return rec(a,b,fa,fm,fb,S(a,b,fa,fm,fb),eps,50);
+}
+function exactArea(h,a,b,rs){
+  const pts=[a,...rs.filter(r=>r>a&&r<b),b]; let A=0;
+  const H=x=>Math.abs(h(x));
+  for(let i=0;i<pts.length-1;i++) A+=adapt(H,pts[i],pts[i+1],1e-12);
+  return A;
+}
+function approx(h,a,b,n,m){
+  const dx=(b-a)/n, H=x=>Math.abs(h(x)); let s=0;
+  if(m==="left") for(let i=0;i<n;i++) s+=H(a+i*dx);
+  else if(m==="right") for(let i=1;i<=n;i++) s+=H(a+i*dx);
+  else if(m==="mid") for(let i=0;i<n;i++) s+=H(a+(i+.5)*dx);
+  else if(m==="trap"){ s=(H(a)+H(b))/2; for(let i=1;i<n;i++) s+=H(a+i*dx); }
+  else if(m==="simp"){ s=H(a)+H(b); for(let i=1;i<n;i++) s+=(i%2?4:2)*H(a+i*dx); return s*dx/3; }
+  return s*dx;
+}
+const fmt=(v,d=8)=>{ if(!isFinite(v)) return "—"; const a=Math.abs(v);
+  if(a!==0&&(a<1e-4||a>=1e7)) return v.toExponential(4).replace("e","×10^").replace("+",""); return v.toFixed(d).replace(/\.?0+$/,"")||"0"; };
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+const methodName={left:"extremo izquierdo",right:"extremo derecho",mid:"punto medio",trap:"trapecio",simp:"Simpson"};
+
+function draw(f,g,a,b,n,m,rs){
+  const cv=$("cv"), dpr=window.devicePixelRatio||1, W=cv.clientWidth, Hh=cv.clientHeight;
+  cv.width=W*dpr; cv.height=Hh*dpr; const c=cv.getContext("2d"); c.setTransform(dpr,0,0,dpr,0,0);
+  c.clearRect(0,0,W,Hh);
+  const pad=(b-a)*0.12||1, xmin=a-pad, xmax=b+pad;
+  const N=600, xs=[], fs=[], gs=[];
+  let ymin=Infinity,ymax=-Infinity;
+  for(let i=0;i<=N;i++){const x=xmin+(xmax-xmin)*i/N, yf=f(x), yg=g(x); xs.push(x); fs.push(yf); gs.push(yg);
+    if(x>=a-1e-12&&x<=b+1e-12) for(const y of [yf,yg]) if(isFinite(y)){ymin=Math.min(ymin,y);ymax=Math.max(ymax,y);} }
+  if(!isFinite(ymin)){ymin=-1;ymax=1}
+  ymin=Math.min(ymin,0); ymax=Math.max(ymax,0);
+  const yr=(ymax-ymin)||1; ymin-=yr*.12; ymax+=yr*.12;
+  const L=46,R=14,T=14,B=30, pw=W-L-R, ph=Hh-T-B;
+  const X=x=>L+(x-xmin)/(xmax-xmin)*pw, Y=y=>T+(ymax-y)/(ymax-ymin)*ph;
+  // grid
+  const step=v=>{const r=v/6,p=Math.pow(10,Math.floor(Math.log10(r))),q=r/p; return (q<1.5?1:q<3.5?2:q<7.5?5:10)*p;};
+  const sx=step(xmax-xmin), sy=step(ymax-ymin);
+  c.font="11px 'IBM Plex Mono', monospace"; c.lineWidth=1;
+  c.strokeStyle=css("--grid"); c.fillStyle=css("--muted");
+  for(let x=Math.ceil(xmin/sx)*sx;x<=xmax;x+=sx){c.beginPath();c.moveTo(X(x),T);c.lineTo(X(x),T+ph);c.stroke();
+    c.textAlign="center"; c.fillText(+x.toFixed(6),X(x),T+ph+16);}
+  for(let y=Math.ceil(ymin/sy)*sy;y<=ymax;y+=sy){c.beginPath();c.moveTo(L,Y(y));c.lineTo(L+pw,Y(y));c.stroke();
+    c.textAlign="right"; c.fillText(+y.toFixed(6),L-6,Y(y)+4);}
+  c.strokeStyle=css("--muted"); c.globalAlpha=.6;
+  if(ymin<0&&ymax>0){c.beginPath();c.moveTo(L,Y(0));c.lineTo(L+pw,Y(0));c.stroke();}
+  if(xmin<0&&xmax>0){c.beginPath();c.moveTo(X(0),T);c.lineTo(X(0),T+ph);c.stroke();}
+  c.globalAlpha=1;
+  c.save(); c.beginPath(); c.rect(L,T,pw,ph); c.clip();
+  // región exacta
+  c.fillStyle=css("--region"); c.beginPath();
+  const M=400, ra=[]; for(let i=0;i<=M;i++){const x=a+(b-a)*i/M; ra.push([x,f(x),g(x)]);}
+  ra.forEach(([x,yf],i)=>i?c.lineTo(X(x),Y(yf)):c.moveTo(X(x),Y(yf)));
+  for(let i=M;i>=0;i--) c.lineTo(X(ra[i][0]),Y(ra[i][2]));
+  c.closePath(); c.fill();
+  // aproximación
+  const dx=(b-a)/n; c.fillStyle=css("--approx"); c.strokeStyle=css("--approx-stroke"); c.lineWidth=1;
+  const showN = n<=100;
+  if(showN){
+    for(let i=0;i<n;i++){
+      const x0=a+i*dx,x1=x0+dx;
+      if(m==="trap"||m==="simp"){
+        c.beginPath(); c.moveTo(X(x0),Y(f(x0))); c.lineTo(X(x1),Y(f(x1))); c.lineTo(X(x1),Y(g(x1))); c.lineTo(X(x0),Y(g(x0))); c.closePath();
+        if(m==="trap"){c.fill(); c.stroke();}
+        else { c.save(); c.setLineDash([3,3]); c.stroke(); c.restore(); }
+      } else {
+        const xs_= m==="left"?x0:m==="right"?x1:(x0+x1)/2, y1=f(xs_), y2=g(xs_);
+        const top=Math.max(y1,y2), bot=Math.min(y1,y2);
+        c.fillRect(X(x0),Y(top),X(x1)-X(x0),Y(bot)-Y(top)); c.strokeRect(X(x0),Y(top),X(x1)-X(x0),Y(bot)-Y(top));
+        c.beginPath(); c.arc(X(xs_),Y(y1),2.5,0,7); c.arc(X(xs_),Y(y2),2.5,0,7); c.fillStyle=css("--approx-stroke"); c.fill(); c.fillStyle=css("--approx");
+      }
+    }
+    if(m==="simp"){ // parábolas por pares de subintervalos para |h| alrededor de g
+      c.fillStyle=css("--approx");
+      for(let i=0;i+1<n;i+=2){
+        const x0=a+i*dx, x2=x0+2*dx;
+        const p=t=>{ // interpolación cuadrática de f y g
+          const q=(F)=>{const y0=F(x0),y1=F(x0+dx),y2=F(x2),s=(t-x0)/dx; return y0*(s-1)*(s-2)/2 - y1*s*(s-2) + y2*s*(s-1)/2;};
+          return [q(f),q(g)];};
+        c.beginPath(); const K=30;
+        for(let k=0;k<=K;k++){const t=x0+(x2-x0)*k/K; const [yf]=p(t); k?c.lineTo(X(t),Y(yf)):c.moveTo(X(t),Y(yf));}
+        for(let k=K;k>=0;k--){const t=x0+(x2-x0)*k/K; const [,yg]=p(t); c.lineTo(X(t),Y(yg));}
+        c.closePath(); c.fill(); c.stroke();
+      }
+    }
+  }
+  // curvas
+  const curve=(arr,col)=>{c.strokeStyle=col;c.lineWidth=2.2;c.beginPath();let pen=false;
+    arr.forEach((y,i)=>{if(!isFinite(y)||Math.abs(y)>1e6){pen=false;return;} pen?c.lineTo(X(xs[i]),Y(y)):c.moveTo(X(xs[i]),Y(y)); pen=true;}); c.stroke();};
+  curve(fs,css("--f")); curve(gs,css("--g"));
+  // a, b
+  c.strokeStyle=css("--ink"); c.setLineDash([5,4]); c.lineWidth=1;
+  for(const v of [a,b]){c.beginPath();c.moveTo(X(v),T);c.lineTo(X(v),T+ph);c.stroke();}
+  c.setLineDash([]);
+  // intersecciones
+  c.fillStyle=css("--ink");
+  for(const r of rs){c.beginPath();c.arc(X(r),Y(f(r)),4,0,7);c.fill();}
+  // rectángulo representativo
+  const rx=a+(b-a)*(+$("rx").value/1000), w=Math.max((b-a)/40, (xmax-xmin)/120);
+  const yf=f(rx), yg=g(rx);
+  if(isFinite(yf)&&isFinite(yg)){
+    const top=Math.max(yf,yg), bot=Math.min(yf,yg);
+    c.fillStyle=css("--rep"); c.strokeStyle=css("--accent"); c.lineWidth=1.5;
+    c.fillRect(X(rx-w/2),Y(top),X(rx+w/2)-X(rx-w/2),Y(bot)-Y(top));
+    c.strokeRect(X(rx-w/2),Y(top),X(rx+w/2)-X(rx-w/2),Y(bot)-Y(top));
+    c.fillStyle=css("--ink");
+    for(const y of [yf,yg]){c.beginPath();c.arc(X(rx),Y(y),4.5,0,7);c.fill();}
+    c.font="italic 15px Newsreader, Georgia, serif"; c.textAlign="center";
+    const up=yf>=yg;
+    c.fillText("(x, f(x))",X(rx),Y(yf)+(up?-10:20));
+    c.fillText("(x, g(x))",X(rx),Y(yg)+(up?20:-10));
+    c.textAlign="left"; c.font="13px 'IBM Plex Mono', monospace"; c.fillStyle=css("--accent");
+    const lx=X(rx+w/2)+8, ly=(Y(top)+Y(bot))/2;
+    c.fillText(`h = |f − g| = ${fmt(Math.abs(yf-yg),4)}`, lx>W-170?X(rx-w/2)-200:lx, ly);
+  }
+  c.restore();
+  view={X:X,L:L,pw:pw,xmin:xmin,xmax:xmax,a:a,b:b};
+  c.fillStyle=css("--ink"); c.font="italic 14px Newsreader, Georgia, serif"; c.textAlign="center";
+  c.fillText("a",X(a),T+12); c.fillText("b",X(b),T+12);
+}
+
+function update(){
+  const err=$("err"); err.hidden=true;
+  let f,g,a,b; const m=$("method").value;
+  let n=+$("n").value;
+  if(m==="simp"&&n%2){ n+=1; if(n>100) n=100; $("n").value=n; }
+  $("nval").textContent=n;
+  try{ f=compile($("fx").value); g=compile($("gx").value); a=num($("a").value); b=num($("b").value);
+    if(!(b>a)) throw new Error("Se necesita a < b"); }
+  catch(e){ err.textContent=e.message; err.hidden=false; return; }
+  const h=x=>f(x)-g(x), rs=roots(h,a,b);
+  const E=exactArea(h,a,b,rs), Ap=approx(h,a,b,n,m), ab=Math.abs(Ap-E);
+  $("vExact").textContent=fmt(E,10);
+  $("sExact").textContent = presetExact ? "Valor cerrado: " + presetExact : "Integración adaptativa, tolerancia 10⁻¹²";
+  $("vApprox").textContent=fmt(Ap,10);
+  $("sApprox").textContent=`${methodName[m]}, n = ${n}, Δx = ${fmt((b-a)/n,6)}`;
+  $("vErr").textContent=fmt(ab,10);
+  $("sErr").textContent= E? `Relativo: ${fmt(ab/E*100,6)} %` : "";
+  // pasos
+  const inner = rs.filter(r=>r>a+1e-9&&r<b-1e-9);
+  const pts=[a,...inner,b]; const segs=[];
+  for(let i=0;i<pts.length-1;i++){const mid=(pts[i]+pts[i+1])/2, s=h(mid)>=0;
+    segs.push(`<li>En [${fmt(pts[i],4)}, ${fmt(pts[i+1],4)}] ${s?"f ≥ g":"g ≥ f"}, así que se integra <code>${s?"f − g":"g − f"}</code> = ${fmt(adapt(x=>Math.abs(h(x)),pts[i],pts[i+1],1e-12),8)}</li>`);}
+  $("steps").innerHTML =
+    `<li>Puntos de corte de f y g en [a, b]: ${rs.length? rs.map(r=>`x ≈ ${fmt(r,6)}`).join(", ") : "ninguno"}.</li>` + segs.join("") +
+    `<li>Sumando los tramos: A = ${fmt(E,10)}.</li>`;
+  // convergencia
+  const ns = m==="simp"?[2,4,8,16,32,64,128]:[1,2,4,8,16,32,64,128];
+  if(!ns.includes(n)) ns.push(n); ns.sort((x,y)=>x-y);
+  let prev=null, ratios=[];
+  $("conv").querySelector("tbody").innerHTML = ns.map(k=>{
+    const v=approx(h,a,b,k,m), e=Math.abs(v-E);
+    if(prev!==null&&e>1e-13&&[1,2,4,8,16,32,64,128].includes(k)) ratios.push(prev/e);
+    if([1,2,4,8,16,32,64,128].includes(k)) prev=e;
+    return `<tr class="${k===n?"cur":""}"><td>${k}</td><td>${fmt((b-a)/k,6)}</td><td>${fmt(v,10)}</td><td>${fmt(e,3)}</td><td>${E?fmt(e/E*100,4)+" %":"—"}</td></tr>`;
+  }).join("");
+  const expected={left:"≈ 2 (orden 1)",right:"≈ 2 (orden 1)",mid:"≈ 4 (orden 2)",trap:"≈ 4 (orden 2)",simp:"≈ 16 (orden 4)"}[m];
+  const last=ratios.slice(-3).filter(isFinite);
+  $("convHint").textContent = `Al duplicar n, el error se divide por ${expected} en funciones suaves.` +
+    (last.length? ` Aquí, en los últimos pasos: ${last.map(r=>r.toFixed(1)).join(", ")}.`:"") +
+    (inner.length? " Los puntos de corte crean esquinas en |f − g|, lo que puede frenar la convergencia.":"");
+  $("rxval").textContent=fmt(a+(b-a)*(+$("rx").value/1000),4);
+  draw(f,g,a,b,n,m,rs);
+}
+
+const chips=$("chips");
+PRESETS.forEach(p=>{const bt=document.createElement("button"); bt.type="button"; bt.className="chip";
+  bt.textContent=`${p.f} vs ${p.g}`; bt.onclick=()=>{ $("fx").value=p.f; $("gx").value=p.g; $("a").value=p.a; $("b").value=p.b; presetExact=p.exact; update(); };
+  chips.appendChild(bt);});
+["fx","gx","a","b"].forEach(id=>$(id).addEventListener("input",()=>{presetExact=null; update();}));
+["method","n","rx"].forEach(id=>$(id).addEventListener("input",update));
+const cvEl=$("cv"); let dragging=false;
+function moveRep(e){ if(!view) return; const r=cvEl.getBoundingClientRect(); const px=e.clientX-r.left;
+  const x=view.xmin+(px-view.L)/view.pw*(view.xmax-view.xmin);
+  const t=Math.min(1,Math.max(0,(x-view.a)/(view.b-view.a))); $("rx").value=Math.round(t*1000); update(); }
+cvEl.addEventListener("pointerdown",e=>{dragging=true; cvEl.setPointerCapture(e.pointerId); moveRep(e);});
+cvEl.addEventListener("pointermove",e=>{if(dragging) moveRep(e);});
+cvEl.addEventListener("pointerup",()=>dragging=false);
+cvEl.style.touchAction="pan-y"; cvEl.style.cursor="ew-resize";
+$("form").addEventListener("submit",e=>e.preventDefault());
+window.addEventListener("resize",update);
+if(window.matchMedia) matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change",update);
+new MutationObserver(update).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+document.fonts?.ready.then(update);
+update();
+</script>
