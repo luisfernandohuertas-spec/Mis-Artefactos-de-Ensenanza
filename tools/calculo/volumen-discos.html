@@ -1,0 +1,382 @@
+<title>Volumen por discos</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: cuaderno de cálculo — controles a la izquierda; sólido 3D arriba, perfil 2D y resultados debajo */
+:root{
+  --bg:#f3f5f8; --surface:#ffffff; --ink:#1b2433; --muted:#5d6878; --line:#d9dee6; --grid:#e8ecf2;
+  --f:#3a7fc1; --disk:#b08a52; --region:rgba(58,127,193,.18); --approx:rgba(176,138,82,.22);
+  --accent:#c0702a; --rep:rgba(232,196,120,.75);
+  --display:"Newsreader", Georgia, serif; --body:"IBM Plex Sans", system-ui, sans-serif; --mono:"IBM Plex Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#11151c; --surface:#181e27; --ink:#e6eaf0; --muted:#97a2b2; --line:#2b3442; --grid:#202834;
+  --f:#74aee6; --disk:#d6b27a; --region:rgba(116,174,230,.18); --approx:rgba(214,178,122,.22);
+  --accent:#f0a35e; --rep:rgba(232,196,120,.45); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11151c; --surface:#181e27; --ink:#e6eaf0; --muted:#97a2b2; --line:#2b3442; --grid:#202834;
+  --f:#74aee6; --disk:#d6b27a; --region:rgba(116,174,230,.18); --approx:rgba(214,178,122,.22);
+  --accent:#f0a35e; --rep:rgba(232,196,120,.45); color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px 40px}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+header h1{font-family:var(--display);font-weight:600;font-size:clamp(28px,4vw,40px);margin:0;text-wrap:balance;letter-spacing:-.01em}
+header p{margin:4px 0 0;color:var(--muted);max-width:70ch}
+.formula{font-family:var(--display);font-style:italic;font-size:20px;color:var(--ink)}
+.main{display:grid;grid-template-columns:330px minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:860px){.main{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+input,select{font:inherit;font-size:15px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px;text-transform:none;letter-spacing:0;font-weight:400;width:100%}
+input.fn{font-family:var(--mono)}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+input[type=range]{padding:0;accent-color:var(--accent);background:transparent;border:none}
+input[type=checkbox]{width:auto;accent-color:var(--accent)}
+.check{flex-direction:row;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:14px;font-weight:500;color:var(--ink)}
+.row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.nval{font-family:var(--mono);color:var(--ink);font-size:14px;text-transform:none;letter-spacing:0}
+.hint{font-size:12px;color:var(--muted);margin:0}
+.err{color:#c0392b;font-size:13px;margin:0}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:4px 10px;cursor:pointer;font-family:var(--mono)}
+.chip:hover{border-color:var(--accent)}
+.right{display:flex;flex-direction:column;gap:16px;min-width:0}
+.view{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px;min-width:0;position:relative}
+.view .tag{position:absolute;top:12px;left:16px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);pointer-events:none}
+#three{width:100%;height:420px;cursor:grab;touch-action:none}
+#three:active{cursor:grabbing}
+#three canvas{display:block}
+@media (max-width:500px){#three{height:320px}}
+.tools{position:absolute;top:8px;right:10px;display:flex;gap:6px}
+.btn{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:6px;padding:4px 10px;cursor:pointer}
+.btn[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+#cv{display:block;width:100%;height:300px}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--muted);padding:6px 8px 2px}
+.swatch{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.results{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:620px){.results{grid-template-columns:minmax(0,1fr)}}
+.res{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;min-width:0}
+.res .k{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.res .v{font-family:var(--mono);font-size:22px;font-weight:500;margin-top:4px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.res .s{font-size:13px;color:var(--muted);margin-top:2px;overflow-wrap:anywhere}
+.res.exact .v{color:var(--f)} .res.approx .v{color:var(--disk)}
+h2{font-family:var(--display);font-weight:600;font-size:22px;margin:0}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:right;padding:6px 10px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums;white-space:nowrap}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
+td{font-family:var(--mono)}
+th:first-child,td:first-child{text-align:left}
+tr.cur td{color:var(--accent);font-weight:500}
+.steps{font-size:14px;margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px}
+.steps code{font-family:var(--mono);font-size:13px}
+.big{font-family:var(--display);font-style:italic;font-size:18px}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Volumen por discos</h1>
+    <p><span class="formula">V = π ∫<sub>a</sub><sup>b</sup> [R(x)]² dx</span>, con R(x) = |f(x) − c| el radio de cada disco al girar la región alrededor de la recta y = c. Compara el volumen exacto con la suma de n discos.</p>
+  </header>
+
+  <div class="main">
+    <form class="panel" id="form" autocomplete="off">
+      <label for="fx"><span><span class="swatch" style="background:var(--f)"></span>f(x)</span>
+        <input class="fn" id="fx" value="1/(1 + x^2)"></label>
+      <div class="row">
+        <label for="a">a <input id="a" type="text" inputmode="decimal" value="0"></label>
+        <label for="b">b <input id="b" type="text" inputmode="decimal" value="2"></label>
+        <label for="c">eje y = c <input id="c" type="text" inputmode="decimal" value="0"></label>
+      </div>
+      <label for="method">Altura de cada disco
+        <select id="method">
+          <option value="left">Extremo izquierdo</option>
+          <option value="right">Extremo derecho</option>
+          <option value="mid" selected>Punto medio</option>
+        </select></label>
+      <label for="n">Número de discos n = <span class="nval" id="nval">8</span>
+        <input id="n" type="range" min="1" max="80" value="8"></label>
+      <label for="rx">Disco representativo en x = <span class="nval" id="rxval">—</span>
+        <input id="rx" type="range" min="0" max="1000" value="280"></label>
+      <label for="layout">Vista 3D
+        <select id="layout">
+          <option value="side" selected>Lado a lado: sólido | n discos</option>
+          <option value="over">Superpuestos</option>
+        </select></label>
+      <label class="check" for="showSolid"><input id="showSolid" type="checkbox" checked> Mostrar sólido exacto</label>
+      <label class="check" for="showDisks"><input id="showDisks" type="checkbox" checked> Mostrar discos</label>
+      <p class="err" id="err" hidden></p>
+      <p class="hint">Usa <code>^</code> para potencias y <code>sin</code>, <code>cos</code>, <code>exp</code>, <code>ln</code>, <code>sqrt</code>, <code>abs</code>, <code>pi</code>, <code>e</code>. En a, b y c puedes escribir expresiones como <code>pi/2</code>.</p>
+      <div>
+        <p class="hint" style="margin-bottom:6px">Ejemplos con volumen exacto conocido (eje y = 0)</p>
+        <div class="chips" id="chips"></div>
+      </div>
+    </form>
+
+    <div class="right">
+      <div class="view">
+        <span class="tag">Sólido de revolución · arrastra para girar</span>
+        <div class="tools"><button type="button" class="btn" id="spin" aria-pressed="false">Girar</button><button type="button" class="btn" id="reset">Vista inicial</button></div>
+        <div id="three"></div>
+        <div class="legend">
+          <span><span class="swatch" style="background:var(--f)"></span>Sólido de revolución</span>
+          <span><span class="swatch" style="background:var(--disk)"></span>Aproximación por n discos</span>
+          <span><span class="swatch" style="background:var(--accent)"></span>Disco representativo</span>
+        </div>
+      </div>
+
+      <div class="results">
+        <div class="res exact"><div class="k">Volumen exacto</div><div class="v" id="vExact">—</div><div class="s" id="sExact"></div></div>
+        <div class="res approx"><div class="k">Suma de discos</div><div class="v" id="vApprox">—</div><div class="s" id="sApprox"></div></div>
+        <div class="res"><div class="k">Error</div><div class="v" id="vErr">—</div><div class="s" id="sErr"></div></div>
+      </div>
+
+      <div class="view">
+        <span class="tag">Región plana, rectángulos y rectángulo representativo</span>
+        <canvas id="cv" aria-label="Perfil de f, su reflejo respecto al eje y los rectángulos"></canvas>
+      </div>
+
+      <div class="panel">
+        <h2>Cómo se calcula</h2>
+        <ol class="steps" id="steps"></ol>
+      </div>
+
+      <div class="panel">
+        <h2>Convergencia</h2>
+        <div class="tablewrap"><table id="conv"><thead><tr><th>n</th><th>Δx</th><th>Suma de discos</th><th>Error absoluto</th><th>Error relativo</th></tr></thead><tbody></tbody></table></div>
+        <p class="hint" id="convHint"></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const PRESETS=[
+  {f:"1/(1 + x^2)",a:"0",b:"2",exact:"π(1/5 + arctan(2)/2)"},
+  {f:"sqrt(x)",a:"0",b:"4",exact:"8π"},
+  {f:"x",a:"0",b:"3",exact:"9π (cono)"},
+  {f:"x^2",a:"0",b:"1",exact:"π/5"},
+  {f:"sqrt(4 - x^2)",a:"-2",b:"2",exact:"32π/3 (esfera)"},
+  {f:"sin(x)",a:"0",b:"pi",exact:"π²/2"},
+  {f:"1/x",a:"1",b:"3",exact:"2π/3"},
+];
+let presetExact=PRESETS[0].exact;
+
+function compile(src){
+  let s=String(src).trim(); if(!s) throw new Error("Expresión vacía");
+  if(/[^0-9a-zA-Z_+\-*/^().,\s]/.test(s)) throw new Error("Carácter no permitido en: "+src);
+  s=s.replace(/\bln\b/g,"log").replace(/\^/g,"**").replace(/(\d)\s*([a-zA-Z(])/g,"$1*$2").replace(/\)\s*\(/g,")*(");
+  const ok=["x","sin","cos","tan","asin","acos","atan","sinh","cosh","tanh","exp","log","log10","log2","sqrt","cbrt","abs","pi","e","sec","csc","cot","floor","ceil","sign"];
+  for(const w of s.match(/[a-zA-Z_]\w*/g)||[]) if(!ok.includes(w)) throw new Error("Desconocido: "+w);
+  const fn=new Function("x",`const {sin,cos,tan,asin,acos,atan,sinh,cosh,tanh,exp,log,log10,log2,sqrt,cbrt,abs,floor,ceil,sign}=Math;
+    const pi=Math.PI,e=Math.E,sec=t=>1/Math.cos(t),csc=t=>1/Math.sin(t),cot=t=>1/Math.tan(t); return (${s});`);
+  fn(0.5); return fn;
+}
+const num=s=>{const v=compile(s)(0); if(!isFinite(v)) throw new Error("Valor no válido: "+s); return v;};
+function adapt(F,a,b,eps){
+  const S=(a,b,fa,fm,fb)=>(b-a)/6*(fa+4*fm+fb);
+  function rec(a,b,fa,fm,fb,w,eps,d){const m=(a+b)/2,l=(a+m)/2,r=(m+b)/2,fl=F(l),fr=F(r),L=S(a,m,fa,fl,fm),R=S(m,b,fm,fr,fb);
+    if(d<=0||Math.abs(L+R-w)<=15*eps) return L+R+(L+R-w)/15; return rec(a,m,fa,fl,fm,L,eps/2,d-1)+rec(m,b,fm,fr,fb,R,eps/2,d-1);}
+  const fa=F(a),fb=F(b),fm=F((a+b)/2); return rec(a,b,fa,fm,fb,S(a,b,fa,fm,fb),eps,50);
+}
+// Evita evaluar exactamente en extremos singulares
+const safe=F=>x=>{const v=F(x); return isFinite(v)?v:0;};
+function diskSum(R,a,b,n,m){const dx=(b-a)/n;let s=0;for(let i=0;i<n;i++){const x=m==="left"?a+i*dx:m==="right"?a+(i+1)*dx:a+(i+.5)*dx;const r=R(x);s+=Math.PI*r*r;}return s*dx;}
+const fmt=(v,d=8)=>{if(!isFinite(v))return "—";const A=Math.abs(v);if(A!==0&&(A<1e-4||A>=1e7))return v.toExponential(4).replace("e","×10^").replace("+","");return v.toFixed(d).replace(/\.?0+$/,"")||"0";};
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function colorOf(n){const s=css(n); if(s.startsWith("rgba")){const p=s.match(/[\d.]+/g);return new THREE.Color(p[0]/255,p[1]/255,p[2]/255);} return new THREE.Color(s);}
+
+/* ---------- 3D ---------- */
+const host=$("three");
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
+host.appendChild(renderer.domElement);
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(35,1,0.1,100);
+camera.position.set(0,0,11);
+scene.add(new THREE.AmbientLight(0xffffff,.55));
+const sun=new THREE.DirectionalLight(0xffffff,.75); sun.position.set(4,6,8); scene.add(sun);
+const fill=new THREE.DirectionalLight(0xffffff,.3); fill.position.set(-6,-3,-4); scene.add(fill);
+const world=new THREE.Group(); scene.add(world);
+const INIT={x:-0.45,y:-0.6};
+world.rotation.set(INIT.x,INIT.y,0);
+let content=null, spinning=false;
+
+function disposeTree(o){o.traverse(ch=>{ch.geometry&&ch.geometry.dispose();if(ch.material){(Array.isArray(ch.material)?ch.material:[ch.material]).forEach(m=>m.dispose());}});}
+
+function build3D(R,a,b,n,m,rx){
+  if(content){world.remove(content);disposeTree(content);}
+  content=new THREE.Group();
+  const side=$("layout").value==="side";
+  const showS=$("showSolid").checked, showD=$("showDisks").checked;
+  const M=160; let maxR=0; const pts=[];
+  for(let i=0;i<=M;i++){const x=a+(b-a)*i/M, r=R(x); maxR=Math.max(maxR,r); pts.push([x,r]);}
+  const both=side&&showS&&showD;
+  const span=Math.max(b-a,2*maxR,1e-6), k=(both?3.0:5.2)/span, cx=(a+b)/2;
+  const Y=x=>(x-cx)*k, dx=(b-a)/n;
+  const ink=colorOf("--ink"), muted=colorOf("--muted");
+  const L=(b-a)*k, gap=0.9;
+  function makeAxisGroup(offset){
+    const outer=new THREE.Group(); outer.position.x=offset; content.add(outer);
+    const g=new THREE.Group(); g.rotation.z=-Math.PI/2; outer.add(g);
+    const axLen=L/2+0.7;
+    const geo=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,-axLen,0),new THREE.Vector3(0,axLen,0)]);
+    const line=new THREE.Line(geo,new THREE.LineDashedMaterial({color:muted,dashSize:.15,gapSize:.1})); line.computeLineDistances(); g.add(line);
+    return g;
+  }
+  function addSolid(g,opacity){
+    const lp=pts.map(([x,r])=>new THREE.Vector2(Math.max(r*k,1e-4),Y(x)));
+    g.add(new THREE.Mesh(new THREE.LatheGeometry(lp,72),
+      new THREE.MeshPhongMaterial({color:colorOf("--f"),transparent:opacity<1,opacity,side:THREE.DoubleSide,depthWrite:opacity>.5,shininess:45})));
+    const lm=new THREE.LineBasicMaterial({color:colorOf("--f"),transparent:true,opacity:.6});
+    for(let j=0;j<8;j++){const t=j/8*Math.PI*2;
+      g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts.map(([x,r])=>new THREE.Vector3(r*k*Math.cos(t),Y(x),r*k*Math.sin(t)))),lm));}
+  }
+  function addDisks(g){
+    const dmat=new THREE.MeshPhongMaterial({color:colorOf("--disk"),shininess:30});
+    const edge=new THREE.LineBasicMaterial({color:ink,transparent:true,opacity:.35});
+    for(let i=0;i<n;i++){
+      const x0=a+i*dx, xs=m==="left"?x0:m==="right"?x0+dx:x0+dx/2, r=R(xs);
+      if(r*k<1e-4) continue;
+      const geo=new THREE.CylinderGeometry(r*k,r*k,dx*k*0.96,64,1);
+      const mesh=new THREE.Mesh(geo,dmat); mesh.position.y=Y(x0+dx/2); g.add(mesh);
+      const el=new THREE.LineSegments(new THREE.EdgesGeometry(geo,30),edge); el.position.y=mesh.position.y; g.add(el);
+    }
+  }
+  function addRep(g){
+    // disco representativo con grosor Δx, como en la figura
+    const rr=R(rx); if(rr*k<1e-4) return;
+    const geo=new THREE.CylinderGeometry(rr*k*1.015,rr*k*1.015,dx*k,72,1);
+    g.add(Object.assign(new THREE.Mesh(geo,new THREE.MeshPhongMaterial({color:colorOf("--accent"),shininess:35})),{}));
+    g.children[g.children.length-1].position.y=Y(rx);
+    const rad=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,Y(rx)+dx*k/2+0.002,0),new THREE.Vector3(rr*k*1.015,Y(rx)+dx*k/2+0.002,0)]);
+    g.add(new THREE.Line(rad,new THREE.LineBasicMaterial({color:ink})));
+  }
+  if(both){
+    const off=L/2+gap/2;
+    const gs=makeAxisGroup(-off); addSolid(gs,.85); addRep(gs);
+    const gd=makeAxisGroup(off); addDisks(gd);
+  } else {
+    const g=makeAxisGroup(0);
+    if(showS) addSolid(g, showD?.22:.85);
+    if(showD) addDisks(g);
+    addRep(g);
+  }
+  world.add(content); render();
+}
+function resize3D(){const w=host.clientWidth,h=host.clientHeight;renderer.setSize(w,h,false);renderer.domElement.style.width=w+"px";renderer.domElement.style.height=h+"px";camera.aspect=w/h;camera.updateProjectionMatrix();render();}
+function render(){renderer.render(scene,camera);}
+let drag=null;
+host.addEventListener("pointerdown",e=>{drag={x:e.clientX,y:e.clientY};host.setPointerCapture(e.pointerId);});
+host.addEventListener("pointermove",e=>{if(!drag)return;world.rotation.y+=(e.clientX-drag.x)*0.01;world.rotation.x+=(e.clientY-drag.y)*0.01;
+  world.rotation.x=Math.max(-1.5,Math.min(1.5,world.rotation.x));drag={x:e.clientX,y:e.clientY};render();});
+host.addEventListener("pointerup",()=>drag=null);
+host.addEventListener("wheel",e=>{e.preventDefault();camera.position.z=Math.max(5,Math.min(25,camera.position.z*(1+Math.sign(e.deltaY)*0.08)));render();},{passive:false});
+const reduce=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;
+function loop(){if(!spinning)return;world.rotation.y+=0.006;render();requestAnimationFrame(loop);}
+$("spin").onclick=()=>{spinning=!spinning;$("spin").setAttribute("aria-pressed",spinning);if(spinning)loop();};
+$("reset").onclick=()=>{world.rotation.set(INIT.x,INIT.y,0);camera.position.z=11;render();};
+
+/* ---------- 2D ---------- */
+function draw2D(f,c,a,b,n,m,rx){
+  const cv=$("cv"),dpr=window.devicePixelRatio||1,W=cv.clientWidth,H=cv.clientHeight;
+  cv.width=W*dpr;cv.height=H*dpr;const g=cv.getContext("2d");g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,W,H);
+  const pad=(b-a)*.08||1,xmin=a-pad,xmax=b+pad;
+  let ymin=c,ymax=c; const N=400;
+  for(let i=0;i<=N;i++){const x=a+(b-a)*i/N,y=f(x);if(isFinite(y)){const r=Math.abs(y-c);ymin=Math.min(ymin,c-r);ymax=Math.max(ymax,c+r);}}
+  const yr=(ymax-ymin)||1;ymin-=yr*.1;ymax+=yr*.1;
+  const L=46,R_=14,T=30,B=28,pw=W-L-R_,ph=H-T-B;
+  const X=x=>L+(x-xmin)/(xmax-xmin)*pw, Y=y=>T+(ymax-y)/(ymax-ymin)*ph;
+  const step=v=>{const r=v/6,p=Math.pow(10,Math.floor(Math.log10(r))),q=r/p;return(q<1.5?1:q<3.5?2:q<7.5?5:10)*p;};
+  const sx=step(xmax-xmin),sy=step(ymax-ymin);
+  g.font="11px 'IBM Plex Mono', monospace";g.lineWidth=1;g.strokeStyle=css("--grid");g.fillStyle=css("--muted");
+  for(let x=Math.ceil(xmin/sx)*sx;x<=xmax;x+=sx){g.beginPath();g.moveTo(X(x),T);g.lineTo(X(x),T+ph);g.stroke();g.textAlign="center";g.fillText(+x.toFixed(6),X(x),T+ph+16);}
+  for(let y=Math.ceil(ymin/sy)*sy;y<=ymax;y+=sy){g.beginPath();g.moveTo(L,Y(y));g.lineTo(L+pw,Y(y));g.stroke();g.textAlign="right";g.fillText(+y.toFixed(6),L-6,Y(y)+4);}
+  g.save();g.beginPath();g.rect(L,T,pw,ph);g.clip();
+  // región y su reflejo
+  g.fillStyle=css("--region");g.beginPath();
+  for(let i=0;i<=N;i++){const x=a+(b-a)*i/N,y=f(x);i?g.lineTo(X(x),Y(y)):g.moveTo(X(x),Y(y));}
+  for(let i=N;i>=0;i--){const x=a+(b-a)*i/N,y=2*c-f(x);g.lineTo(X(x),Y(y));}
+  g.closePath();g.fill();
+  // rectángulos
+  const dx=(b-a)/n;g.fillStyle=css("--approx");g.strokeStyle=css("--disk");
+  for(let i=0;i<n;i++){const x0=a+i*dx,xs=m==="left"?x0:m==="right"?x0+dx:x0+dx/2,y=f(xs);if(!isFinite(y))continue;
+    const top=Math.max(y,c),bot=Math.min(y,c);g.fillRect(X(x0),Y(top),X(x0+dx)-X(x0),Y(bot)-Y(top));g.strokeRect(X(x0),Y(top),X(x0+dx)-X(x0),Y(bot)-Y(top));}
+  // curvas
+  const curve=(F,col,dash)=>{g.strokeStyle=col;g.lineWidth=2.2;g.setLineDash(dash);g.beginPath();let pen=false;
+    for(let i=0;i<=600;i++){const x=xmin+(xmax-xmin)*i/600,y=F(x);if(!isFinite(y)||Math.abs(y)>1e6){pen=false;continue;}pen?g.lineTo(X(x),Y(y)):g.moveTo(X(x),Y(y));pen=true;}g.stroke();g.setLineDash([]);};
+  curve(f,css("--f"),[]); curve(x=>2*c-f(x),css("--f"),[4,4]);
+  // eje de giro
+  g.strokeStyle=css("--ink");g.lineWidth=1.2;g.setLineDash([8,5]);g.beginPath();g.moveTo(L,Y(c));g.lineTo(L+pw,Y(c));g.stroke();g.setLineDash([5,4]);g.lineWidth=1;
+  for(const v of [a,b]){g.beginPath();g.moveTo(X(v),T);g.lineTo(X(v),T+ph);g.stroke();}g.setLineDash([]);
+  // rectángulo representativo (ancho Δx, altura R)
+  const yr_=f(rx);
+  if(isFinite(yr_)){
+    const x0=rx-dx/2,x1=rx+dx/2,top=Math.max(yr_,c),bot=Math.min(yr_,c);
+    g.fillStyle=css("--rep");g.strokeStyle=css("--accent");g.lineWidth=1.6;
+    g.fillRect(X(x0),Y(top),X(x1)-X(x0),Y(bot)-Y(top));g.strokeRect(X(x0),Y(top),X(x1)-X(x0),Y(bot)-Y(top));
+    g.fillStyle=css("--ink");g.beginPath();g.arc(X(rx),Y(yr_),3.5,0,7);g.fill();
+    // llave R a la izquierda
+    g.strokeStyle=css("--ink");g.lineWidth=1.2;const bx=X(x0)-6;
+    g.beginPath();g.moveTo(bx+4,Y(top));g.lineTo(bx,Y(top));g.lineTo(bx,Y(bot));g.lineTo(bx+4,Y(bot));g.stroke();
+    g.font="italic 16px Newsreader, Georgia, serif";g.textAlign="right";g.fillText("R",bx-4,(Y(top)+Y(bot))/2+5);
+    // llave Δx debajo
+    const by=Y(bot)+8;g.beginPath();g.moveTo(X(x0),by-4);g.lineTo(X(x0),by);g.lineTo(X(x1),by);g.lineTo(X(x1),by-4);g.stroke();
+    g.textAlign="center";g.fillText("Δx",(X(x0)+X(x1))/2,by+16);
+    g.font="13px 'IBM Plex Mono', monospace";g.textAlign="left";g.fillStyle=css("--accent");
+    const lbl=`R = ${fmt(Math.abs(yr_-c),4)}`;const tx=X(x1)+8>W-110?X(x0)-120:X(x1)+8;
+    g.fillText(lbl,tx,Y(top)+16);
+  }
+  g.restore();
+  g.fillStyle=css("--ink");g.font="italic 14px Newsreader, Georgia, serif";g.textAlign="center";
+  g.fillText("a",X(a),T-6);g.fillText("b",X(b),T-6);
+  g.textAlign="left";g.fillText(`eje y = ${fmt(c,4)}`,L+6,Math.min(T+ph-4,Math.max(T+14,Y(c)-6)));
+}
+
+/* ---------- actualización ---------- */
+function update(){
+  const err=$("err");err.hidden=true;
+  let f,a,b,c;const m=$("method").value,n=+$("n").value;$("nval").textContent=n;
+  try{f=safe(compile($("fx").value));a=num($("a").value);b=num($("b").value);c=num($("c").value);if(!(b>a))throw new Error("Se necesita a < b");}
+  catch(e){err.textContent=e.message;err.hidden=false;return;}
+  const R=x=>Math.abs(f(x)-c), R2=x=>{const r=R(x);return r*r;};
+  const rx=a+(b-a)*(+$("rx").value/1000); $("rxval").textContent=fmt(rx,4);
+  const eps=1e-7*(b-a); const E=Math.PI*adapt(R2,a+eps*0,b,1e-12);
+  const Ap=diskSum(R,a,b,n,m),ab=Math.abs(Ap-E);
+  $("vExact").textContent=fmt(E,10);
+  $("sExact").textContent=presetExact&&c===0?`Valor cerrado: ${presetExact}`:`= ${fmt(E/Math.PI,8)} · π`;
+  $("vApprox").textContent=fmt(Ap,10);
+  $("sApprox").textContent=`${n} discos, Δx = ${fmt((b-a)/n,6)}`;
+  $("vErr").textContent=fmt(ab,10);$("sErr").textContent=E?`Relativo: ${fmt(ab/E*100,6)} %`:"";
+  const dx=(b-a)/n, rr=R(rx);
+  $("steps").innerHTML=
+    `<li>Al girar la región alrededor de y = ${fmt(c,4)}, cada corte perpendicular al eje es un disco de radio <code>R(x) = |f(x) − ${fmt(c,4)}|</code> y área <code>π R(x)²</code>.</li>`+
+    `<li>Disco representativo en x = ${fmt(rx,4)}: R = ${fmt(rr,6)}, área de la cara = ${fmt(Math.PI*rr*rr,6)}.</li>`+
+    `<li>Cada disco tiene grosor Δx = (b − a)/n = ${fmt(dx,6)}, así que su volumen es <code>π R(x<sub>i</sub>*)² Δx</code>.</li>`+
+    `<li>Sumando n = ${n} discos: <span class="big">V ≈ Σ π R(x<sub>i</sub>*)² Δx</span> = ${fmt(Ap,8)}.</li>`+
+    `<li>Cuando n → ∞ la suma tiende a la integral: <span class="big">V = π ∫ R(x)² dx</span> = ${fmt(E,10)}.</li>`;
+  const ns=[1,2,4,8,16,32,64,128,256];if(!ns.includes(n))ns.push(n);ns.sort((p,q)=>p-q);
+  let prev=null;const ratios=[];
+  $("conv").querySelector("tbody").innerHTML=ns.map(k=>{const v=diskSum(R,a,b,k,m),e=Math.abs(v-E);
+    const pow=[1,2,4,8,16,32,64,128,256].includes(k);if(pow){if(prev!==null&&e>1e-13)ratios.push(prev/e);prev=e;}
+    return `<tr class="${k===n?"cur":""}"><td>${k}</td><td>${fmt((b-a)/k,6)}</td><td>${fmt(v,10)}</td><td>${fmt(e,3)}</td><td>${E?fmt(e/E*100,4)+" %":"—"}</td></tr>`;}).join("");
+  const exp=m==="mid"?"≈ 4 (orden 2)":"≈ 2 (orden 1)";const last=ratios.slice(-3).filter(isFinite);
+  $("convHint").textContent=`Al duplicar n, el error se divide por ${exp} cuando R(x)² es suave.`+(last.length?` Aquí: ${last.map(r=>r.toFixed(1)).join(", ")}.`:"");
+  draw2D(f,c,a,b,n,m,rx);
+  build3D(R,a,b,n,m,rx);
+}
+
+PRESETS.forEach(p=>{const bt=document.createElement("button");bt.type="button";bt.className="chip";bt.textContent=`${p.f} en [${p.a}, ${p.b}]`;
+  bt.onclick=()=>{$("fx").value=p.f;$("a").value=p.a;$("b").value=p.b;$("c").value="0";presetExact=p.exact;update();};$("chips").appendChild(bt);});
+["fx","a","b"].forEach(id=>$(id).addEventListener("input",()=>{presetExact=null;update();}));
+["c","method","n","rx","showSolid","showDisks","layout"].forEach(id=>$(id).addEventListener("input",update));
+$("form").addEventListener("submit",e=>e.preventDefault());
+const ro=new ResizeObserver(()=>{resize3D();update();});ro.observe(host);
+window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change",update);
+new MutationObserver(update).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+document.fonts?.ready.then(update);
+resize3D();update();
+</script>
