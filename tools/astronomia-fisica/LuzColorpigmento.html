@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El color de los objetos: iluminación RGB y pigmentos</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f4f2ed;--panel:#fff;--ink:#1c222c;--muted:#5d6675;--line:#e1dcd1;--accent:#6b4fd0;--r:#e0352f;--g:#1fa64a;--b:#2f5fe0}
+@media (prefers-color-scheme:dark){:root{--bg:#111419;--panel:#1a1f27;--ink:#e8eaee;--muted:#9aa3b2;--line:#2b3240}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans",system-ui,sans-serif;line-height:1.55}
+.wrap{max-width:1180px;margin:0 auto;padding:40px 22px 64px}
+.kicker{font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
+h1{font-family:Fraunces,serif;font-weight:700;font-size:clamp(28px,4.4vw,46px);line-height:1.08;margin:0 0 12px}
+h2{font-family:Fraunces,serif;font-weight:500;font-size:26px;margin:52px 0 6px}
+h3{margin:0 0 8px;font-size:16px}
+.lead{color:var(--muted);max-width:800px;margin:0 0 20px;font-size:16.5px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px}
+.lab{display:grid;grid-template-columns:1.55fr 1fr;gap:20px}
+@media (max-width:950px){.lab{grid-template-columns:1fr}}
+svg{display:block;width:100%;height:auto;border-radius:12px}
+.obj{cursor:pointer}
+.obj .ring{fill:none;stroke:transparent;stroke-width:3;stroke-dasharray:6 5}
+.obj.sel .ring{stroke:#fff}
+.sl{display:grid;grid-template-columns:22px 1fr 44px;align-items:center;gap:10px;margin:6px 0}
+.sl b{font-family:"IBM Plex Mono",monospace}
+.sl output{font-family:"IBM Plex Mono",monospace;font-size:13px;color:var(--muted);text-align:right}
+input[type=range]{width:100%}
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0 4px}
+.chip{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:99px;padding:5px 11px 5px 7px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.chip i{width:14px;height:14px;border-radius:50%;border:1px solid rgba(0,0,0,.25);display:inline-block}
+.chip:hover{border-color:var(--muted)}
+.sep{border:none;border-top:1px solid var(--line);margin:18px 0}
+.detail-head{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.swatch{width:46px;height:46px;border-radius:10px;border:1px solid var(--line)}
+.detail-head .t{font-family:Fraunces,serif;font-size:22px;font-weight:500;line-height:1.1}
+.detail-head .s{font-size:13px;color:var(--muted)}
+.chan{display:grid;grid-template-columns:62px 1fr 1fr 1fr;gap:8px;align-items:center;font-size:12.5px}
+.chan.h{color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+.chan+.chan{margin-top:6px}
+.bar{height:14px;border-radius:4px;background:var(--line);overflow:hidden;position:relative}
+.bar i{display:block;height:100%;transition:width .25s}
+.explain{margin-top:14px;padding:12px 14px;border-radius:12px;background:var(--bg);font-size:14.5px}
+.explain ul{margin:6px 0 0;padding-left:18px}
+.result{font-weight:600}
+.equation{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;font-family:"IBM Plex Mono",monospace;font-size:13px;color:var(--muted)}
+.equation span.sw{width:30px;height:30px;border-radius:8px;border:1px solid var(--line);display:inline-block}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media (max-width:850px){.two{grid-template-columns:1fr}}
+canvas{width:100%;display:block;border-radius:12px}
+.cap{font-size:14px;color:var(--muted);margin:10px 0 0}
+table{width:100%;border-collapse:collapse;font-size:14.5px}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+tr:last-child td{border-bottom:none}
+.quiz{display:grid;grid-template-columns:1fr 1.2fr;gap:20px;align-items:center}
+@media (max-width:850px){.quiz{grid-template-columns:1fr}}
+.qbtns{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
+.qbtn{font:inherit;font-size:13.5px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:10px;padding:8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px}
+.qbtn i{width:28px;height:28px;border-radius:6px;border:1px solid rgba(0,0,0,.2)}
+.qbtn.ok{outline:3px solid var(--g)}
+.qbtn.bad{outline:3px solid var(--r);opacity:.7}
+.btn{font:inherit;font-size:14px;border:1px solid var(--ink);background:var(--ink);color:var(--bg);border-radius:99px;padding:8px 16px;cursor:pointer}
+.fb{min-height:48px;margin-top:12px;font-size:14.5px}
+.score{font-family:"IBM Plex Mono",monospace;font-size:13px;color:var(--muted)}
+.note{font-size:13px;color:var(--muted);margin-top:30px;border-top:1px solid var(--line);padding-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="kicker">Óptica · Percepción del color</div>
+<h1>¿De qué color es un objeto? Depende de la luz</h1>
+<p class="lead">Un objeto no “tiene” color por sí solo. Su <b>pigmento</b> absorbe parte de la luz que recibe y refleja el resto; lo que llega a nuestros ojos es la luz reflejada. Por eso el mismo objeto cambia de color cuando cambia la <b>iluminación</b>. Ajusta la lámpara y observa la escena.</p>
+
+<div class="panel lab">
+  <div>
+    <svg id="scene" viewBox="0 0 720 470" aria-label="Escena iluminada"></svg>
+    <p class="cap">Haz clic en un objeto para analizarlo. El brillo blanco de cada objeto (reflejo especular) toma siempre el color de la lámpara, no el del pigmento.</p>
+  </div>
+  <div>
+    <h3>Lámpara RGB</h3>
+    <div class="sl"><b style="color:var(--r)">R</b><input type="range" id="lr" min="0" max="100" value="100"><output id="or">100 %</output></div>
+    <div class="sl"><b style="color:var(--g)">G</b><input type="range" id="lg" min="0" max="100" value="100"><output id="og">100 %</output></div>
+    <div class="sl"><b style="color:var(--b)">B</b><input type="range" id="lb" min="0" max="100" value="100"><output id="ob">100 %</output></div>
+    <div class="chips" id="lightPresets"></div>
+    <hr class="sep">
+    <div class="detail-head"><div class="swatch" id="dSw"></div><div><div class="t" id="dName"></div><div class="s" id="dSub"></div></div></div>
+    <div class="chan h"><span></span><span>Luz que llega</span><span>Reflectancia del pigmento</span><span>Luz reflejada</span></div>
+    <div id="chans"></div>
+    <div class="equation"><span>luz</span><span class="sw" id="eL"></span><span>×</span><span>pigmento</span><span class="sw" id="eP"></span><span>=</span><span class="sw" id="eR"></span><span id="eName"></span></div>
+    <div class="explain" id="explain"></div>
+  </div>
+</div>
+
+<h2>Dos maneras de mezclar color</h2>
+<p class="lead">Con <b>luces</b> se suma: cada foco añade longitudes de onda (mezcla aditiva, primarios RGB). Con <b>pigmentos</b> se resta: cada tinta absorbe una parte de la luz blanca (mezcla sustractiva, primarios CMY).</p>
+<div class="two">
+  <div class="panel">
+    <h3>Mezcla aditiva: tres focos sobre una pared oscura</h3>
+    <canvas id="add" width="600" height="420"></canvas>
+    <div class="sl"><b style="color:var(--r)">R</b><input type="range" id="ar" min="0" max="100" value="100"><output id="oar">100 %</output></div>
+    <div class="sl"><b style="color:var(--g)">G</b><input type="range" id="ag" min="0" max="100" value="100"><output id="oag">100 %</output></div>
+    <div class="sl"><b style="color:var(--b)">B</b><input type="range" id="ab" min="0" max="100" value="100"><output id="oab">100 %</output></div>
+    <p class="cap">R + G = amarillo · G + B = cian · R + B = magenta · R + G + B = blanco</p>
+  </div>
+  <div class="panel">
+    <h3>Mezcla sustractiva: tres tintas sobre papel blanco</h3>
+    <canvas id="sub" width="600" height="420"></canvas>
+    <div class="sl"><b style="color:#0aa5b8">C</b><input type="range" id="sc" min="0" max="100" value="100"><output id="osc">100 %</output></div>
+    <div class="sl"><b style="color:#c4249e">M</b><input type="range" id="sm" min="0" max="100" value="100"><output id="osm">100 %</output></div>
+    <div class="sl"><b style="color:#c9a800">Y</b><input type="range" id="sy" min="0" max="100" value="100"><output id="osy">100 %</output></div>
+    <p class="cap">El cian absorbe el rojo · el magenta absorbe el verde · el amarillo absorbe el azul. Las tres juntas absorben casi todo: negro.</p>
+  </div>
+</div>
+
+<h2>Luz frente a pigmento</h2>
+<div class="panel" style="overflow-x:auto">
+<table>
+  <thead><tr><th></th><th>Luz (síntesis aditiva)</th><th>Pigmento (síntesis sustractiva)</th></tr></thead>
+  <tbody>
+    <tr><td><b>Primarios</b></td><td>Rojo, verde, azul (RGB)</td><td>Cian, magenta, amarillo (CMY)</td></tr>
+    <tr><td><b>Qué ocurre al mezclar</b></td><td>Se suman longitudes de onda</td><td>Se suman absorciones; queda menos luz</td></tr>
+    <tr><td><b>Todos juntos</b></td><td>Blanco</td><td>Negro (en la práctica, marrón oscuro; por eso las impresoras añaden K)</td></tr>
+    <tr><td><b>Ninguno</b></td><td>Negro (oscuridad)</td><td>Blanco (el papel refleja todo)</td></tr>
+    <tr><td><b>Dónde se usa</b></td><td>Pantallas, proyectores, iluminación de escenario</td><td>Pintura, impresión, tintes, colorantes</td></tr>
+    <tr><td><b>Relación</b></td><td colspan="2">Cada primario de un sistema es el secundario del otro: cian = blanco − rojo = verde + azul; magenta = blanco − verde; amarillo = blanco − azul.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Reto: ¿de qué color se verá?</h2>
+<p class="lead">Predice el color del objeto bajo la luz indicada antes de ver la respuesta.</p>
+<div class="panel quiz">
+  <svg id="qscene" viewBox="0 0 360 260"></svg>
+  <div>
+    <div id="qText" style="font-size:17px"></div>
+    <div class="qbtns" id="qBtns"></div>
+    <div class="fb" id="qFb"></div>
+    <div style="display:flex;align-items:center;gap:14px"><button class="btn" id="qNext">Otro reto</button><span class="score" id="qScore"></span></div>
+  </div>
+</div>
+
+<p class="note">Modelo simplificado de tres canales: el color reflejado se calcula multiplicando, canal por canal, la intensidad de la luz (R, G, B) por la reflectancia del pigmento en ese canal. En la realidad la luz y los pigmentos tienen espectros continuos, y dos luces que se ven iguales pueden hacer que un mismo objeto se vea distinto (metamerismo), pero el principio es el mismo: vemos la luz que el objeto no absorbe.</p>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const clamp=x=>Math.max(0,Math.min(1,x));
+const hex=c=>'rgb('+c.map(v=>Math.round(255*clamp(v))).join(',')+')';
+const mul=(a,b)=>a.map((v,i)=>v*b[i]);
+
+// Objetos: cada parte tiene su propia reflectancia
+const OBJS=[
+ {id:'manzana',name:'Manzana roja',pig:'Refleja rojo; absorbe verde y azul',x:90,y:300,parts:[
+   {r:[.85,.07,.07],svg:'<path d="M0,-38 C30,-55 58,-25 50,10 C42,45 15,55 0,45 C-15,55 -42,45 -50,10 C-58,-25 -30,-55 0,-38Z"/>',shade:1},
+   {r:[.35,.22,.1],svg:'<path d="M-2,-38 Q2,-58 8,-64" stroke-width="5" fill="none"/>',stroke:1},
+   {r:[.12,.6,.12],svg:'<path d="M6,-56 Q28,-70 38,-52 Q20,-44 6,-56Z"/>'}]},
+ {id:'limon',name:'Limón amarillo',pig:'Refleja rojo y verde; absorbe azul',x:215,y:310,parts:[
+   {r:[.92,.85,.08],svg:'<ellipse rx="52" ry="36" transform="rotate(-12)"/><circle cx="52" cy="-12" r="7"/>',shade:1}]},
+ {id:'hoja',name:'Hoja verde',pig:'Refleja verde; absorbe rojo y azul',x:340,y:300,parts:[
+   {r:[.1,.68,.14],svg:'<path d="M-50,40 C-50,-20 0,-55 50,-50 C50,0 10,45 -50,40Z"/>',shade:1},
+   {r:[.3,.5,.15],svg:'<path d="M-50,40 Q0,0 45,-45" stroke-width="3" fill="none"/>',stroke:1}]},
+ {id:'uvas',name:'Uvas azules',pig:'Refleja azul; absorbe rojo y verde',x:465,y:300,parts:[
+   {r:[.12,.15,.8],svg:[[-20,-25],[4,-28],[28,-24],[-10,-4],[16,-4],[-22,16],[2,18],[26,15],[-8,38],[14,38]].map(([a,b])=>`<circle cx="${a}" cy="${b}" r="13"/>`).join(''),shade:1},
+   {r:[.3,.45,.15],svg:'<path d="M4,-42 L4,-58" stroke-width="5" fill="none"/>',stroke:1}]},
+ {id:'camiseta',name:'Camiseta blanca',pig:'Refleja los tres canales',x:600,y:300,parts:[
+   {r:[.93,.93,.93],svg:'<path d="M-22,-48 Q0,-36 22,-48 L56,-32 L46,-6 L32,-12 L32,50 L-32,50 L-32,-12 L-46,-6 L-56,-32Z"/>',shade:1}]},
+ {id:'flor',name:'Flor magenta',pig:'Refleja rojo y azul; absorbe verde',x:150,y:420,small:1,parts:[
+   {r:[.85,.1,.8],svg:[0,72,144,216,288].map(a=>`<ellipse cx="0" cy="-20" rx="13" ry="20" transform="rotate(${a})"/>`).join(''),shade:1},
+   {r:[.95,.85,.1],svg:'<circle r="10"/>'}]},
+ {id:'taza',name:'Taza cian',pig:'Refleja verde y azul; absorbe rojo',x:330,y:420,small:1,parts:[
+   {r:[.08,.8,.85],svg:'<path d="M-32,-28 L32,-28 L26,30 Q0,38 -26,30Z"/><path d="M30,-16 Q56,-14 50,8 Q46,22 27,18" stroke-width="8" fill="none"/>',shade:1}]},
+ {id:'carbon',name:'Carbón negro',pig:'Absorbe casi toda la luz',x:520,y:425,small:1,parts:[
+   {r:[.05,.05,.05],svg:'<path d="M-42,22 L-30,-18 L0,-30 L34,-14 L44,20 L10,30Z"/>',shade:1}]},
+];
+const WALL=[.82,.82,.8], FLOOR=[.62,.55,.45];
+const PRESETS=[['Blanca',[1,1,1]],['Roja',[1,0,0]],['Verde',[0,1,0]],['Azul',[0,0,1]],['Amarilla',[1,1,0]],['Cian',[0,1,1]],['Magenta',[1,0,1]],['Apagada',[0,0,0]]];
+let sel='manzana';
+
+function L(){return [$('lr').value/100,$('lg').value/100,$('lb').value/100];}
+
+function nameOf(c){
+  const m=Math.max(...c);
+  if(m<0.12)return 'negro';
+  const b=c.map(v=>v>m*0.5?1:0).join('');
+  const dim=m<0.45?' oscuro':'';
+  return ({'100':'rojo','010':'verde','001':'azul','110':'amarillo','011':'cian','101':'magenta','111':(m<0.45?'gris':'blanco')}[b])+(b==='111'?'':dim);
+}
+function lightName(l){
+  const m=Math.max(...l);if(m<0.05)return 'apagada';
+  const b=l.map(v=>v>m*0.5?1:0).join('');
+  return {'100':'roja','010':'verde','001':'azul','110':'amarilla','011':'cian','101':'magenta','111':'blanca'}[b];
+}
+
+function objSVG(o,l,idPrefix,scale=1){
+  let s=`<g class="obj${o.id===sel&&idPrefix==='m'?' sel':''}" data-id="${o.id}" transform="translate(${o.x},${o.y}) scale(${(o.small?.8:1)*scale})">`;
+  s+=`<ellipse cx="0" cy="${o.small?42:56}" rx="52" ry="9" fill="rgba(0,0,0,.28)"/>`;
+  for(const p of o.parts){
+    const c=hex(mul(l,p.r));
+    s+=p.stroke?`<g stroke="${c}" stroke-linecap="round">${p.svg}</g>`:`<g fill="${c}">${p.svg}</g>`;
+    if(p.shade)s+=`<g fill="url(#${idPrefix}shade)">${p.svg}</g><g fill="url(#${idPrefix}spec)">${p.svg}</g>`;
+  }
+  s+=`<circle class="ring" r="${o.small?60:72}"/></g>`;
+  return s;
+}
+function defs(prefix,l){
+  return `<defs>
+  <radialGradient id="${prefix}shade" cx="35%" cy="30%" r="80%"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset=".6" stop-color="#000" stop-opacity=".05"/><stop offset="1" stop-color="#000" stop-opacity=".45"/></radialGradient>
+  <radialGradient id="${prefix}spec" cx="32%" cy="26%" r="22%"><stop offset="0" stop-color="${hex(l)}" stop-opacity=".9"/><stop offset="1" stop-color="${hex(l)}" stop-opacity="0"/></radialGradient>
+  <linearGradient id="${prefix}beam" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${hex(l)}" stop-opacity=".55"/><stop offset="1" stop-color="${hex(l)}" stop-opacity="0"/></linearGradient>
+  <radialGradient id="${prefix}pool" cx="50%" cy="20%" r="75%"><stop offset="0" stop-color="#fff" stop-opacity=".18"/><stop offset="1" stop-color="#000" stop-opacity=".35"/></radialGradient>
+  </defs>`;
+}
+
+function drawScene(){
+  const l=L();
+  let s=defs('m',l);
+  s+=`<rect width="720" height="470" fill="#000"/>`;
+  s+=`<rect width="720" height="250" fill="${hex(mul(l,WALL))}"/>`;
+  s+=`<rect y="250" width="720" height="220" fill="${hex(mul(l,FLOOR))}"/>`;
+  s+=`<rect width="720" height="470" fill="url(#mpool)"/>`;
+  // lámpara
+  s+=`<polygon points="330,52 390,52 700,470 20,470" fill="url(#mbeam)" opacity=".5"/>`;
+  s+=`<line x1="360" y1="0" x2="360" y2="26" stroke="#333" stroke-width="3"/>`;
+  s+=`<path d="M322,52 Q326,24 360,24 Q394,24 398,52Z" fill="#2b2f36"/>`;
+  s+=`<ellipse cx="360" cy="52" rx="38" ry="7" fill="${hex(l.map(v=>.25+.75*v))}"/>`;
+  s+=`<text x="14" y="26" font-family="IBM Plex Mono,monospace" font-size="12" fill="${Math.max(...mul(l,WALL))>.5?'#222':'#ddd'}">Luz ${lightName(l)} · R ${Math.round(l[0]*100)} % · G ${Math.round(l[1]*100)} % · B ${Math.round(l[2]*100)} %</text>`;
+  for(const o of OBJS)s+=objSVG(o,l,'m');
+  $('scene').innerHTML=s;
+  $('scene').querySelectorAll('.obj').forEach(g=>g.onclick=()=>{sel=g.dataset.id;update();});
+}
+
+function drawDetail(){
+  const l=L(),o=OBJS.find(o=>o.id===sel),p=o.parts[0].r,out=mul(l,p);
+  $('dSw').style.background=hex(out);
+  $('dName').textContent=o.name;$('dSub').textContent='Pigmento: '+o.pig.toLowerCase();
+  const names=['Rojo','Verde','Azul'],cols=['var(--r)','var(--g)','var(--b)'];
+  $('chans').innerHTML=[0,1,2].map(i=>`<div class="chan"><b style="color:${cols[i]}">${names[i]}</b>
+    <div class="bar"><i style="width:${l[i]*100}%;background:${cols[i]}"></i></div>
+    <div class="bar"><i style="width:${p[i]*100}%;background:${cols[i]};opacity:.55"></i></div>
+    <div class="bar"><i style="width:${out[i]*100}%;background:${cols[i]}"></i></div></div>`).join('');
+  $('eL').style.background=hex(l);$('eP').style.background=hex(p);$('eR').style.background=hex(out);
+  const res=nameOf(out);$('eName').textContent='→ se ve '+res;
+  const cn=['roja','verde','azul'];
+  const items=[0,1,2].map(i=>{
+    if(l[i]<.05)return `No llega luz <b>${cn[i]}</b>, así que no hay nada que reflejar en ese canal.`;
+    if(p[i]>.5)return `La luz <b>${cn[i]}</b> llega y el pigmento la <b>refleja</b> (${Math.round(p[i]*100)} %).`;
+    return `La luz <b>${cn[i]}</b> llega pero el pigmento la <b>absorbe</b> (refleja solo ${Math.round(p[i]*100)} %).`;
+  });
+  let concl=`Por eso, bajo esta luz, ${o.name.toLowerCase()} se ve <span class="result">${res}</span>.`;
+  if(res==='negro'&&Math.max(...l)>.05)concl+=' El objeto absorbe toda la luz que recibe: no le llega ningún color que su pigmento pueda reflejar.';
+  if(Math.max(...l)<.05)concl='Sin luz no hay color: todos los objetos se ven negros.';
+  $('explain').innerHTML=`<ul>${items.map(t=>'<li>'+t+'</li>').join('')}</ul><div style="margin-top:8px">${concl}</div>`;
+}
+
+function update(){
+  ['r','g','b'].forEach(c=>$('o'+c).textContent=$('l'+c).value+' %');
+  drawScene();drawDetail();
+}
+['lr','lg','lb'].forEach(id=>$(id).addEventListener('input',update));
+$('lightPresets').innerHTML=PRESETS.map(([n,c],i)=>`<button class="chip" data-i="${i}"><i style="background:${hex(c)}"></i>${n}</button>`).join('');
+$('lightPresets').querySelectorAll('.chip').forEach(b=>b.onclick=()=>{const c=PRESETS[b.dataset.i][1];$('lr').value=c[0]*100;$('lg').value=c[1]*100;$('lb').value=c[2]*100;update();});
+
+// Mezcla aditiva
+function drawAdd(){
+  const c=$('add'),x=c.getContext('2d'),v=['ar','ag','ab'].map(id=>$(id).value/100);
+  ['ar','ag','ab'].forEach((id,i)=>$('o'+id).textContent=$(id).value+' %');
+  x.globalCompositeOperation='source-over';x.fillStyle='#000';x.fillRect(0,0,600,420);
+  x.globalCompositeOperation='lighter';
+  const pos=[[230,170],[370,170],[300,290]],cols=[[1,0,0],[0,1,0],[0,0,1]];
+  pos.forEach((p,i)=>{x.fillStyle=hex(cols[i].map(k=>k*v[i]));x.beginPath();x.arc(p[0],p[1],120,0,7);x.fill();});
+  x.globalCompositeOperation='source-over';
+}
+// Mezcla sustractiva
+function drawSub(){
+  const c=$('sub'),x=c.getContext('2d'),v=['sc','sm','sy'].map(id=>$(id).value/100);
+  ['sc','sm','sy'].forEach(id=>$('o'+id).textContent=$(id).value+' %');
+  x.globalCompositeOperation='source-over';x.fillStyle='#fff';x.fillRect(0,0,600,420);
+  x.globalCompositeOperation='multiply';
+  const pos=[[230,170],[370,170],[300,290]];
+  // cada tinta transmite todo menos el canal que absorbe
+  const inks=[[1-.92*v[0],1,1],[1,1-.92*v[1],1],[1,1,1-.92*v[2]]];
+  pos.forEach((p,i)=>{x.fillStyle=hex(inks[i]);x.beginPath();x.arc(p[0],p[1],120,0,7);x.fill();});
+  x.globalCompositeOperation='source-over';
+}
+['ar','ag','ab'].forEach(id=>$(id).addEventListener('input',drawAdd));
+['sc','sm','sy'].forEach(id=>$(id).addEventListener('input',drawSub));
+
+// Reto
+const QCOL=[['rojo',[1,0,0]],['verde',[0,1,0]],['azul',[0,0,1]],['amarillo',[1,1,0]],['cian',[0,1,1]],['magenta',[1,0,1]],['blanco',[1,1,1]],['negro',[0,0,0]]];
+let q=null,ok=0,tot=0;
+function newQ(){
+  const lights=PRESETS.slice(0,7);
+  let o,lp,res;
+  do{o=OBJS[Math.floor(Math.random()*OBJS.length)];lp=lights[Math.floor(Math.random()*lights.length)];res=nameOf(mul(lp[1],o.parts[0].r)).replace(' oscuro','');}
+  while(!QCOL.some(c=>c[0]===res)||(lp[0]==='Blanca'&&Math.random()<.7));
+  q={o,lp,res,done:false};
+  $('qText').innerHTML=`<b>${o.name}</b> iluminada con luz <b>${lp[0].toLowerCase()}</b>. ¿De qué color se ve?`;
+  $('qFb').innerHTML='';
+  $('qBtns').innerHTML=QCOL.map(([n,c])=>`<button class="qbtn" data-n="${n}"><i style="background:${hex(c)}"></i>${n}</button>`).join('');
+  $('qBtns').querySelectorAll('.qbtn').forEach(b=>b.onclick=()=>answer(b));
+  drawQ(false);
+}
+function drawQ(reveal){
+  const l=reveal?q.lp[1]:[1,1,1];
+  const o={...q.o,x:180,y:130,small:0};
+  let s=defs('q',l)+`<rect width="360" height="260" fill="${reveal?hex(mul(l,[.3,.3,.3])):'#d9d6cf'}"/>`;
+  if(reveal)s+=objSVG(o,l,'q',1.4);
+  else s+=`<g transform="translate(180,125)"><circle r="70" fill="#bdb8ad"/><text text-anchor="middle" y="22" font-size="64" font-family="Fraunces,serif" fill="#fff">?</text></g>`;
+  s+=`<text x="12" y="248" font-size="13" font-family="IBM Plex Mono,monospace" fill="${reveal?'#ccc':'#555'}">${reveal?'luz '+q.lp[0].toLowerCase():'pigmento: '+q.o.pig.toLowerCase()}</text>`;
+  $('qscene').innerHTML=s;
+}
+function answer(b){
+  if(q.done)return;q.done=true;tot++;
+  const right=b.dataset.n===q.res;if(right)ok++;
+  b.classList.add(right?'ok':'bad');
+  $('qBtns').querySelector(`[data-n="${q.res}"]`).classList.add('ok');
+  const p=q.o.parts[0].r,l=q.lp[1],cn=['rojo','verde','azul'];
+  const refl=[0,1,2].filter(i=>l[i]>0&&p[i]>.5).map(i=>cn[i]);
+  $('qFb').innerHTML=(right?'<b>¡Correcto!</b> ':'<b>No exactamente.</b> ')+
+    `La luz ${q.lp[0].toLowerCase()} aporta ${[0,1,2].filter(i=>l[i]>0).map(i=>cn[i]).join(' y ')}; el pigmento refleja ${refl.length?refl.join(' y '):'ninguno de esos'}, así que se ve <b>${q.res}</b>.`;
+  $('qScore').textContent=`Aciertos: ${ok} de ${tot}`;
+  drawQ(true);
+}
+$('qNext').onclick=newQ;
+
+update();drawAdd();drawSub();newQ();
+</script>
+</body>
+</html>
